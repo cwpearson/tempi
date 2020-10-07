@@ -64,7 +64,15 @@ extern "C" int MPI_Init(int *argc, char ***argv)
 
 This library should come before any profiling library that uses PMPI in the linker order, otherwise the application will not call these implementations.
 
+## Knobs
 
+The system can be controlled by environment variables.
+Setting the corresponding variable to any value (even empty) will change behavior.
+
+`export SCAMPI_NO_PACK=anything`: always use MPI library's `MPI_Pack`.
+`export SCAMPI_NO_TYPE_COMMIT=anything`: don't analyze MPI types during `MPI_Type_commit`. May disable other optimizations.
+
+to unset an environment variable in bash: `unset SCAMPI_NO_TYPE_COMMIT`
 
 ## Project Name
 

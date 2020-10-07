@@ -2,7 +2,10 @@ set(PMPI_SOURCES ${PMPI_SOURCES}
 ${CMAKE_CURRENT_LIST_DIR}/finalize.cpp
 ${CMAKE_CURRENT_LIST_DIR}/init.cpp
 ${CMAKE_CURRENT_LIST_DIR}/isend.cpp
-${CMAKE_CURRENT_LIST_DIR}/hint.cpp
+${CMAKE_CURRENT_LIST_DIR}/pack.cpp
+${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
+
+${CMAKE_CURRENT_LIST_DIR}/internal/packer.cu
 )
 
 set(PMPI_SOURCES 
