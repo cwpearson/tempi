@@ -6,6 +6,7 @@ ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
 
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cu
+${CMAKE_CURRENT_LIST_DIR}/internal/types.cpp
 )
 
 set(PMPI_SOURCES 

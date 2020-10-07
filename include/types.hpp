@@ -41,3 +41,7 @@ public:
 };
 
 extern std::map<MPI_Datatype, std::shared_ptr<Packer>> packerCache;
+
+Type traverse(MPI_Datatype datatype);
+
+std::shared_ptr<Packer> plan_pack(Type &type);
