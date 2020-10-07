@@ -1,15 +1,16 @@
 # pmpi
 
-
-
 ## Quick Start
 
 ```
 mkdir build
 cd build
 cmake ..
+make
 make test
 ```
+
+Add the library to your link step before the underlying MPI library.
 
 ## Objectives
 
@@ -64,6 +65,10 @@ extern "C" int MPI_Init(int *argc, char ***argv)
 
 This library should come before any profiling library that uses PMPI in the linker order, otherwise the application will not call these implementations.
 
+The API overrides are defined in `src/*.cpp`.
+Most of the internal heavy lifting is done by `include/` and `src/internal`.
+As we do not extend the MPI interface, there is no include files to add to your code.
+
 ## Knobs
 
 The system can be controlled by environment variables.
@@ -74,7 +79,13 @@ Setting the corresponding variable to any value (even empty) will change behavio
 
 to unset an environment variable in bash: `unset SCAMPI_NO_TYPE_COMMIT`
 
+
+
 ## Project Name
+
+* SCAMPI: supercomputing accelerating MPI
+* mpi-gpu-patches
+* TEMPI: 
 
 * available
 * collisions
