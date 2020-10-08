@@ -37,7 +37,6 @@ MPI_Datatype make_vn_hv_hv(const Dim3 copyExt, // bytes
     int blocklength = 1;
     // bytes between start of each block
     const int stride = allocExt.x * allocExt.y;
-    std::cerr << "stride=" << stride << "\n";
     MPI_Type_create_hvector(count, blocklength, stride, planeType, &fullType);
   }
 
@@ -75,7 +74,6 @@ MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
     int blocklength = 1;
     // bytes between start of each block
     const int stride = allocExt.x * allocExt.y;
-    std::cerr << "stride=" << stride << "\n";
     MPI_Type_create_hvector(count, blocklength, stride, planeType, &fullType);
   }
 

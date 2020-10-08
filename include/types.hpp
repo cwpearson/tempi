@@ -29,6 +29,15 @@ struct Vector {
   int64_t elemLength; // block length in child elements
   int64_t elemStride; // block stride in child elements
 
+  bool is_contiguous() const noexcept {
+    bool oneBlock = (1 == count);
+    bool packedBytes =
+        (blockLength >= 0 && blockStride >= 0 && blockLength == blockStride);
+    bool packedElems =
+        (elemLength >= 0 && elemStride >= 0 && elemLength == elemStride);
+    return oneBlock || packedBytes || packedElems;
+  }
+
   bool operator==(const Vector &rhs) const {
     return count == rhs.count && blockLength == rhs.blockLength &&
            elemStride == rhs.elemStride && blockStride == rhs.blockStride &&

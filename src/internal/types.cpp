@@ -99,26 +99,26 @@ void traverse_helper(Type &type, MPI_Datatype datatype) {
       }
     } else if (MPI_COMBINER_INDEXED_BLOCK == combiner) {
       LOG_DEBUG("indexed_block");
-      LOG_WARN("couldn't convert to structured type");
+      LOG_WARN("couldn't convert indexed block to structured type");
       type = Type::unknown();
     } else if (MPI_COMBINER_HINDEXED_BLOCK == combiner) {
       LOG_DEBUG("hindexed_block");
-      LOG_WARN("couldn't convert to structured type");
+      LOG_WARN("couldn't convert hindexed block to structured type");
       type = Type::unknown();
       return;
     } else if (MPI_COMBINER_HINDEXED == combiner) {
       LOG_DEBUG("hindexed");
-      LOG_WARN("couldn't convert to structured type");
+      LOG_WARN("couldn't convert hindexed to structured type");
       type = Type::unknown();
       return;
     } else if (MPI_COMBINER_CONTIGUOUS == combiner) {
       LOG_DEBUG("contiguous");
-      LOG_WARN("couldn't convert to structured type");
+      LOG_WARN("couldn't convert contiguous to structured type");
       type = Type::unknown();
       return;
     } else if (MPI_COMBINER_STRUCT == combiner) {
       LOG_DEBUG("struct");
-      LOG_WARN("couldn't convert to structured type");
+      LOG_WARN("couldn't convert struct to structured type");
       type = Type::unknown();
       return;
     }
@@ -170,10 +170,13 @@ Type traverse(MPI_Datatype datatype) {
   }
 };
 
+/* tries to create an optimal packer for a Type
+  returns falsy if unable to
+*/
 std::shared_ptr<Packer> plan_pack(Type &type) {
 
   if (Type::unknown() == type) {
-    LOG_WARN("couldn't making packing strategy for unknown type");
+    LOG_WARN("couldn't optimize packing strategy for unknown type");
     return nullptr;
   }
 
@@ -218,11 +221,11 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
       for (int64_t i = type.num_levels() - 1; i >= 1; --i) {
         Vector &vec = type.levels()[i];
         Vector &parent = type.levels()[i - 1];
-        // TODO: better contiguous detection
-        if (vec.blockStride == vec.blockLength) {
+        if (vec.is_contiguous()) {
           assert(parent.blockLength < 0);
           parent.blockLength = vec.count * vec.blockLength * parent.elemLength;
-          parent.elemLength = -1; // clear this since we have the length in bytes now
+          // clear this since we have the length in bytes now
+          parent.elemLength = -1;
           levelToErase = i;
           LOG_DEBUG("merge contiguous " << i << " into " << i - 1);
           break;
@@ -247,13 +250,13 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
   }
 
   /* A vector may have the same stride as its parent.
-     If the vector is only one block, the parent can natively express the size in terms of bytes instead of child elements
+     If the vector is only one block, the parent can natively express the size
+     in terms of bytes instead of child elements
   */
   {
     bool changed = true;
     while (changed) {
       int levelToErase = -1;
-      // look for a level matching the criteria
       for (int64_t i = type.num_levels() - 1; i >= 1; --i) {
         Vector &vec = type.levels()[i];
         Vector &parent = type.levels()[i - 1];
