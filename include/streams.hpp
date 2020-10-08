@@ -2,5 +2,10 @@
 
 #include <cuda_runtime.h>
 
-extern cudaStream_t commStream;
-extern cudaStream_t kernStream;
+#include <vector>
+
+extern std::vector<cudaStream_t> commStream;
+extern std::vector<cudaStream_t> kernStream;
+
+void streams_init();
+void streams_finalize();

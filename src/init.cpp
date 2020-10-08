@@ -1,17 +1,29 @@
-/* can't use logging in here since PMPI_Init has not been called
-*/
+#include "streams.hpp"
+#include "logging.hpp"
+
 #include <mpi.h>
 
 #include <dlfcn.h>
+#include <nvToolsExt.h>
 
-extern "C" int MPI_Init(int *argc, char ***argv)
-{
-    typedef int (*Func_MPI_Init)(int *argc, char ***argv);
-    static Func_MPI_Init fn = nullptr;
 
-    if (!fn)
-    {
-        fn = reinterpret_cast<Func_MPI_Init>(dlsym(RTLD_NEXT, "MPI_Init"));
-    }
-    return fn(argc, argv);
+
+#define PARAMS int *argc, char ***argv
+#define ARGS argc, argv
+
+extern "C" int MPI_Init(PARAMS) {
+  typedef int (*Func_MPI_Init)(PARAMS);
+  static Func_MPI_Init fn = nullptr;
+  if (!fn) {
+    nvtxRangePush("dlsym(MPI_Init)");
+    fn = reinterpret_cast<Func_MPI_Init>(dlsym(RTLD_NEXT, "MPI_Init"));
+    nvtxRangePop();
+  }
+  int err = fn(ARGS);
+  LOG_DEBUG("finished MPI_Init");
+  // can use logging now that MPI_Init has been called
+
+  streams_init();
+
+  return err;
 }
