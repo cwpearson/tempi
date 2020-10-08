@@ -1,3 +1,10 @@
+/* TODO: anything to be learned from the MPITypes project?
+
+   or loop optimizations? unimodular or polyhedral?
+
+   or array access analysis?
+*/
+
 #pragma once
 
 #include "packer.hpp"
@@ -10,16 +17,22 @@
 
 struct Vector {
 
-  Vector() : count(-1), blockLength(-1), elemStride(-1), byteStride(-1) {}
+  Vector()
+      : count(-1), blockLength(-1), blockStride(-1), elemLength(-1),
+        elemStride(-1) {}
 
   int64_t count;
   int64_t blockLength; // bytes
-  int64_t elemStride;  // bytes
-  int64_t byteStride;
+  int64_t blockStride; // bytes
+
+  // supporting info used to compute the above when unknown
+  int64_t elemLength; // block length in child elements
+  int64_t elemStride; // block stride in child elements
 
   bool operator==(const Vector &rhs) const {
     return count == rhs.count && blockLength == rhs.blockLength &&
-           elemStride == rhs.elemStride && byteStride == rhs.byteStride;
+           elemStride == rhs.elemStride && blockStride == rhs.blockStride &&
+           elemLength == rhs.elemLength && elemStride == rhs.elemStride;
   }
 };
 

@@ -7,9 +7,11 @@ struct Dim3 {
 };
 
 /* use vector + hvector + hvector
+
+vector is n blocks of size 1
  */
-MPI_Datatype make_v_hv_hv(const Dim3 copyExt, // bytes
-                          const Dim3 allocExt // bytes
+MPI_Datatype make_vn_hv_hv(const Dim3 copyExt, // bytes
+                           const Dim3 allocExt // bytes
 ) {
   MPI_Datatype rowType = {};
   MPI_Datatype planeType = {};
@@ -23,6 +25,44 @@ MPI_Datatype make_v_hv_hv(const Dim3 copyExt, // bytes
         int blocklength = 1;
         // number of elements between the start of each block
         const int stride = 1;
+        MPI_Type_vector(count, blocklength, stride, MPI_BYTE, &rowType);
+      }
+      int count = copyExt.y;
+      int blocklength = 1;
+      // bytes between start of each block
+      const int stride = allocExt.x;
+      MPI_Type_create_hvector(count, blocklength, stride, rowType, &planeType);
+    }
+    int count = copyExt.z;
+    int blocklength = 1;
+    // bytes between start of each block
+    const int stride = allocExt.x * allocExt.y;
+    std::cerr << "stride=" << stride << "\n";
+    MPI_Type_create_hvector(count, blocklength, stride, planeType, &fullType);
+  }
+
+  return fullType;
+}
+
+/* use vector + hvector + hvector
+
+   vector is 1 block of size n
+ */
+MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
+                           const Dim3 allocExt // bytes
+) {
+  MPI_Datatype rowType = {};
+  MPI_Datatype planeType = {};
+  MPI_Datatype fullType = {};
+  {
+    {
+      {
+        // number of blocks
+        int count = 1;
+        // number of elements in each block
+        int blocklength = copyExt.x;
+        // number of elements between the start of each block
+        const int stride = allocExt.x;
         MPI_Type_vector(count, blocklength, stride, MPI_BYTE, &rowType);
       }
       int count = copyExt.y;
@@ -147,8 +187,14 @@ int main(int argc, char **argv) {
   }
 
   {
-    std::cerr << "TEST: v hv hv\n";
-    MPI_Datatype ty = make_v_hv_hv(copyExt, allocExt);
+    std::cerr << "TEST: v1 hv hv\n";
+    MPI_Datatype ty = make_v1_hv_hv(copyExt, allocExt);
+    MPI_Type_commit(&ty);
+  }
+
+  {
+    std::cerr << "TEST: vn hv hv\n";
+    MPI_Datatype ty = make_vn_hv_hv(copyExt, allocExt);
     MPI_Type_commit(&ty);
   }
 

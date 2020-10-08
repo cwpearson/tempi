@@ -13,6 +13,9 @@ macro(pmpi_test_exe exe)
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
 endmacro()
 
+pmpi_test_exe(internal_type internal_type.cpp)
+add_test(NAME internal_type COMMAND ${MPIEXEC_EXECUTABLE} -n 1 internal_type)
+
 pmpi_test_exe(init_finalize init_finalize.cpp)
 add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} -n 1 init_finalize)
 
