@@ -64,10 +64,11 @@ extern "C" int MPI_Init(int *argc, char ***argv)
 ```
 
 This library should come before any profiling library that uses PMPI in the linker order, otherwise the application will not call these implementations.
+As we do not extend the MPI interface, there is no include files to add to your code.
 
 The API overrides are defined in `src/*.cpp`.
 Most of the internal heavy lifting is done by `include/` and `src/internal`.
-As we do not extend the MPI interface, there is no include files to add to your code.
+Testing support code is in `test/support`.
 
 ## Knobs
 
