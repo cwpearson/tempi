@@ -38,6 +38,14 @@ int main(int argc, char **argv) {
     MPI_Type_commit(&ty);
   }
 
+  {
+    Dim3 copyExt = {.x = 100, .y = 100, .z = 1};
+    Dim3 allocExt = {.x = 100, .y = 100, .z = 100};
+    std::cerr << "TEST: v1 hv hv\n";
+    MPI_Datatype ty = make_v1_hv_hv(copyExt, allocExt);
+    MPI_Type_commit(&ty);
+  }
+
   MPI_Finalize();
 
   return 0;
