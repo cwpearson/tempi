@@ -79,6 +79,30 @@ int main(int argc, char **argv) {
   }
 
   {
+    Dim3 pe(10, 10, 1), ae(10, 10, 10);
+    int count = 1;
+    std::stringstream ss;
+    ss << "TEST: "
+       << "make_v_hv" << pe << " " << ae << " " << count;
+    LOG_INFO(ss.str());
+    nvtxRangePush(ss.str().c_str());
+    test_pack(make_v_hv, pe, ae, count);
+    nvtxRangePop();
+  }
+
+  {
+    Dim3 pe(4, 3, 4), ae(1024, 1024, 1024);
+    int count = 1;
+    std::stringstream ss;
+    ss << "TEST: "
+       << "make_v_hv" << pe << " " << ae << " " << count;
+    LOG_INFO(ss.str());
+    nvtxRangePush(ss.str().c_str());
+    test_pack(make_v_hv, pe, ae, count);
+    nvtxRangePop();
+  }
+
+  {
     Dim3 pe(100, 100, 100), ae(1024, 1024, 1024);
     int count = 1;
     std::stringstream ss;
