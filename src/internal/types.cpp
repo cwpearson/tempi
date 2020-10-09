@@ -1,6 +1,8 @@
 #include "types.hpp"
 
 #include "logging.hpp"
+#include "packer_stride_1.hpp"
+#include "packer_stride_2.hpp"
 
 #include <cassert>
 
@@ -303,6 +305,13 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
         type.levels()[1].blockLength, type.levels()[1].count,
         type.levels()[1].blockStride, type.levels()[0].count,
         type.levels()[0].blockStride);
+    LOG_DEBUG("selected PackerStride2");
+    return pPacker;
+  } else if (type.num_levels() == 1) {
+    std::shared_ptr<Packer> pPacker = std::make_shared<PackerStride1>(
+        type.levels()[0].blockLength, type.levels()[0].count,
+        type.levels()[0].blockStride);
+    LOG_DEBUG("selected PackerStride1");
     return pPacker;
   } else {
     LOG_WARN("no optimization for type");
