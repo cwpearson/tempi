@@ -5,6 +5,7 @@ ${CMAKE_CURRENT_LIST_DIR}/isend.cpp
 ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
 
+${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/types.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp

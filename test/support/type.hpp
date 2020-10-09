@@ -1,16 +1,8 @@
 #pragma once
 
+#include "dim3.hpp"
+
 #include <mpi.h>
-
-#include <cstdint>
-
-struct Dim3 {
-  int64_t x;
-  int64_t y;
-  int64_t z;
-
-  int64_t flatten() const noexcept { return x * y * z; }
-};
 
 /* use vector + hvector + hvector
 

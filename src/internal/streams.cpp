@@ -26,6 +26,7 @@ void streams_init() {
     nvtxNameCudaStreamA(commStream[i],
                         ("campi_kern_" + std::to_string(i)).c_str());
   }
+  nvtxRangePop();
 }
 void streams_finalize() {
   nvtxRangePush("streams_finalize");
@@ -37,4 +38,5 @@ void streams_finalize() {
   }
   commStream.clear();
   kernStream.clear();
+  nvtxRangePop();
 }

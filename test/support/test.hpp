@@ -1,5 +1,10 @@
 #pragma once
 
-#define REQUIRE(expr)                                                          \
-  if (!(expr))                                                                 \
-    return false;
+#include "logging.hpp"
+
+// clang-format off
+#define REQUIRE(expr) { int _line = __LINE__;                                                         \
+  if (!(expr)) {                                                               \
+    LOG_FATAL("\"" #expr "\" failed");                                                \
+  }\
+}

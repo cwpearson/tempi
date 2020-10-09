@@ -1,15 +1,16 @@
 #include "logging.hpp"
 
 #include "cuda_runtime.hpp"
+#include "env.hpp"
 #include "types.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
+#include <nvToolsExt.h>
 
 #include <dlfcn.h>
 
-#include <cstdlib>
-#include <vector>
+// #include <vector>
 
 #define PARAMS                                                                 \
   const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf,         \
@@ -18,7 +19,9 @@
 #define ARGS inbuf, incount, datatype, outbuf, outsize, position, comm
 
 extern "C" int MPI_Pack(PARAMS) {
+  nvtxRangePush("MPI_Pack");
   LOG_DEBUG("MPI_Pack");
+  int err = MPI_ERR_UNKNOWN;
 
   // find the underlying MPI call
   typedef int (*Func_MPI_Pack)(PARAMS);
@@ -28,10 +31,11 @@ extern "C" int MPI_Pack(PARAMS) {
   }
 
   bool enabled = true;
-  enabled &= (nullptr == std::getenv("SCAMPI_NO_PACK"));
+  enabled &= !environment::noPack;
   if (!enabled) {
     LOG_DEBUG("library MPI_Pack: disabled by env");
-    return fn(ARGS);
+    err = fn(ARGS);
+    goto cleanup_and_exit;
   }
 
   if (packerCache.count(datatype)) {
@@ -46,14 +50,21 @@ extern "C" int MPI_Pack(PARAMS) {
 
     if (!outDev || !inDev) {
       LOG_DEBUG("library MPI_Pack: not device-device");
-      return fn(ARGS);
+      err = fn(ARGS);
+      goto cleanup_and_exit;
     }
     std::shared_ptr<Packer> packer = packerCache[datatype];
     CUDA_RUNTIME(cudaSetDevice(inAttrs.device));
     packer->pack(outbuf, position, inbuf, incount);
-    return MPI_SUCCESS;
+    err = MPI_SUCCESS;
+    goto cleanup_and_exit;
   } else {
     LOG_DEBUG("library MPI_Pack");
-    return fn(ARGS);
+    err = fn(ARGS);
+    goto cleanup_and_exit;
   }
+
+cleanup_and_exit:
+  nvtxRangePop();
+  return err;
 }
