@@ -1,3 +1,4 @@
+#include "env.hpp"
 #include "logging.hpp"
 #include "packer.hpp"
 #include "types.hpp"
@@ -27,7 +28,7 @@ extern "C" int MPI_Type_commit(PARAMS) {
   int result = fn(ARGS);
 
   bool enabled = true;
-  enabled &= (nullptr == std::getenv("SCAMPI_NO_TYPE_COMMIT"));
+  enabled &= (!environment::noTypeCommit);
 
   if (enabled) {
     Type type = traverse(*datatype);

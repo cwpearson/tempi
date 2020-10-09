@@ -6,14 +6,14 @@
 # 3.17+ for CMAKE_CUDA_KNOWN_FEATURES/cuda_std_11
 cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
-project(pmpi LANGUAGES CXX CUDA VERSION 0.1.0.0)
+project(tempi LANGUAGES CXX CUDA VERSION 0.1.0.0)
 
 option(USE_CUDA_GRAPH "use CUDA graph API" ON)
 
 # Set a log level if none was specified
-if(NOT DEFINED PMPI_OUTPUT_LEVEL)
-message(STATUS "PMPI_OUTPUT_LEVEL not defined, setting to INFO")
-set(PMPI_OUTPUT_LEVEL INFO CACHE STRING "one of SPEW DEBUG INFO WARN ERROR FATAL")
+if(NOT DEFINED TEMPI_OUTPUT_LEVEL)
+message(STATUS "TEMPI_OUTPUT_LEVEL not defined, setting to INFO")
+set(TEMPI_OUTPUT_LEVEL INFO CACHE STRING "one of SPEW DEBUG INFO WARN ERROR FATAL")
 endif()
 
 # Set a default build type if none was specified
@@ -40,44 +40,42 @@ message(STATUS GIT_REFSPEC=${GIT_REFSPEC})
 message(STATUS GIT_HASH=${GIT_HASH})
 message(STATUS GIT_LOCAL_CHANGES=${GIT_LOCAL_CHANGES})
 
-
 find_package(MPI REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
 
 
-add_subdirectory(src)
-
 # only static libraries are suported by the device linker?
 # so I think we need STATIC with CUDA_SEPARABLE_COMPILATION
-add_library(pmpi SHARED ${PMPI_SOURCES})
-add_library(pmpi::pmpi ALIAS pmpi)
-set_property(TARGET pmpi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+add_subdirectory(src)
+add_library(tempi SHARED ${TEMPI_SOURCES})
+add_library(tempi::tempi ALIAS tempi)
+set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-if (PMPI_OUTPUT_LEVEL MATCHES SPEW)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=5)
-elseif (PMPI_OUTPUT_LEVEL MATCHES DEBUG)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=4)
-elseif (PMPI_OUTPUT_LEVEL MATCHES INFO)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=3)
-elseif (PMPI_OUTPUT_LEVEL MATCHES WARN)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=2)
-elseif (PMPI_OUTPUT_LEVEL MATCHES ERROR)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=1)
-elseif (PMPI_OUTPUT_LEVEL MATCHES FATAL)
-  target_compile_definitions(pmpi PUBLIC PMPI_OUTPUT_LEVEL=0)
+if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=5)
+elseif (TEMPI_OUTPUT_LEVEL MATCHES DEBUG)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=4)
+elseif (TEMPI_OUTPUT_LEVEL MATCHES INFO)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=3)
+elseif (TEMPI_OUTPUT_LEVEL MATCHES WARN)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=2)
+elseif (TEMPI_OUTPUT_LEVEL MATCHES ERROR)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=1)
+elseif (TEMPI_OUTPUT_LEVEL MATCHES FATAL)
+  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=0)
 else()
-  message(FATAL_ERROR "unrecognized value of PMPI_OUTPUT_LEVEL: "  ${STENCIL_OUTPUT_LEVEL}  ", must be one of SPEW DEBUG INFO WARN ERROR FATAL")
+  message(FATAL_ERROR "unrecognized value of TEMPI_OUTPUT_LEVEL: "  ${STENCIL_OUTPUT_LEVEL}  ", must be one of SPEW DEBUG INFO WARN ERROR FATAL")
 endif()
 
-set_property(TARGET pmpi PROPERTY CXX_STANDARD 11)
-set_property(TARGET pmpi PROPERTY CXX_EXTENSIONS OFF)
-set_property(TARGET pmpi PROPERTY CXX_STANDARD_REQUIRED ON)
-set_property(TARGET pmpi PROPERTY CUDA_STANDARD 11)
-set_property(TARGET pmpi PROPERTY CUDA_STANDARD_REQUIRED ON)
-set_property(TARGET pmpi PROPERTY ENABLE_EXPORTS ON)
+set_property(TARGET tempi PROPERTY CXX_STANDARD 11)
+set_property(TARGET tempi PROPERTY CXX_EXTENSIONS OFF)
+set_property(TARGET tempi PROPERTY CXX_STANDARD_REQUIRED ON)
+set_property(TARGET tempi PROPERTY CUDA_STANDARD 11)
+set_property(TARGET tempi PROPERTY CUDA_STANDARD_REQUIRED ON)
+set_property(TARGET tempi PROPERTY ENABLE_EXPORTS ON)
 
-target_compile_options(pmpi PRIVATE
+target_compile_options(tempi PRIVATE
 $<$<COMPILE_LANGUAGE:CXX>:
  -Wall
  -Wextra
@@ -96,7 +94,7 @@ $<$<COMPILE_LANGUAGE:CXX>:
  >
 )
 
-target_compile_options(pmpi PRIVATE
+target_compile_options(tempi PRIVATE
 $<$<COMPILE_LANGUAGE:CUDA>:
 --Wno-deprecated-gpu-targets;
 --expt-extended-lambda;
@@ -122,7 +120,7 @@ check_cxx_compiler_flag(-march=native CXX_HAS_MARCH)
 check_cxx_compiler_flag(-mcpu=native CXX_HAS_MCPU)
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_options(
-    pmpi
+    tempi
     PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
      -G
@@ -135,13 +133,13 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   )
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
   target_compile_options(
-    pmpi
+    tempi
     INTERFACE
     $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
   )
   # always apply mtune
   target_compile_options(
-    pmpi
+    tempi
     PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mtune=native>
     $<$<COMPILE_LANGUAGE:CXX>:-mtune=native>
@@ -150,7 +148,7 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
   if (CXX_HAS_MARCH)
     message(STATUS "-march=native detected")
     target_compile_options(
-      pmpi
+      tempi
       PRIVATE
       $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-march=native>
       $<$<COMPILE_LANGUAGE:CXX>:-march=native>
@@ -158,7 +156,7 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
   elseif (CXX_HAS_MCPU)
     message(STATUS "-mcpu=native instead of -march=native")
     target_compile_options(
-      pmpi
+      tempi
       PRIVATE
       $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mcpu=native>
       $<$<COMPILE_LANGUAGE:CXX>:-mcpu=native>
@@ -168,10 +166,12 @@ endif()
 
 
 if (USE_CUDA_GRAPH)
-  message(STATUS "USE_CUDA_GRAPH=ON, compiling with -DPMPI_USE_CUDA_GRAPH")
-  target_compile_definitions(pmpi PRIVATE -DPMPI_USE_CUDA_GRAPH)
+  message(STATUS "USE_CUDA_GRAPH=ON, compiling with -DTEMPI_USE_CUDA_GRAPH")
+  target_compile_definitions(tempi PRIVATE -DTEMPI_USE_CUDA_GRAPH)
 endif()
 
+## Link against required CUDA libraries, even without nvcc
+target_link_libraries(tempi PUBLIC CUDA::cudart)
 set(CUDA_TOOLKIT_ROOT_DIR "${CMAKE_CUDA_COMPILER}")
 get_filename_component(CUDA_TOOLKIT_ROOT_DIR "${CUDA_TOOLKIT_ROOT_DIR}" DIRECTORY)
 get_filename_component(CUDA_TOOLKIT_ROOT_DIR "${CUDA_TOOLKIT_ROOT_DIR}" DIRECTORY)
@@ -190,21 +190,18 @@ find_library(NVIDIAML_LIB nvidia-ml
             "${CUDA_TOOLKIT_ROOT_DIR}"
             )
 message(STATUS "nvidia-ml found: ${NVIDIAML_LIB}")
-target_link_libraries(pmpi PUBLIC ${NVTOOLSEXT_LIB})
+target_link_libraries(tempi PUBLIC ${NVTOOLSEXT_LIB})
 
-target_link_libraries(pmpi PUBLIC CUDA::cudart)
 
 ## find an MPI header to include, but we don't need to link against MPI.
-target_include_directories(pmpi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
+target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
 
 ## Add include directories
-target_include_directories(pmpi SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-target_include_directories(pmpi PUBLIC
+target_include_directories(tempi SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+target_include_directories(tempi PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-
-target_link_libraries(pmpi PUBLIC ${NVTOOLSEXT_LIB})
 
 
 # "this command should be in the source directory root for CTest to find the test file"

@@ -1,4 +1,8 @@
-# pmpi
+# TEMPI
+
+Experimental performance enhancmenets for CUDA+MPI codes.
+Some improvements require no code modification, only linking the scampi library before your true MPI library.
+Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## Quick Start
 
@@ -12,25 +16,18 @@ make test
 
 Add the library to your link step before the underlying MPI library.
 
-## Objectives
-
-Accelerate iterative CUDA+MPI code with minimal changes to application code
-
-- [ ] 2D/3D strided data with MPI vector datatypes
-- [ ] CUDA IPC to bypass intra-node communication
-- [ ] cudaGraph API to accelerate handing of strided data
-
-Hints can be used around any MPI call:
-
-```c++
-HINT_REPEATED():
-MPI_Isend(...);
-HINT_CLEAR();
+```cmake
+add_subdirectory(tempi)
+target_link_libraries(my-exe PRIVATE pmpi)
+target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ```
 
+## Features
 
+Performance fixes for CUDA+MPI code that requires no or minimal changes:
+- [x] `MPI_Pack` on 3D strided data types
 
-## Design
+## Design 
 
 Instead of using the MPI Profiling Interface (PMPI), our functions defer to the next symbol so this library can be chained with libraries that *do* use PMPI.
 
@@ -66,27 +63,40 @@ extern "C" int MPI_Init(int *argc, char ***argv)
 This library should come before any profiling library that uses PMPI in the linker order, otherwise the application will not call these implementations.
 As we do not extend the MPI interface, there is no include files to add to your code.
 
-The API overrides are defined in `src/*.cpp`.
-Most of the internal heavy lifting is done by `include/` and `src/internal`.
-Testing support code is in `test/support`.
+* The API overrides are defined in `src/*.cpp`.
+* Most of the internal heavy lifting is done by `include/` and `src/internal`.
+  * Reading environment variable configuration is in `include/env.hpp` and `src/internal/env.cpp`.
+* Testing code is in `test/`
+  * Testing support code is in `test/support`.
 
 ## Knobs
 
 The system can be controlled by environment variables.
 Setting the corresponding variable to any value (even empty) will change behavior.
 
-`export SCAMPI_NO_PACK=anything`: always use MPI library's `MPI_Pack`.
-`export SCAMPI_NO_TYPE_COMMIT=anything`: don't analyze MPI types during `MPI_Type_commit`. May disable other optimizations.
+|Environment Variable|Effect when Set|
+|-|-|
+|`TEMPI_NO_PACK`|Defer to library `MPI_Pack`|
+|`TEMPI_NO_TYPE_COMMIT`|Don't analyze MPI types for allowable optimizations.|
 
-to unset an environment variable in bash: `unset SCAMPI_NO_TYPE_COMMIT`
+to unset an environment variable in bash: `unset <VAR>`
 
 
+## Project Name Ideas
 
-## Project Name
-
+* HEMPI heterogeneous experiments for MPI
 * SCAMPI: supercomputing accelerating MPI
-* mpi-gpu-patches
-* TEMPI: 
+* TEMPI: Topology-Enhanced MPI
+* TEMPI: Topology experiments for MPI
+* MPIsces: MPI supercomputing enhancements
+* MPIne: MPI node enhanced
+* impish: Improved MPI for system heterogeneous
+* MPIsa
+* MPIca
+* MPIano
+* MPIed
+* MPIne
+* MPIxy
 
 * available
 * collisions

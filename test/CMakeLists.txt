@@ -5,7 +5,7 @@ message(STATUS "MPIEXEC_EXECUTABLE=" ${MPIEXEC_EXECUTABLE})
 macro(pmpi_test_exe exe)
     add_executable(${ARGV0} ${ARGN} support/type.cpp)
     # link to pmpi first
-    target_link_libraries(${ARGV0} PRIVATE pmpi)
+    target_link_libraries(${ARGV0} PRIVATE tempi::tempi)
     ## just using target_link_libraries(pangolin INTERFACE MPI::MPI_CXX)
     ## causes device linking with -pthread, even as of 3.15.0-rc1
     ## https://gitlab.kitware.com/cmake/cmake/issues/18897

@@ -182,7 +182,9 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
   LOG_SPEW("PRINT TREE");
   for (int64_t i = type.num_levels() - 1; i >= 0; --i) {
+#if TEMPI_OUTPUT_LEVEL >= 5
     Vector &vec = type.levels()[i];
+#endif
     LOG_SPEW("level " << i << ": bstride=" << vec.blockStride << " blength="
                       << vec.blockLength << " estride=" << vec.elemStride
                       << " elength=" << vec.elemLength << " cnt=" << vec.count);
@@ -203,7 +205,9 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
   LOG_SPEW("PRINT TREE");
   for (int64_t i = type.num_levels() - 1; i >= 0; --i) {
+#if TEMPI_OUTPUT_LEVEL >= 5
     Vector &vec = type.levels()[i];
+#endif
     LOG_SPEW("level " << i << ": bstride=" << vec.blockStride << " blength="
                       << vec.blockLength << " estride=" << vec.elemStride
                       << " elength=" << vec.elemLength << " cnt=" << vec.count);
@@ -243,7 +247,9 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
   LOG_SPEW("PRINT TREE");
   for (int64_t i = type.num_levels() - 1; i >= 0; --i) {
+#if TEMPI_OUTPUT_LEVEL >= 5
     Vector &vec = type.levels()[i];
+#endif
     LOG_SPEW("level " << i << ": bstride=" << vec.blockStride << " blength="
                       << vec.blockLength << " estride=" << vec.elemStride
                       << " elength=" << vec.elemLength << " cnt=" << vec.count);
@@ -282,7 +288,9 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
   LOG_SPEW("PRINT TREE");
   for (int64_t i = type.num_levels() - 1; i >= 0; --i) {
+#if TEMPI_OUTPUT_LEVEL >= 5
     Vector &vec = type.levels()[i];
+#endif
     LOG_SPEW("level " << i << ": bstride=" << vec.blockStride << " blength="
                       << vec.blockLength << " estride=" << vec.elemStride
                       << " elength=" << vec.elemLength << " cnt=" << vec.count);
