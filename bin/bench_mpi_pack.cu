@@ -32,14 +32,10 @@ BenchResult bench(MPI_Datatype ty, const Dim3 ext,
   allocExt.depth = 1024;
 
   // create device allocations
-#ifdef HOST
-  char *src = new char[allocExt.width * allocExt.height * allocExt.depth];
-#else
   cudaPitchedPtr src = {};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc3D(&src, allocExt));
   allocExt.width = src.pitch; // cudaMalloc3D may adjust pitch
-#endif
 
   // copy extent (B)
   cudaExtent copyExt = {};
@@ -50,35 +46,22 @@ BenchResult bench(MPI_Datatype ty, const Dim3 ext,
   // create flat destination allocation
   char *dst = nullptr;
   const int dstSize = copyExt.width * copyExt.height * copyExt.depth;
-#ifdef HOST
-  dst = new char[dstSize];
-#else
   CUDA_RUNTIME(cudaMalloc(&dst, dstSize));
-#endif
 
   Statistics stats;
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
     int position = 0;
     auto start = Clock::now();
-#ifdef HOST
-    MPI_Pack(src, 1, ty, dst, dstSize, &position, MPI_COMM_WORLD);
-#else
     MPI_Pack(src.ptr, 1, ty, dst, dstSize, &position, MPI_COMM_WORLD);
-#endif
     auto stop = Clock::now();
     Duration dur = stop - start;
     stats.insert(dur.count());
   }
   nvtxRangePop();
 
-#ifdef HOST
-  delete[] src;
-  delete[] dst;
-#else
   CUDA_RUNTIME(cudaFree(src.ptr));
   CUDA_RUNTIME(cudaFree(dst));
-#endif
 
   return BenchResult{.packTime = stats.trimean()};
 }
@@ -103,13 +86,12 @@ int main(int argc, char **argv) {
       Dim3(16, 1024, 1),   Dim3(32, 1024, 1),   Dim3(64, 1024, 1),
       Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
       Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
-  std::vector<bool> tempis = {true};
+  std::vector<bool> tempis = {true, false};
 
   std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
 
-  for (Dim3 ext : dims) {
-
-    for (bool tempi : tempis) {
+  for (bool tempi : tempis) {
+    for (Dim3 ext : dims) {
 
       std::string s;
       s = std::to_string(ext.x) + "/" + std::to_string(ext.y) + "/" +
