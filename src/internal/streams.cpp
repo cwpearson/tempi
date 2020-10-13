@@ -1,6 +1,7 @@
 #include "streams.hpp"
 
 #include "cuda_runtime.hpp"
+#include "logging.hpp"
 
 #include <nvToolsExt.h>
 #include <nvToolsExtCudaRt.h> // nvtxNameCudaStreamA
@@ -15,6 +16,7 @@ void streams_init() {
   int count;
   CUDA_RUNTIME(cudaGetDeviceCount(&count));
 
+  LOG_DEBUG("create " << count << " streams");
   commStream = std::vector<cudaStream_t>(count, {});
   kernStream = std::vector<cudaStream_t>(count, {});
   for (int i = 0; i < count; ++i) {
@@ -23,7 +25,7 @@ void streams_init() {
     nvtxNameCudaStreamA(commStream[i],
                         ("campi_comm_" + std::to_string(i)).c_str());
     CUDA_RUNTIME(cudaStreamCreate(&kernStream[i]));
-    nvtxNameCudaStreamA(commStream[i],
+    nvtxNameCudaStreamA(kernStream[i],
                         ("campi_kern_" + std::to_string(i)).c_str());
   }
   nvtxRangePop();
