@@ -131,6 +131,10 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
   CUDA_RUNTIME(cudaGetDevice(&device));
   LOG_SPEW("PackerStride2 on CUDA " << device);
 
+  assert(kernStream.size() > 0 && "no streams. Are GPUs enabled and was MPI_Init called?");
+  cudaStream_t stream = kernStream[device];
+
+
 #if 0
   char *__restrict__ op = reinterpret_cast<char *>(outbuf);
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
@@ -175,6 +179,7 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
 
   CUDA_RUNTIME(cudaGetLastError());
 
+  assert(position);
   (*position) += incount * count_[1] * count_[0] * blockLength_;
 
   CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
