@@ -20,8 +20,8 @@ extern "C" int MPI_Init(PARAMS) {
     nvtxRangePop();
   }
   int err = fn(ARGS);
-  LOG_DEBUG("finished MPI_Init");
   // can use logging now that MPI_Init has been called
+  LOG_DEBUG("finished library MPI_Init");
 
   streams_init();
 
