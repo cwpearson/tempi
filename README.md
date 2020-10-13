@@ -81,6 +81,20 @@ Setting the corresponding variable to any value (even empty) will change behavio
 
 to unset an environment variable in bash: `unset <VAR>`
 
+## OLCF Summit
+
+nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on. Disable with nsys profile -t cuda,nvtx.
+
+To control the compute mode, use bsub -alloc_flags gpudefault (see olcf.ornl.gov/for-users/system-user-guides/summitdev-quickstart-guide/#gpu-specific-jobs)
+
+To enable GPUDirect, do jsrun --smpiargs="-gpu" ... (see docs.olcf.ornl.gov/systems/summit_user_guide.html, "CUDA-Aware MPI")
+
+Summit wants to find MPI_Init in darshan (`jsrun -E LD_DEBUG=symbols`)
+
+```
+symbol=MPI_Init;  lookup in file=bin/bench-mpi-pack [0]
+     68381:     symbol=MPI_Init;  lookup in file=/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-4.8.5/darshan-runtime-3.1.7-cnvxicgf5j4ap64qi6v5gxp67hmrjz43/lib/libdarshan.so [0]
+```
 
 ## Project Name Ideas
 
