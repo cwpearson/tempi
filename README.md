@@ -1,4 +1,7 @@
-# TEMPI
+# TEMPI (Topology Experiments for MPI)
+
+tem·pi */ˈtempē/*
+- plural form of tempo: the rate of speed or motion of an activity
 
 Experimental performance enhancmenets for CUDA+MPI codes.
 Some improvements require no code modification, only linking the scampi library before your true MPI library.
@@ -16,9 +19,13 @@ make test
 
 Add the library to your link step before the underlying MPI library.
 
+```
+g++ ... -L/dir/containing/libtempi.so -l tempi <other link flags>
+```
+
 ```cmake
 add_subdirectory(tempi)
-target_link_libraries(my-exe PRIVATE pmpi)
+target_link_libraries(my-exe PRIVATE tempi::tempi)
 target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ```
 
