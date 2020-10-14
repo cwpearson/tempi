@@ -72,12 +72,14 @@ As we do not extend the MPI interface, there is no include files to add to your 
 ## Knobs
 
 The system can be controlled by environment variables.
+These are the first thing read during MPI_Init(...).
 Setting the corresponding variable to any value (even empty) will change behavior.
 
 |Environment Variable|Effect when Set|
 |-|-|
-|`TEMPI_NO_PACK`|Defer to library `MPI_Pack`|
-|`TEMPI_NO_TYPE_COMMIT`|Don't analyze MPI types for allowable optimizations.|
+|`TEMPI_DISABLE`|Disable all TEMPI behavior. All calls will use underlying library directly|
+|`TEMPI_NO_PACK`|Use library `MPI_Pack`|
+|`TEMPI_NO_TYPE_COMMIT`|Use library `MPI_Type_commit`. Don't analyze MPI types for allowable optimizations.|
 
 to unset an environment variable in bash: `unset <VAR>`
 

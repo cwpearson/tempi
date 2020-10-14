@@ -1,7 +1,7 @@
 #include "env.hpp"
 #include "streams.hpp"
-#include "support/test.hpp"
-#include "support/type.hpp"
+#include "test.hpp"
+#include "../support/type.hpp"
 
 #include "cuda_runtime.hpp"
 

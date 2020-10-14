@@ -19,9 +19,6 @@
 #define ARGS inbuf, incount, datatype, outbuf, outsize, position, comm
 
 extern "C" int MPI_Pack(PARAMS) {
-  nvtxRangePush("MPI_Pack");
-  LOG_DEBUG("MPI_Pack");
-  int err = MPI_ERR_UNKNOWN;
 
   // find the underlying MPI call
   typedef int (*Func_MPI_Pack)(PARAMS);
@@ -29,6 +26,10 @@ extern "C" int MPI_Pack(PARAMS) {
   if (!fn) {
     fn = reinterpret_cast<Func_MPI_Pack>(dlsym(RTLD_NEXT, "MPI_Pack"));
   }
+  TEMPI_DISABLE_GUARD;
+  nvtxRangePush("MPI_Pack");
+  LOG_DEBUG("MPI_Pack");
+  int err = MPI_ERR_UNKNOWN;
 
   bool enabled = true;
   enabled &= !environment::noPack;

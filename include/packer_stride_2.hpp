@@ -15,4 +15,6 @@ public:
                 unsigned count1, unsigned stride1);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
+  void unpack(const void *inbuf, int insize, int *position, void *outbuf,
+              const int outcount) const override;
 };

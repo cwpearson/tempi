@@ -9,7 +9,7 @@
 #define TEMPI_OUTPUT_LEVEL 3
 #endif
 
-static int world_rank() {
+inline int world_rank() {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     return rank;

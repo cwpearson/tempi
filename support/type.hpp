@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dim3.hpp"
+#include "../include/dim3.hpp"
 
 #include <mpi.h>
 
