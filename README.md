@@ -32,7 +32,8 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ## Features
 
 Performance fixes for CUDA+MPI code that requires no or minimal changes:
-- [x] `MPI_Pack` on 3D strided data types
+- [x] Fast `MPI_Pack` on 3D strided data types (disable with `TEMPI_NO_PACK`)
+- [ ] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
 
 ## Design 
 
