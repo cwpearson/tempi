@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   }
 
   { // prevent init bypass
-    int nIters = 5;
+    int nIters = 10;
 
     Dim3 allocExt(1024, 1024, 1024);
     BenchResult result;
@@ -107,10 +107,10 @@ int main(int argc, char **argv) {
         Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
         Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
 
-    std::vector<bool> tempis = {true};
+    std::vector<bool> tempis = {true, false};
 
     if (0 == rank) {
-      std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
+      std::cout << "s,x,y,z,tempi,v1_hv_hv (MiB/s),v_hv (MiB/s)\n";
     }
 
     for (bool tempi : tempis) {
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         result = bench(ty, ext, tempi, nIters);
         if (0 == rank) {
           std::cout << ","
-                    << double(ext.flatten()) / 1024 / 1024 /
+                    << 2 * double(ext.flatten()) / 1024 / 1024 /
                            result.pingPongTime;
           std::cout << std::flush;
         }
