@@ -7,6 +7,10 @@ Experimental performance enhancmenets for CUDA+MPI codes.
 Some improvements require no code modification, only linking the scampi library before your true MPI library.
 Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
+|MPI_Pack|MPI_Send|
+|-|-|
+|![](static/MPI_Pack.png)||
+
 ## Quick Start
 
 ```
