@@ -1,6 +1,9 @@
 #include "cuda_runtime.hpp"
-#include "logging.hpp"
 #include "env.hpp"
+#include "logging.hpp"
+#include "types.hpp"
+
+#include "allocator_slab.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
@@ -33,5 +36,32 @@ extern "C" int MPI_Recv(PARAMS) {
     return fn(ARGS);
   }
 
-  return MPI_ERR_UNKNOWN;
+  CUDA_RUNTIME(cudaSetDevice(attr.device));
+  std::shared_ptr<Packer> packer = packerCache[datatype];
+
+  // recv into device buffer
+  int packedBytes;
+  {
+    int tySize;
+    MPI_Type_size(datatype, &tySize);
+    packedBytes = tySize * count;
+  }
+  void *packBuf = nullptr;
+  // CUDA_RUNTIME(cudaMalloc(&packBuf, packedBytes));
+  packBuf = testAllocator.allocate(packedBytes);
+  LOG_SPEW("allocate " << packedBytes << "B device recv buffer");
+
+  // send to other device
+  int err = fn(packBuf, packedBytes, MPI_BYTE, source, tag, comm, status);
+
+  // unpack from temporary buffer
+  int pos = 0;
+  packer->unpack(packBuf, &pos, buf, count);
+
+  // release temporary buffer
+  LOG_SPEW("free intermediate recv buffer");
+  // CUDA_RUNTIME(cudaFree(packBuf));
+  testAllocator.deallocate(packBuf, 0);
+
+  return err;
 }

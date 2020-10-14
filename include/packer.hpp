@@ -3,7 +3,7 @@
 #include "dim3.hpp"
 
 /*
-*/
+ */
 class Packer {
 public:
   virtual ~Packer() {}
@@ -14,6 +14,6 @@ public:
                     const int incount // [in] number of input data items
   ) const = 0;
 
-  virtual void unpack(const void *inbuf, int insize, int *position,
-                      void *outbuf, const int outcount) const = 0;
+  virtual void unpack(const void *inbuf, int *position, void *outbuf,
+                      const int outcount) const = 0;
 };

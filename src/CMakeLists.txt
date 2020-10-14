@@ -6,6 +6,7 @@ ${CMAKE_CURRENT_LIST_DIR}/recv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/send.cpp
 ${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
 
+${CMAKE_CURRENT_LIST_DIR}/internal/allocator_slab.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_1.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_2.cu

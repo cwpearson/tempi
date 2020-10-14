@@ -22,8 +22,7 @@ BenchResult bench(MPI_Datatype ty, const Dim3 ext,
                   const int nIters) {
 
   // configure TEMPI
-  environment::noTypeCommit = !tempi;
-  environment::noPack = !tempi;
+  environment::noTempi = !tempi;
 
   // allocation extent (B)
   cudaExtent allocExt = {};
@@ -109,7 +108,7 @@ int main(int argc, char **argv) {
         Dim3(16, 1024, 1),   Dim3(32, 1024, 1),   Dim3(64, 1024, 1),
         Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
         Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
-    std::vector<bool> tempis = {true};
+    std::vector<bool> tempis = {true, false};
 
     std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
 

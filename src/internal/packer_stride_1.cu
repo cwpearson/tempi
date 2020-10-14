@@ -7,14 +7,16 @@
 
 /* pack blocks of bytes separated a stride
 
-    gridimd.z is the count
+    the z dimension is used for the incount
 
 each thread loads N bytes of a block
  */
 template <unsigned N>
 __global__ static void
-pack_bytes(void *__restrict__ outbuf, int position,
-           const void *__restrict__ inbuf, const int incount,
+pack_bytes(void *__restrict__ outbuf,
+           int position, // location in the output buffer to start packing (B)
+           const void *__restrict__ inbuf,
+           const int incount,    // number of datatypes to pack
            unsigned blockLength, // block length (B)
            unsigned count,       // count of blocks in a group
            unsigned stride       // stride (B) between start of blocks in group
@@ -26,13 +28,16 @@ pack_bytes(void *__restrict__ outbuf, int position,
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
 
-  char *__restrict__ op = reinterpret_cast<char *>(outbuf);
+  char *__restrict__ op = reinterpret_cast<char *>(outbuf) + position;
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
-  for (int z = tz; z < gridDim.z * blockDim.z; z += gridDim.z * blockDim.z) {
-    char *__restrict__ dst = op + position + z * count * blockLength;
+  for (int z = tz; z < incount; z += gridDim.z * blockDim.z) {
+    // each packed datatype will take count * blockLength bytes in outbuf
+    // each datatype input has stride * count separating their starts
+    char *__restrict__ dst = op + z * blockLength * count;
     const char *__restrict__ src = ip + z * stride * count;
 
+    // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
       for (unsigned x = tx; x < blockLength / N; x += gridDim.x * blockDim.x) {
         unsigned bo = y * blockLength + x * N;
@@ -69,12 +74,14 @@ pack_bytes(void *__restrict__ outbuf, int position,
 each thread loads N bytes of a block
 */
 template <unsigned N>
-__global__ static void
-unpack_bytes(void *__restrict__ outbuf, int position,
-             const void *__restrict__ inbuf, const int incount,
-             unsigned blockLength, // block length (B)
-             unsigned count,       // count of blocks in a group
-             unsigned stride // stride (B) between start of blocks in group
+__global__ static void unpack_bytes(
+    void *__restrict__ outbuf,
+    int position, // location in the output buffer to start unpacking (B)
+    const void *__restrict__ inbuf,
+    const int outcount,   // number of datatypes to unpack
+    unsigned blockLength, // block length (B)
+    unsigned count,       // count of blocks in a group
+    unsigned stride       // stride (B) between start of blocks in group
 ) {
 
   assert(blockLength % N == 0); // N should evenly divide block length
@@ -83,17 +90,20 @@ unpack_bytes(void *__restrict__ outbuf, int position,
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
 
-  char *__restrict__ op = reinterpret_cast<char *>(outbuf);
+  char *__restrict__ op = reinterpret_cast<char *>(outbuf) + position;
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
-  for (int z = tz; z < gridDim.z * blockDim.z; z += gridDim.z * blockDim.z) {
-    char *__restrict__ dst = op + position + z * count * blockLength;
-    const char *__restrict__ src = ip + z * stride * count;
+  for (int z = tz; z < outcount; z += gridDim.z * blockDim.z) {
+    // each datatype will have stride * count separating their starts in outbuf
+    // each packed datatype has blockLength * count separating their starts
+    char *__restrict__ dst = op + z * stride * count;
+    const char *__restrict__ src = ip + z * blockLength * count;
 
+    // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
       for (unsigned x = tx; x < blockLength / N; x += gridDim.x * blockDim.x) {
-        unsigned bo = y * blockLength + x * N;
-        unsigned bi = y * stride + x * N;
+        unsigned bi = y * blockLength + x * N;
+        unsigned bo = y * stride + x * N;
         // printf("%u -> %u\n", bi, bo);
 
         if (N == 1) {
@@ -173,9 +183,9 @@ void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
     pack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_, stride_);
 
-  } else if (4 == wordSize_) {
-    LOG_SPEW("wordSize_ = 4");
-    pack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
+  } else if (8 == wordSize_) {
+    LOG_SPEW("wordSize_ = 8");
+    pack_bytes<8><<<gd, bd_, 0, kernStream[device]>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_, stride_);
 
   } else {
@@ -191,8 +201,8 @@ void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
   CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
 }
 
-void PackerStride1::unpack(const void *inbuf, int insize, int *position,
-                           void *outbuf, const int outcount) const {
+void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
+                           const int outcount) const {
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
   LOG_SPEW("PackerStride1::unpack on CUDA " << device);
@@ -205,11 +215,10 @@ void PackerStride1::unpack(const void *inbuf, int insize, int *position,
     unpack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_, stride_);
 
-  } else if (4 == wordSize_) {
-    LOG_SPEW("wordSize_ = 4");
-    unpack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
+  } else if (8 == wordSize_) {
+    LOG_SPEW("wordSize_ = 8");
+    unpack_bytes<8><<<gd, bd_, 0, kernStream[device]>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_, stride_);
-
   } else {
     LOG_SPEW("wordSize == 1");
     unpack_bytes<1><<<gd, bd_, 0, kernStream[device]>>>(

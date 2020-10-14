@@ -26,8 +26,7 @@ BenchResult bench(MPI_Datatype ty, const Dim3 ext,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   // configure TEMPI
-  environment::noTypeCommit = !tempi;
-  environment::noPack = !tempi;
+  environment::noTempi = !tempi;
 
   // allocation extent (B)
   cudaExtent allocExt = {};
@@ -93,7 +92,7 @@ int main(int argc, char **argv) {
   }
 
   { // prevent init bypass
-    int nIters = 30;
+    int nIters = 5;
 
     Dim3 allocExt(1024, 1024, 1024);
     BenchResult result;
@@ -107,15 +106,15 @@ int main(int argc, char **argv) {
         Dim3(16, 1024, 1),   Dim3(32, 1024, 1),   Dim3(64, 1024, 1),
         Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
         Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
+
     std::vector<bool> tempis = {true};
 
     if (0 == rank) {
       std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
     }
 
-    for (Dim3 ext : dims) {
-
-      for (bool tempi : tempis) {
+    for (bool tempi : tempis) {
+      for (Dim3 ext : dims) {
 
         std::string s;
         s = std::to_string(ext.x) + "/" + std::to_string(ext.y) + "/" +
@@ -166,7 +165,7 @@ int main(int argc, char **argv) {
         result = bench(ty, ext, tempi, nIters);
         if (0 == rank) {
           std::cout << ","
-                    << double(ext.flatten()) / 1024 / 1024 /
+                    << 2 * double(ext.flatten()) / 1024 / 1024 /
                            result.pingPongTime;
           std::cout << std::flush;
         }

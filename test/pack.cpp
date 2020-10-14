@@ -1,7 +1,7 @@
+#include "../support/type.hpp"
 #include "env.hpp"
 #include "streams.hpp"
 #include "test.hpp"
-#include "../support/type.hpp"
 
 #include "cuda_runtime.hpp"
 
@@ -25,6 +25,12 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
   CUDA_RUNTIME(cudaMallocManaged(&dstTest, packExt.flatten() * count));
   dstExpected = new char[packExt.flatten() * count];
 
+  // prefetch to host to accelerate initialization
+  CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, -1, kernStream[0]));
+  for (size_t i = 0; i < srcSize; ++i) {
+    ((char *)src)[i] = rand();
+  }
+
   MPI_Datatype cube = factory(packExt, allocExt);
   MPI_Type_commit(&cube);
 
@@ -40,7 +46,7 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
 
   // test
   {
-    // prefetch to accelerate kernel
+    // prefetch to GPU to accelerate kernel
     CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, 0, kernStream[0]));
     environment::noPack = false;
     positionTest = 0;
@@ -49,7 +55,7 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
     CUDA_RUNTIME(cudaDeviceSynchronize());
   }
 
-  // prefetch to accelerate comparison
+  // prefetch to host to accelerate comparison
   CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, -1, kernStream[0]));
   REQUIRE(positionTest == positionExpected); // output position is identical
   REQUIRE(0 == memcmp(dstTest, dstExpected,
@@ -91,7 +97,7 @@ int main(int argc, char **argv) {
   }
 
   {
-    Dim3 pe(4, 3, 4), ae(1024, 1024, 1024);
+    Dim3 pe(4, 3, 4), ae(200,200,200);
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
@@ -103,7 +109,7 @@ int main(int argc, char **argv) {
   }
 
   {
-    Dim3 pe(100, 100, 100), ae(1024, 1024, 1024);
+    Dim3 pe(100, 100, 100), ae(200,200,200);
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
@@ -127,7 +133,7 @@ int main(int argc, char **argv) {
   }
 
   {
-    Dim3 pe(100, 100, 100), ae(1024, 1024, 1024);
+    Dim3 pe(100, 100, 100), ae(200,200,200);
     int count = 3;
     std::stringstream ss;
     ss << "TEST: "
