@@ -1,6 +1,6 @@
 #include "../include/cuda_runtime.hpp"
 #include "../include/env.hpp"
-#include "../test/support/type.hpp"
+#include "../support/type.hpp"
 #include "statistics.hpp"
 
 #include <mpi.h>
@@ -22,8 +22,7 @@ BenchResult bench(MPI_Datatype ty, const Dim3 ext,
                   const int nIters) {
 
   // configure TEMPI
-  environment::noTypeCommit = !tempi;
-  environment::noPack = !tempi;
+  environment::noTempi = !tempi;
 
   // allocation extent (B)
   cudaExtent allocExt = {};
@@ -70,12 +69,18 @@ int main(int argc, char **argv) {
 
   MPI_Init(&argc, &argv);
 
-  int nIters = 30;
+  // only need to run on rank 0
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (0 != rank) {
+    goto finalize;
+  }
 
-  Dim3 allocExt(1024, 1024, 1024);
-  BenchResult result;
+  { // prevent init bypass
+    int nIters = 30;
 
-
+    Dim3 allocExt(1024, 1024, 1024);
+    BenchResult result;
 
   std::vector<Dim3> dims = {
       Dim3(1, 1024, 1024), Dim3(2, 1024, 512),  Dim3(4, 1024, 256),
@@ -88,21 +93,21 @@ int main(int argc, char **argv) {
       Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
   std::vector<bool> tempis = {true, false};
 
-  std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
+    std::cout << "s,x,y,z,hib (MiB/s),v_hv_hv (MiB/s),v_hv (MiB/s)\n";
 
   for (bool tempi : tempis) {
     for (Dim3 ext : dims) {
 
-      std::string s;
-      s = std::to_string(ext.x) + "/" + std::to_string(ext.y) + "/" +
-          std::to_string(ext.z) + "/" + std::to_string(tempi);
+        std::string s;
+        s = std::to_string(ext.x) + "/" + std::to_string(ext.y) + "/" +
+            std::to_string(ext.z) + "/" + std::to_string(tempi);
 
-      std::cout << s;
-      std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
-      std::cout << "," << tempi;
-      std::cout << std::flush;
+        std::cout << s;
+        std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
+        std::cout << "," << tempi;
+        std::cout << std::flush;
 
-      MPI_Datatype ty;
+        MPI_Datatype ty;
 
 #if 0
     ty = make_hi(ext, allocExt);
@@ -121,28 +126,30 @@ int main(int argc, char **argv) {
 #endif
 
 #if 1
-    ty = make_v1_hv_hv(ext, allocExt);
-    MPI_Type_commit(&ty);
-    result = bench(ty, ext, tempi, nIters);
-    std::cout << "," << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-    std::cout << std::flush;
+        ty = make_v1_hv_hv(ext, allocExt);
+        MPI_Type_commit(&ty);
+        result = bench(ty, ext, tempi, nIters);
+        std::cout << ","
+                  << double(ext.flatten()) / 1024 / 1024 / result.packTime;
+        std::cout << std::flush;
 #endif
 
 #if 1
-    ty = make_v_hv(ext, allocExt);
-    MPI_Type_commit(&ty);
-    result = bench(ty, ext, tempi, nIters);
-    std::cout << "," << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-    std::cout << std::flush;
+        ty = make_v_hv(ext, allocExt);
+        MPI_Type_commit(&ty);
+        result = bench(ty, ext, tempi, nIters);
+        std::cout << ","
+                  << double(ext.flatten()) / 1024 / 1024 / result.packTime;
+        std::cout << std::flush;
 #endif
 
-    std::cout << "\n";
-    std::cout << std::flush;
-    nvtxRangePop();
+        std::cout << "\n";
+        std::cout << std::flush;
+        nvtxRangePop();
+      }
     }
   }
-
+finalize:
   MPI_Finalize();
-
   return 0;
 }

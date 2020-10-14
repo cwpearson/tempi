@@ -1,8 +1,11 @@
 #pragma once
 
 namespace environment {
+    extern bool noTempi; // disable all TEMPI globally
     extern bool noPack;
     extern bool noTypeCommit;
 };
 
 void read_environment();
+
+#define TEMPI_DISABLE_GUARD { if (environment::noTempi) return fn(ARGS); }

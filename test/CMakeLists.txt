@@ -3,7 +3,7 @@ message(STATUS "MPI_CXX_LIBRARIES=" ${MPI_CXX_LIBRARIES})
 message(STATUS "MPIEXEC_EXECUTABLE=" ${MPIEXEC_EXECUTABLE})
 
 macro(pmpi_test_exe exe)
-    add_executable(${ARGV0} ${ARGN} support/type.cpp)
+    add_executable(${ARGV0} ${ARGN} ../support/type.cpp)
     # link to pmpi first
     target_link_libraries(${ARGV0} PRIVATE tempi::tempi)
     ## just using target_link_libraries(pangolin INTERFACE MPI::MPI_CXX)
@@ -13,6 +13,12 @@ macro(pmpi_test_exe exe)
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
 endmacro()
 
+
+# some tests just check semantics of MPI implementation
+pmpi_test_exe(type_size type_size.cpp)
+add_test(NAME type_size COMMAND ${MPIEXEC_EXECUTABLE} -n 1 type_size)
+
+# tests for tempi functionality
 pmpi_test_exe(init_finalize init_finalize.cpp)
 add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} -n 1 init_finalize)
 

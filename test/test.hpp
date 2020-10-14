@@ -1,6 +1,6 @@
 #pragma once
 
-#include "logging.hpp"
+#include "../include/logging.hpp"
 
 // clang-format off
 #define REQUIRE(expr) { int _line = __LINE__;                                                         \

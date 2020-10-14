@@ -15,15 +15,14 @@
 #define ARGS datatype
 
 extern "C" int MPI_Type_commit(PARAMS) {
-  LOG_DEBUG("MPI_Type_commit");
-
-  // find the underlying MPI call
   typedef int (*Func_MPI_Type_commit)(PARAMS);
   static Func_MPI_Type_commit fn = nullptr;
   if (!fn) {
     fn = reinterpret_cast<Func_MPI_Type_commit>(
         dlsym(RTLD_NEXT, "MPI_Type_commit"));
   }
+  TEMPI_DISABLE_GUARD;
+  LOG_DEBUG("MPI_Type_commit");
 
   int result = fn(ARGS);
 

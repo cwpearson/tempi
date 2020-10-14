@@ -109,6 +109,7 @@ void traverse_helper(Type &type, MPI_Datatype datatype) {
       type = Type::unknown();
       return;
     } else if (MPI_COMBINER_HINDEXED == combiner) {
+      // http://www.cse.chalmers.se/~mckee/papers/sc03.pdf
       LOG_DEBUG("hindexed");
       LOG_WARN("couldn't convert hindexed to structured type");
       type = Type::unknown();
