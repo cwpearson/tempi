@@ -1,0 +1,26 @@
+Resetting modules to system default. Reseting $MODULEPATH back to system default. All extra directories will be removed from $MODULEPATH.
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) spectrum-mpi/10.3.1.2-20200121
+
+
+Lmod is automatically replacing "xl/16.1.1-5" with "gcc/6.4.0".
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) spectrum-mpi/10.3.1.2-20200121
+
+-------------------------------------------------------------------------------
+There are messages associated with the following module(s):
+-------------------------------------------------------------------------------
+
+cuda/11.0.3:
+  This modulefile is provided for testing purposes only. If you encounter
+  issues, please report them to help@olcf.ornl.gov.
+
+-------------------------------------------------------------------------------
+
++ mkdir -p /gpfs/alpine/scratch/cpearson/csc362/tempi_results
++ echo 'x,y,z,nodes,ranks-per-node,self-per-node,colo-per-node,remote-per-node,self,colo,remote,first (s),total (s)'
++ jsrun --smpiargs=-gpu -n 1 -a 1 -g 1 -c 42 -r 1 -b rs ../../build/bin/bench-mpi-pack
++ tee -a /gpfs/alpine/scratch/cpearson/csc362/tempi_results/bench_mpi_pack.csv
