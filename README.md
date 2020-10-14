@@ -74,8 +74,8 @@ As we do not extend the MPI interface, there is no include files to add to your 
 * The API overrides are defined in `src/*.cpp`.
 * Most of the internal heavy lifting is done by `include/` and `src/internal`.
   * Reading environment variable configuration is in `include/env.hpp` and `src/internal/env.cpp`.
+* Support code for benchmarking and testing is in `support/`. This code is not used in the implementation.
 * Testing code is in `test/`
-  * Testing support code is in `test/support`.
 
 ## Knobs
 
