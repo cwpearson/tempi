@@ -1,6 +1,7 @@
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
+#include "worker.hpp"
 
 #include <mpi.h>
 
@@ -26,6 +27,8 @@ extern "C" int MPI_Init(PARAMS) {
   LOG_DEBUG("finished library MPI_Init");
 
   streams_init();
+
+  worker_init();
 
   return err;
 }

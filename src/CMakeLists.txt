@@ -12,6 +12,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_1.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_2.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/types.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/worker.cpp
 )
 
 set(TEMPI_SOURCES 

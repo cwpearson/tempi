@@ -1,6 +1,7 @@
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
+#include "worker.hpp"
 
 #include <mpi.h>
 
@@ -17,6 +18,7 @@ extern "C" int MPI_Finalize() {
   TEMPI_DISABLE_GUARD;
   LOG_DEBUG("MPI_Finalize");
 
+  worker_finalize();
   streams_finalize();
 
   return fn();
