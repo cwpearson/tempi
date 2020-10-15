@@ -24,7 +24,7 @@ inline int world_rank() {
 
 #if TEMPI_OUTPUT_LEVEL >= 4
 #define LOG_DEBUG(x)                                                                                                   \
-  std::cerr << "DEBUG[" << __FILE__ << ":" << __LINE__ << "]{" << world_rank() << "} " << x << "\n";
+  std::cerr << "DEBUG[" << __FILE__ << ":" << __LINE__ << "]{" << world_rank() << "} " << x << "\n" << std::flush;
 #else
 #define LOG_DEBUG(x)
 #endif

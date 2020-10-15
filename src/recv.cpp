@@ -28,6 +28,12 @@ extern "C" int MPI_Recv(PARAMS) {
   TEMPI_DISABLE_GUARD;
   LOG_DEBUG("MPI_Recv");
 
+  // use library MPI if we don't have a fast packer
+  if (!packerCache.count(datatype)) {
+    LOG_DEBUG("use library (no fast packer)");
+    return fn(ARGS);
+  }
+
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));

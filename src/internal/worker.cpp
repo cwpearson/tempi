@@ -8,21 +8,6 @@
 #include <functional>
 #include <vector>
 
-struct WorkerJob {};
-
-/* holds the state for a persistent task the worker is executing
- */
-class WorkerTask {
-public:
-  virtual ~WorkerTask() {}
-
-  // ready to call `progress`
-  virtual bool ready() = 0;
-  virtual void progress() = 0;
-  // true if task is complete
-  virtual bool done() = 0;
-};
-
 struct WorkerParams {
   std::atomic<bool> &shutdown;
   Queue<WorkerJob> &queue;
@@ -95,6 +80,7 @@ void worker_init() {
                       .pending = workerPending};
 
   std::thread worker(worker_loop, params);
+  LOG_DEBUG("started workerThread");
   workerThread = std::move(worker);
 }
 

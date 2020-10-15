@@ -2,6 +2,7 @@
 #include "env.hpp"
 #include "logging.hpp"
 #include "types.hpp"
+#include "worker.hpp"
 
 #include "allocator_slab.hpp"
 
@@ -40,31 +41,23 @@ extern "C" int MPI_Isend(PARAMS) {
     return fn(ARGS);
   }
 
-  CUDA_RUNTIME(cudaSetDevice(attr.device));
-  std::shared_ptr<Packer> packer = packerCache[datatype];
+  // FIXME:
+  // we need to make sure library MPI_Isend is called before library MPI_Wait.
+  // it may be a while before library MPI_Isend is called, even though we return
+  // immediately and app may call MPI_Wait may be called right away. so, we need
+  // to track that this request should not be passed onto the library MPI_Wait
+  // yet. and MPI_Wait needs to make sure
 
-  // reserve intermediate buffer
-  int packedBytes;
-  {
-    int tySize;
-    MPI_Type_size(datatype, &tySize);
-    packedBytes = tySize * count;
-  }
-  void *packBuf = nullptr;
-  // CUDA_RUNTIME(cudaMalloc(&packBuf, packedBytes));
-  packBuf = testAllocator.allocate(packedBytes);
-  LOG_SPEW("allocate " << packedBytes << "B device send buffer");
+  WorkerJob job;
+  job.kind = WorkerJob::ISEND;
+  WorkerJob::IsendParams params{.buf = buf,
+                                .count = count,
+                                .datatype = datatype,
+                                .dest = dest,
+                                .tag = tag,
+                                .comm = comm,
+                                .request = request};
+  job.params.isend = params;
 
-  // pack into device buffer
-  int pos = 0;
-  packer->pack(packBuf, &pos, buf, count);
-
-  // send to other device
-  int err = fn(packBuf, packedBytes, MPI_BYTE, dest, tag, comm);
-
-  // release temporary buffer
-  // CUDA_RUNTIME(cudaFree(packBuf));
-  testAllocator.deallocate(packBuf, 0);
-
-  return err;
+  return MPI_SUCCESS;
 }

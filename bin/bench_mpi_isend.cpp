@@ -21,6 +21,9 @@ BenchResult bench(size_t numBytes,
                   bool tempi, // use tempi or not
                   const int nIters) {
 
+  // number of overlapping messages
+  int tags = 10;
+
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -28,10 +31,14 @@ BenchResult bench(size_t numBytes,
   environment::noTempi = !tempi;
 
   // create device allocations
-  void *src = {}, *dst = {};
+  std::vector<void *> srcs(tags, {});
+  std::vector<void *> dsts(tags, {});
   CUDA_RUNTIME(cudaSetDevice(0));
-  CUDA_RUNTIME(cudaMalloc(&src, numBytes));
-  CUDA_RUNTIME(cudaMalloc(&dst, numBytes));
+  for (int i = 0; i < tags; ++i) {
+    CUDA_RUNTIME(cudaMalloc(&srcs[i], numBytes));
+    CUDA_RUNTIME(cudaMalloc(&dsts[i], numBytes));
+  }
+  std::vector<MPI_Request> reqs(tags);
 
   Statistics stats;
   nvtxRangePush("loop");
@@ -39,18 +46,23 @@ BenchResult bench(size_t numBytes,
     int position = 0;
     auto start = Clock::now();
     if (0 == rank) {
-      nvtxRangePush("send_0");
-      MPI_Send(src, numBytes, MPI_BYTE, 1, 0, MPI_COMM_WORLD);
-      nvtxRangePop();
-      MPI_Recv(dst, numBytes, MPI_BYTE, 1, 0, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
-
+      for (int i = 0; i < tags; ++i) {
+        MPI_Isend(srcs[i], numBytes, MPI_BYTE, 1, i, MPI_COMM_WORLD, &reqs[i]);
+      }
+      MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
+      for (int i = 0; i < tags; ++i) {
+        MPI_Irecv(dsts[i], numBytes, MPI_BYTE, 1, i, MPI_COMM_WORLD, &reqs[i]);
+      }
+      MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
     } else {
-      nvtxRangePush("recv_1");
-      MPI_Recv(dst, numBytes, MPI_BYTE, 0, 0, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
-      nvtxRangePop();
-      MPI_Send(src, numBytes, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+      for (int i = 0; i < tags; ++i) {
+        MPI_Irecv(dsts[i], numBytes, MPI_BYTE, 0, i, MPI_COMM_WORLD, &reqs[i]);
+      }
+      MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
+      for (int i = 0; i < tags; ++i) {
+        MPI_Isend(srcs[i], numBytes, MPI_BYTE, 0, i, MPI_COMM_WORLD, &reqs[i]);
+      }
+      MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
     }
     auto stop = Clock::now();
     Duration dur = stop - start;
@@ -58,8 +70,10 @@ BenchResult bench(size_t numBytes,
   }
   nvtxRangePop();
 
-  CUDA_RUNTIME(cudaFree(src));
-  CUDA_RUNTIME(cudaFree(dst));
+  for (int i = 0; i < tags; ++i) {
+    CUDA_RUNTIME(cudaFree(srcs[i]));
+    CUDA_RUNTIME(cudaFree(dsts[i]));
+  }
 
   return BenchResult{.pingPongTime = stats.trimean()};
 }
@@ -92,7 +106,7 @@ int main(int argc, char **argv) {
     std::vector<int> ns = {1,       2,       4,       8,       16,
                            32,      64,      128,     256,     512,
                            1024,    1 << 11, 4096,    1 << 13, 16384,
-                           1 << 15, 65536,   1 << 17, 1 << 20, 1 << 30};
+                           1 << 15, 65536,   1 << 17, 1 << 20};
 
     std::vector<bool> tempis = {true, false};
 

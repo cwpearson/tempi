@@ -2,6 +2,7 @@
 
 namespace environment {
     extern bool noTempi; // disable all TEMPI globally
+    extern bool noAlltoallv;
     extern bool noPack;
     extern bool noTypeCommit;
 };
