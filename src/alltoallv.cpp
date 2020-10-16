@@ -79,8 +79,37 @@ int alltoallv_staged(PARAMS) {
   int commSize = 0;
   MPI_Comm_size(comm, &commSize);
 
-  std::vector<MPI_Request> sendReqs(commSize, {});
-  std::vector<MPI_Request> recvReqs(commSize, {});
+  nvtxRangePush("alloc");
+  size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
+  size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
+  char *hSendBuf = new char[sendBufSize];
+  char *hRecvBuf = new char[recvBufSize];
+  nvtxRangePop();
+
+  CUDA_RUNTIME(
+      cudaMemcpy(hSendBuf, sendbuf, sendBufSize, cudaMemcpyDeviceToHost));
+  err = MPI_Alltoallv(hSendBuf, sendcounts, sdispls, sendtype, hRecvBuf,
+                      recvcounts, rdispls, recvtype, comm);
+  CUDA_RUNTIME(
+      cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
+
+  nvtxRangePush("free");
+  delete[] hSendBuf;
+  delete[] hRecvBuf;
+  nvtxRangePop();
+
+  return err;
+}
+
+/* implement as a bunch of copies to the CPU, then a CPU alltoallv, then a bunch
+ * of copies to the GPU
+ */
+int alltoallv_isend_irecv(PARAMS) {
+
+  int err = MPI_SUCCESS;
+
+  int commSize = 0;
+  MPI_Comm_size(comm, &commSize);
 
   nvtxRangePush("alloc");
   size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
@@ -91,8 +120,49 @@ int alltoallv_staged(PARAMS) {
 
   CUDA_RUNTIME(
       cudaMemcpy(hSendBuf, sendbuf, sendBufSize, cudaMemcpyDeviceToHost));
-  err = MPI_Alltoallv(hSendBuf, sendcounts, sdispls, sendtype, hRecvBuf, recvcounts,
-                rdispls, recvtype, comm);
+
+  std::vector<MPI_Request> sendReqs(commSize, {});
+  std::vector<MPI_Request> recvReqs(commSize, {});
+
+  // send remote from the host
+  for (int j = 0; j < commSize; ++j) {
+    if (!is_colocated(j)) {
+      MPI_Isend(((char *)hSendBuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
+                comm, &sendReqs[j]);
+    }
+  }
+  // send local direct from the device
+  for (int j = 0; j < commSize; ++j) {
+    if (is_colocated(j)) {
+      MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
+                comm, &sendReqs[j]);
+    }
+  }
+  // recv remote to the host
+  for (int i = 0; i < commSize; ++i) {
+    if (!is_colocated(i)) {
+      int e = MPI_Irecv(((char *)hRecvBuf) + rdispls[i], recvcounts[i],
+                        recvtype, i, 0, comm, &recvReqs[i]);
+      err = (MPI_SUCCESS == e ? err : e);
+    }
+  }
+  // recv local to the device
+  for (int i = 0; i < commSize; ++i) {
+    if (is_colocated(i)) {
+      int e = MPI_Irecv(((char *)recvbuf) + rdispls[i], recvcounts[i], recvtype,
+                        i, 0, comm, &recvReqs[i]);
+      err = (MPI_SUCCESS == e ? err : e);
+    }
+  }
+  {
+    int e = MPI_Waitall(sendReqs.size(), sendReqs.data(), MPI_STATUS_IGNORE);
+    err = (MPI_SUCCESS == e ? err : e);
+  }
+  {
+    int e = MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
+    err = (MPI_SUCCESS == e ? err : e);
+  }
+
   CUDA_RUNTIME(
       cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
 
@@ -131,6 +201,7 @@ extern "C" int MPI_Alltoallv(PARAMS) {
     return fn(ARGS);
   } else {
     // return alltoallv_remote_first(ARGS);
-    return alltoallv_staged(ARGS);
+    // return alltoallv_staged(ARGS);
+    return alltoallv_isend_irecv(ARGS);
   }
 }
