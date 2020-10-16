@@ -6,9 +6,6 @@
 
 extern std::thread workerThread;
 
-void worker_init();
-void worker_finalize();
-
 /* holds the specification for a job delivered to the worker
  */
 struct WorkerJob {
@@ -26,7 +23,6 @@ struct WorkerJob {
 
   enum class Kind { ISEND };
   constexpr static Kind ISEND = Kind::ISEND;
-
 
   Kind kind;
   union {
@@ -48,3 +44,7 @@ public:
   // true if task is complete
   virtual bool done() = 0;
 };
+
+void worker_init();
+void worker_finalize();
+void worker_push(const WorkerJob &job);

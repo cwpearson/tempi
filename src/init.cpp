@@ -1,34 +1,48 @@
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
+#include "symbols.hpp"
 #include "worker.hpp"
+#include "topology.hpp"
 
 #include <mpi.h>
 
-#include <dlfcn.h>
 #include <nvToolsExt.h>
 
-#define PARAMS int *argc, char ***argv
-#define ARGS argc, argv
-
-extern "C" int MPI_Init(PARAMS) {
+extern "C" int MPI_Init(PARAMS_MPI_Init) {
 
   // before anything else, read env vars to control tempi
+  init_symbols();
   read_environment();
-
-  typedef int (*Func_MPI_Init)(PARAMS);
-  static Func_MPI_Init fn = nullptr;
-  if (!fn) {
-    fn = reinterpret_cast<Func_MPI_Init>(dlsym(RTLD_NEXT, "MPI_Init"));
+  static Func_MPI_Init fn = libmpi.MPI_Init;
+  if (environment::noTempi) {
+    return fn(ARGS_MPI_Init);
   }
-  TEMPI_DISABLE_GUARD;
-  int err = fn(ARGS);
+
+  int err = fn(ARGS_MPI_Init);
   // can use logging now that MPI_Init has been called
   LOG_DEBUG("finished library MPI_Init");
 
-  streams_init();
+  int provided;
+  MPI_Query_thread(&provided);
+  if (MPI_THREAD_SINGLE == provided) {
+    LOG_DEBUG("MPI_THREAD_SINGLE");
+  } else if (MPI_THREAD_FUNNELED) {
+    LOG_DEBUG("MPI_THREAD_FUNNELED");
+  } else if (MPI_THREAD_SERIALIZED) {
+    LOG_DEBUG("MPI_THREAD_SERIALIZED");
+  } else if (MPI_THREAD_MULTIPLE) {
+    LOG_DEBUG("MPI_THREAD_MULTIPLE");
+  }
 
+  topology_init();
+  streams_init();
   worker_init();
+
+
+
+
+
 
   return err;
 }

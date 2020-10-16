@@ -1,36 +1,52 @@
 #include <mpi.h>
+#include <nvToolsExt.h>
 
-int main(int argc, char **argv)
-{
-    MPI_Init(&argc, &argv);
+#include "../include/env.hpp"
 
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+int main(int argc, char **argv) {
+  MPI_Init(&argc, &argv);
 
-    float *hostSend = new float[100];
-    float *hostRecv = new float[100];
-    float *deviceSend, *deviceRecv;
-    cudaMalloc(&deviceSend, sizeof(float) * 100);
-    cudaMalloc(&deviceRecv, sizeof(float) * 100);
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    MPI_Request reqSend, reqRecv;
-    MPI_Isend(hostSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
-    MPI_Irecv(hostRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
-    MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
-    MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
+  float *hostSend = new float[100];
+  float *hostRecv = new float[100];
+  float *deviceSend, *deviceRecv;
+  cudaMalloc(&deviceSend, sizeof(float) * 100);
+  cudaMalloc(&deviceRecv, sizeof(float) * 100);
+  MPI_Request reqSend, reqRecv;
 
-    MPI_Isend(deviceSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
-    MPI_Irecv(deviceRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
-    MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
-    MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
+  // host send / recv
+  MPI_Isend(hostSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
+  MPI_Irecv(hostRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
+  MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
+  MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
 
+  // device send/recv
+  nvtxRangePush("TEMPI");
+  MPI_Isend(deviceSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
+  MPI_Irecv(deviceRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
+  MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
+  MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
+  nvtxRangePop();
 
-    MPI_Finalize();
+  environment::noTempi = true;
 
-    delete[] hostSend;
-    delete[] hostRecv;
-    cudaFree(deviceSend);
-    cudaFree(deviceRecv);
+  nvtxRangePush("noTempi");
+  // device send/recv
+  MPI_Isend(deviceSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
+  MPI_Irecv(deviceRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
+  MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
+  MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
+  nvtxRangePop();
 
-    return 0;
+  environment::noTempi = false;
+  MPI_Finalize();
+
+  delete[] hostSend;
+  delete[] hostRecv;
+  cudaFree(deviceSend);
+  cudaFree(deviceRecv);
+
+  return 0;
 }

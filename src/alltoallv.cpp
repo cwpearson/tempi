@@ -1,8 +1,8 @@
 #include "cuda_runtime.hpp"
 #include "env.hpp"
 #include "logging.hpp"
+#include "topology.hpp"
 #include "types.hpp"
-#include "worker.hpp"
 
 #include "allocator_slab.hpp"
 
@@ -21,6 +21,50 @@
   sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls,        \
       recvtype, comm
 
+int alltoallv_remote_first(PARAMS) {
+
+  int err = MPI_SUCCESS;
+
+  int commSize = 0;
+  MPI_Comm_size(comm, &commSize);
+
+  std::vector<MPI_Request> sendReqs(commSize, {});
+  std::vector<MPI_Request> recvReqs(commSize, {});
+
+  // start remote comms first. if this isn't MPI_COMM_WORLD, it will still be
+  // correct, just random which are first and second
+  for (int j = 0; j < commSize; ++j) {
+    if (!is_colocated(j)) {
+      MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
+                comm, &sendReqs[j]);
+    }
+  }
+  for (int j = 0; j < commSize; ++j) {
+    if (is_colocated(j)) {
+      MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
+                comm, &sendReqs[j]);
+    }
+  }
+
+  for (int i = 0; i < commSize; ++i) {
+    {
+      int e = MPI_Irecv(((char *)recvbuf) + rdispls[i], recvcounts[i], recvtype,
+                        i, 0, comm, &recvReqs[i]);
+      err = (MPI_SUCCESS == e ? err : e);
+    }
+  }
+  {
+    int e = MPI_Waitall(sendReqs.size(), sendReqs.data(), MPI_STATUS_IGNORE);
+    err = (MPI_SUCCESS == e ? err : e);
+  }
+  {
+    int e = MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
+    err = (MPI_SUCCESS == e ? err : e);
+  }
+
+  return err;
+}
+
 extern "C" int MPI_Alltoallv(PARAMS) {
   typedef int (*Func_MPI_Alltoallv)(PARAMS);
   static Func_MPI_Alltoallv fn = nullptr;
@@ -34,9 +78,6 @@ extern "C" int MPI_Alltoallv(PARAMS) {
   }
   LOG_DEBUG("MPI_Alltoallv");
 
-  int commSize = 0;
-  MPI_Comm_size(comm, &commSize);
-
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes sendAttr = {}, recvAttr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&sendAttr, sendbuf));
@@ -46,19 +87,10 @@ extern "C" int MPI_Alltoallv(PARAMS) {
     return fn(ARGS);
   }
 
-  std::vector<MPI_Request> sendReqs(commSize);
-  std::vector<MPI_Request> recvReqs(commSize);
-
-  for (int j = 0; j < commSize; ++j) {
-    MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
-              comm, &sendReqs[j]);
+  if (MPI_COMM_WORLD != comm) {
+    LOG_WARN("alltoallv remote-first optimization disabled");
+    return fn(ARGS);
+  } else {
+    return alltoallv_remote_first(ARGS);
   }
-  for (int i = 0; i < commSize; ++i) {
-    MPI_Irecv(((char *)recvbuf) + rdispls[i], recvcounts[i], recvtype, i, 0,
-              comm, &recvReqs[i]);
-  }
-  MPI_Waitall(sendReqs.size(), sendReqs.data(), MPI_STATUS_IGNORE);
-  MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
-
-  return MPI_SUCCESS;
 }
