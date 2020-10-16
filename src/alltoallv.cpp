@@ -8,6 +8,7 @@
 
 #include <cuda_runtime.h>
 #include <mpi.h>
+#include <nvToolsExt.h>
 
 #include <dlfcn.h>
 
@@ -21,6 +22,9 @@
   sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls,        \
       recvtype, comm
 
+/* implement as a bunch of Isend/Irecv, with the remote ones issued before the
+ * local ones
+ */
 int alltoallv_remote_first(PARAMS) {
 
   int err = MPI_SUCCESS;
@@ -65,6 +69,41 @@ int alltoallv_remote_first(PARAMS) {
   return err;
 }
 
+/* implement as a bunch of copies to the CPU, then a CPU alltoallv, then a bunch
+ * of copies to the GPU
+ */
+int alltoallv_staged(PARAMS) {
+
+  int err = MPI_SUCCESS;
+
+  int commSize = 0;
+  MPI_Comm_size(comm, &commSize);
+
+  std::vector<MPI_Request> sendReqs(commSize, {});
+  std::vector<MPI_Request> recvReqs(commSize, {});
+
+  nvtxRangePush("alloc");
+  size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
+  size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
+  char *hSendBuf = new char[sendBufSize];
+  char *hRecvBuf = new char[recvBufSize];
+  nvtxRangePop();
+
+  CUDA_RUNTIME(
+      cudaMemcpy(hSendBuf, sendbuf, sendBufSize, cudaMemcpyDeviceToHost));
+  err = MPI_Alltoallv(hSendBuf, sendcounts, sdispls, sendtype, hRecvBuf, recvcounts,
+                rdispls, recvtype, comm);
+  CUDA_RUNTIME(
+      cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
+
+  nvtxRangePush("free");
+  delete[] hSendBuf;
+  delete[] hRecvBuf;
+  nvtxRangePop();
+
+  return err;
+}
+
 extern "C" int MPI_Alltoallv(PARAMS) {
   typedef int (*Func_MPI_Alltoallv)(PARAMS);
   static Func_MPI_Alltoallv fn = nullptr;
@@ -91,6 +130,7 @@ extern "C" int MPI_Alltoallv(PARAMS) {
     LOG_WARN("alltoallv remote-first optimization disabled");
     return fn(ARGS);
   } else {
-    return alltoallv_remote_first(ARGS);
+    // return alltoallv_remote_first(ARGS);
+    return alltoallv_staged(ARGS);
   }
 }
