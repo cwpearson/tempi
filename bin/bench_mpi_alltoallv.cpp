@@ -70,41 +70,27 @@ bench(std::vector<std::vector<int>> bytes, // bytes from i -> j, square matrix
   CUDA_RUNTIME(cudaMalloc(&src, sendBufSize));
   CUDA_RUNTIME(cudaMalloc(&dst, recvBufSize));
 
-  std::vector<MPI_Request> sendReqs(bytes.size());
-  std::vector<MPI_Request> recvReqs(bytes.size());
-
   Statistics stats;
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
-    int position = 0;
     MPI_Barrier(MPI_COMM_WORLD);
-    auto start = Clock::now();
     nvtxRangePush("alltoallv");
+    auto start = Clock::now();
     MPI_Alltoallv(src, sendcounts.data(), sdispls.data(), MPI_BYTE, dst,
                   recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
-
-#if 0
-    for (int j = 0; j < bytes.size(); ++j) {
-      MPI_Isend(src + sdispls[j], sendcounts[j], MPI_BYTE, j, 0, MPI_COMM_WORLD,
-                &sendReqs[j]);
-    }
-    for (int i = 0; i < bytes.size(); ++i) {
-      MPI_Irecv(dst + rdispls[i], recvcounts[i], MPI_BYTE, i, 0, MPI_COMM_WORLD,
-                &recvReqs[i]);
-    }
-    MPI_Waitall(sendReqs.size(), sendReqs.data(), MPI_STATUS_IGNORE);
-    MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
-#endif
-
     auto stop = Clock::now();
     nvtxRangePop();
     Duration dur = stop - start;
-    stats.insert(dur.count());
+    double tmp = dur.count();
+
+    MPI_Allreduce(MPI_IN_PLACE, &tmp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    stats.insert(tmp);
   }
   nvtxRangePop();
 
   CUDA_RUNTIME(cudaFree(src));
   CUDA_RUNTIME(cudaFree(dst));
+
 
   return BenchResult{.alltoallvTime = stats.trimean()};
 }
@@ -114,7 +100,6 @@ int main(int argc, char **argv) {
   environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
-  // run on only ranks 0 and 1
   int size, rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -126,20 +111,20 @@ int main(int argc, char **argv) {
 
   srand(101);
 
-  int total = 0;
+  size_t total = 0;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       int val = (rand() % 10 + 1) * 1024 * 1024;
       map[i][j] = val;
-      if (0 == rank)
-        std::cout << val << " ";
+      //if (0 == rank)
+      //  std::cout << val << " ";
       total += val;
     }
-    if (0 == rank)
-      std::cout << "\n";
+    //if (0 == rank)
+      //std::cout << "\n";
   }
 
-  int nIters = 10;
+  int nIters = 30;
 
   BenchResult result;
 
