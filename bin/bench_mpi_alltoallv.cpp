@@ -91,7 +91,6 @@ bench(std::vector<std::vector<int>> bytes, // bytes from i -> j, square matrix
   CUDA_RUNTIME(cudaFree(src));
   CUDA_RUNTIME(cudaFree(dst));
 
-
   return BenchResult{.alltoallvTime = stats.trimean()};
 }
 
@@ -124,12 +123,12 @@ int main(int argc, char **argv) {
     for (int j = 0; j < size; ++j) {
       int val = (rand() % 10 + 1) * 1024 * 1024;
       map[i][j] = val;
-      //if (0 == rank)
+      // if (0 == rank)
       //  std::cout << val << " ";
       total += val;
     }
-    //if (0 == rank)
-      //std::cout << "\n";
+    // if (0 == rank)
+    // std::cout << "\n";
   }
 
   int nIters = 20;
@@ -139,7 +138,7 @@ int main(int argc, char **argv) {
   std::vector<bool> tempis = {true, false};
 
   if (0 == rank) {
-    std::cout << "n,tempi,MiB/s\n";
+    std::cout << "n,tempi,s,MiB/s\n";
   }
 
   for (bool tempi : tempis) {
@@ -158,7 +157,8 @@ int main(int argc, char **argv) {
     result = bench(map, tempi, nIters);
     nvtxRangePop();
     if (0 == rank) {
-      std::cout << "," << double(total) / 1024 / 1024 / result.alltoallvTime;
+      std::cout << "," << result.alltoallvTime << ","
+                << double(total) / 1024 / 1024 / result.alltoallvTime;
       std::cout << std::flush;
     }
 
