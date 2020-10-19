@@ -128,19 +128,16 @@ int alltoallv_staged_isir(PARAMS) {
   CUDA_RUNTIME(
       cudaMemcpy(hSendBuf, sendbuf, sendBufSize, cudaMemcpyDeviceToHost));
 
-  CUDA_RUNTIME(
-      cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
-
   // start remote comms first. if this isn't MPI_COMM_WORLD, it will still be
   // correct, just random which are first and second
   for (int j = 0; j < commSize; ++j) {
-    MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
+    MPI_Isend(((char *)hSendBuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
               comm, &sendReqs[j]);
   }
   for (int i = 0; i < commSize; ++i) {
     {
-      int e = MPI_Irecv(((char *)recvbuf) + rdispls[i], recvcounts[i], recvtype,
-                        i, 0, comm, &recvReqs[i]);
+      int e = MPI_Irecv(((char *)hRecvBuf) + rdispls[i], recvcounts[i],
+                        recvtype, i, 0, comm, &recvReqs[i]);
       err = (MPI_SUCCESS == e ? err : e);
     }
   }
@@ -152,6 +149,9 @@ int alltoallv_staged_isir(PARAMS) {
     int e = MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
     err = (MPI_SUCCESS == e ? err : e);
   }
+
+  CUDA_RUNTIME(
+      cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
 
   nvtxRangePush("free");
   CUDA_RUNTIME(cudaFreeHost(hSendBuf));
