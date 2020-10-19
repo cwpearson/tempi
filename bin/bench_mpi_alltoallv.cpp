@@ -83,19 +83,6 @@ bench(std::vector<std::vector<int>> bytes, // bytes from i -> j, square matrix
     MPI_Alltoallv(src, sendcounts.data(), sdispls.data(), MPI_BYTE, dst,
                   recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
 
-#if 0
-    for (int j = 0; j < bytes.size(); ++j) {
-      MPI_Isend(src + sdispls[j], sendcounts[j], MPI_BYTE, j, 0, MPI_COMM_WORLD,
-                &sendReqs[j]);
-    }
-    for (int i = 0; i < bytes.size(); ++i) {
-      MPI_Irecv(dst + rdispls[i], recvcounts[i], MPI_BYTE, i, 0, MPI_COMM_WORLD,
-                &recvReqs[i]);
-    }
-    MPI_Waitall(sendReqs.size(), sendReqs.data(), MPI_STATUS_IGNORE);
-    MPI_Waitall(recvReqs.size(), recvReqs.data(), MPI_STATUS_IGNORE);
-#endif
-
     auto stop = Clock::now();
     nvtxRangePop();
     Duration dur = stop - start;
@@ -114,18 +101,24 @@ int main(int argc, char **argv) {
   environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
-  // run on only ranks 0 and 1
   int size, rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+  if (0 == rank) {
+    char version[MPI_MAX_LIBRARY_VERSION_STRING] = {};
+    int len;
+    MPI_Get_library_version(version, &len);
+    std::cout << version << std::endl;
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // all ranks build the same communication map
   std::vector<std::vector<int>> map;
   for (int i = 0; i < size; ++i) {
     map.push_back(std::vector<int>(size, 0));
   }
-
   srand(101);
-
   int total = 0;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
@@ -139,14 +132,14 @@ int main(int argc, char **argv) {
       std::cout << "\n";
   }
 
-  int nIters = 10;
+  int nIters = 20;
 
   BenchResult result;
 
   std::vector<bool> tempis = {true, false};
 
   if (0 == rank) {
-    std::cout << "n,tempi, MiB/s\n";
+    std::cout << "n,tempi,MiB/s\n";
   }
 
   for (bool tempi : tempis) {
