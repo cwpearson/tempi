@@ -17,10 +17,16 @@ typedef int (*Func_MPI_Init_thread)(PARAMS_MPI_Init_thread);
 #define ARGS_MPI_Isend buf, count, datatype, dest, tag, comm, request
 typedef int (*Func_MPI_Isend)(PARAMS_MPI_Isend);
 
+#define PARAMS_MPI_Get_library_version char *version, int *resultlen
+#define ARGS_MPI_Get_library_version version, resultlen
+typedef int (*Func_MPI_Get_library_version)(PARAMS_MPI_Get_library_version);
+
+
 struct MpiFunc {
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
+  Func_MPI_Get_library_version MPI_Get_library_version;
 };
 
 extern MpiFunc libmpi;
