@@ -3,7 +3,7 @@
 #include "logging.hpp"
 #include "types.hpp"
 
-#include "allocator_slab.hpp"
+#include "allocator_device_slab.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
@@ -52,7 +52,7 @@ extern "C" int MPI_Send(PARAMS) {
   }
   void *packBuf = nullptr;
   // CUDA_RUNTIME(cudaMalloc(&packBuf, packedBytes));
-  packBuf = testAllocator.allocate(packedBytes);
+  packBuf = deviceAllocator.allocate(packedBytes);
   LOG_SPEW("allocate " << packedBytes << "B device send buffer");
 
   // pack into device buffer
@@ -64,7 +64,7 @@ extern "C" int MPI_Send(PARAMS) {
 
   // release temporary buffer
   // CUDA_RUNTIME(cudaFree(packBuf));
-  testAllocator.deallocate(packBuf, 0);
+  deviceAllocator.deallocate(packBuf, 0);
 
   return err;
 }

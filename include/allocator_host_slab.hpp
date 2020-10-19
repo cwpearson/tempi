@@ -9,7 +9,7 @@
 
 #include "cuda_runtime.hpp"
 
-template <typename T> class my_allocator {
+template <typename T> class host_allocator {
 public:
   typedef size_t size_type;
   typedef ptrdiff_t difference_type;
@@ -75,7 +75,7 @@ private:
       exit(1);
     } else { // otherwise, make a few one and mark it as full and reuturn
       void *newPtr;
-      CUDA_RUNTIME(cudaMalloc(&newPtr, 1 << i));
+      CUDA_RUNTIME(cudaMallocHost(&newPtr, 1 << i));
       slab.avail.push_back(false);
       slab.ptrs.push_back(newPtr);
       return newPtr;
@@ -83,8 +83,8 @@ private:
   }
 
 public:
-  my_allocator() {}
-  my_allocator(const my_allocator &) {}
+  host_allocator() {}
+  host_allocator(const host_allocator &) {}
 
   pointer allocate(size_type n, const void * = 0) {
 
@@ -116,19 +116,19 @@ public:
 
   pointer address(reference x) const { return &x; }
   const_pointer address(const_reference x) const { return &x; }
-  my_allocator<T> &operator=(const my_allocator &) { return *this; }
+  host_allocator<T> &operator=(const host_allocator &) { return *this; }
   void construct(pointer p, const T &val) { new ((T *)p) T(val); }
   void destroy(pointer p) { p->~T(); }
 
   size_type max_size() const { return size_t(-1); }
 
-  template <class U> struct rebind { typedef my_allocator<U> other; };
+  template <class U> struct rebind { typedef host_allocator<U> other; };
 
-  template <class U> my_allocator(const my_allocator<U> &) {}
+  template <class U> host_allocator(const host_allocator<U> &) {}
 
-  template <class U> my_allocator &operator=(const my_allocator<U> &) {
+  template <class U> host_allocator &operator=(const host_allocator<U> &) {
     return *this;
   }
 };
 
-extern my_allocator<char> testAllocator;
+extern host_allocator<char> hostAllocator;

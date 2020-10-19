@@ -5,7 +5,7 @@
 #include "topology.hpp"
 #include "types.hpp"
 
-#include "allocator_slab.hpp"
+#include "allocator_host_slab.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
@@ -84,10 +84,8 @@ int alltoallv_staged(PARAMS) {
   nvtxRangePush("alloc");
   size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
   size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
-  char *hSendBuf = {};
-  char *hRecvBuf = {};
-  CUDA_RUNTIME(cudaMallocHost(&hSendBuf, sendBufSize));
-  CUDA_RUNTIME(cudaMallocHost(&hRecvBuf, recvBufSize));
+  char *hSendBuf = hostAllocator.allocate(sendBufSize);
+  char *hRecvBuf = hostAllocator.allocate(recvBufSize);
   nvtxRangePop();
 
   CUDA_RUNTIME(
@@ -98,8 +96,8 @@ int alltoallv_staged(PARAMS) {
       cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
 
   nvtxRangePush("free");
-  CUDA_RUNTIME(cudaFreeHost(hSendBuf));
-  CUDA_RUNTIME(cudaFreeHost(hRecvBuf));
+  hostAllocator.deallocate(hSendBuf, sendBufSize);
+  hostAllocator.deallocate(hRecvBuf, recvBufSize);
   nvtxRangePop();
   return err;
 }
@@ -116,10 +114,8 @@ int alltoallv_staged_isir(PARAMS) {
   nvtxRangePush("alloc");
   size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
   size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
-  char *hSendBuf = {};
-  char *hRecvBuf = {};
-  CUDA_RUNTIME(cudaMallocHost(&hSendBuf, sendBufSize));
-  CUDA_RUNTIME(cudaMallocHost(&hRecvBuf, recvBufSize));
+  char *hSendBuf = hostAllocator.allocate(sendBufSize);
+  char *hRecvBuf = hostAllocator.allocate(recvBufSize);
   nvtxRangePop();
 
   std::vector<MPI_Request> sendReqs(commSize, {});
@@ -154,8 +150,8 @@ int alltoallv_staged_isir(PARAMS) {
       cudaMemcpy(recvbuf, hRecvBuf, recvBufSize, cudaMemcpyHostToDevice));
 
   nvtxRangePush("free");
-  CUDA_RUNTIME(cudaFreeHost(hSendBuf));
-  CUDA_RUNTIME(cudaFreeHost(hRecvBuf));
+  hostAllocator.deallocate(hSendBuf, sendBufSize);
+  hostAllocator.deallocate(hRecvBuf, recvBufSize);
   nvtxRangePop();
 
   return err;
