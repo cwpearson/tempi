@@ -17,10 +17,24 @@ typedef int (*Func_MPI_Init_thread)(PARAMS_MPI_Init_thread);
 #define ARGS_MPI_Isend buf, count, datatype, dest, tag, comm, request
 typedef int (*Func_MPI_Isend)(PARAMS_MPI_Isend);
 
+#define PARAMS_MPI_Get_library_version char *version, int *resultlen
+#define ARGS_MPI_Get_library_version version, resultlen
+typedef int (*Func_MPI_Get_library_version)(PARAMS_MPI_Get_library_version);
+
+#define PARAMS_MPI_Alltoallv \
+const void *sendbuf, const int sendcounts[],\
+    const int sdispls[], MPI_Datatype sendtype,\
+    void *recvbuf, const int recvcounts[],\
+    const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm
+#define ARGS_MPI_Alltoallv sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm
+typedef int (*Func_MPI_Alltoallv)(PARAMS_MPI_Alltoallv);
+
 struct MpiFunc {
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
+  Func_MPI_Get_library_version MPI_Get_library_version;
+  Func_MPI_Alltoallv MPI_Alltoallv;
 };
 
 extern MpiFunc libmpi;

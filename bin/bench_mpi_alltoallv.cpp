@@ -104,11 +104,19 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+  if (0 == rank) {
+    char version[MPI_MAX_LIBRARY_VERSION_STRING] = {};
+    int len;
+    MPI_Get_library_version(version, &len);
+    std::cout << version << std::endl;
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // all ranks build the same communication map
   std::vector<std::vector<int>> map;
   for (int i = 0; i < size; ++i) {
     map.push_back(std::vector<int>(size, 0));
   }
-
   srand(101);
 
   size_t total = 0;
@@ -124,14 +132,14 @@ int main(int argc, char **argv) {
       //std::cout << "\n";
   }
 
-  int nIters = 30;
+  int nIters = 20;
 
   BenchResult result;
 
   std::vector<bool> tempis = {true, false};
 
   if (0 == rank) {
-    std::cout << "n,tempi, MiB/s\n";
+    std::cout << "n,tempi,MiB/s\n";
   }
 
   for (bool tempi : tempis) {

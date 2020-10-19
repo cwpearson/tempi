@@ -10,4 +10,6 @@ void init_symbols() {
   DLSYM(MPI_Init);
   DLSYM(MPI_Init_thread);
   DLSYM(MPI_Isend);
+  DLSYM(MPI_Get_library_version);
+  DLSYM(MPI_Alltoallv);
 }

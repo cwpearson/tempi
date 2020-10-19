@@ -2,8 +2,8 @@
 #include "logging.hpp"
 #include "streams.hpp"
 #include "symbols.hpp"
-#include "worker.hpp"
 #include "topology.hpp"
+#include "worker.hpp"
 
 #include <mpi.h>
 
@@ -38,11 +38,6 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   topology_init();
   streams_init();
   worker_init();
-
-
-
-
-
 
   return err;
 }

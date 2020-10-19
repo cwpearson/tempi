@@ -38,7 +38,7 @@ void worker_loop(WorkerParams params) {
   typedef std::chrono::duration<double> Duration;
   typedef std::chrono::time_point<Clock> Time;
 
-  nvtxNameOsThread(gettid(), "worker");
+  //nvtxNameOsThread(gettid(), "worker");
 
   while (true) {
     nvtxMark("workerThread loop");
