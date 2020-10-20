@@ -114,6 +114,7 @@ int alltoallv_staged_isir(PARAMS) {
   nvtxRangePush("alloc");
   size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
   size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
+  LOG_SPEW("request " << sendBufSize << " for host sendbuf");
   char *hSendBuf = hostAllocator.allocate(sendBufSize);
   char *hRecvBuf = hostAllocator.allocate(recvBufSize);
   nvtxRangePop();
@@ -272,11 +273,16 @@ extern "C" int MPI_Alltoallv(PARAMS) {
   }
   LOG_DEBUG("MPI_Alltoallv");
 
-  // use library MPI for memory we can't reach on the device
+  /* use library MPI for memory we can't reach on the device
+    if a zero-size allocation is called with cudaMalloc, the null pointer will
+    be returned, which we cannot detect as a device pointer.
+    FIXME: for now, call the nullpointer a device pointer.
+  */
   cudaPointerAttributes sendAttr = {}, recvAttr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&sendAttr, sendbuf));
   CUDA_RUNTIME(cudaPointerGetAttributes(&recvAttr, recvbuf));
-  if (nullptr == sendAttr.devicePointer || nullptr == recvAttr.devicePointer) {
+  if ((nullptr != sendbuf && nullptr == sendAttr.devicePointer) ||
+      (nullptr != recvbuf && nullptr == recvAttr.devicePointer)) {
     LOG_DEBUG("use library (host memory)");
     return fn(ARGS);
   }
