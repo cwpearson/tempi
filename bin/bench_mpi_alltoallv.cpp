@@ -15,15 +15,38 @@ typedef std::chrono::time_point<Clock, Duration> Time;
 
 struct BenchResult {
   double alltoallvTime;
+  uint64_t totalBytes;
 };
 
 BenchResult
-bench(std::vector<std::vector<int>> bytes, // bytes from i -> j, square matrix
+bench(int64_t scale,
       bool tempi,                          // use tempi or not
       const int nIters) {
 
-  int rank;
+        BenchResult result{};
+
+        // all ranks have the same seed to make the same map
+  srand(101);
+
+  int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  // bytes send i->j
+  std::vector<std::vector<int>> bytes;
+  for (int i = 0; i < size; ++i) {
+    bytes.push_back(std::vector<int>(size, 0));
+  }
+
+  uint64_t total = 0, sendTotal, recvTotal;
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      int val = (rand() % 10 + 1) * scale;
+      bytes[i][j] = val;
+      total += val;
+    }
+  }
+  result.totalBytes = total;
 
   int sendBufSize = 0;
   for (size_t dst = 0; dst < bytes.size(); ++dst) {
@@ -91,7 +114,8 @@ bench(std::vector<std::vector<int>> bytes, // bytes from i -> j, square matrix
   CUDA_RUNTIME(cudaFree(src));
   CUDA_RUNTIME(cudaFree(dst));
 
-  return BenchResult{.alltoallvTime = stats.trimean()};
+result.alltoallvTime = stats.trimean();
+  return result;
 }
 
 int main(int argc, char **argv) {
@@ -111,31 +135,12 @@ int main(int argc, char **argv) {
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // all ranks build the same communication map
-  std::vector<std::vector<int>> map;
-  for (int i = 0; i < size; ++i) {
-    map.push_back(std::vector<int>(size, 0));
-  }
-  srand(101);
-
-  size_t total = 0;
-  for (int i = 0; i < size; ++i) {
-    for (int j = 0; j < size; ++j) {
-      int val = (rand() % 10 + 1) * 1024 * 1024;
-      map[i][j] = val;
-      // if (0 == rank)
-      //  std::cout << val << " ";
-      total += val;
-    }
-    // if (0 == rank)
-    // std::cout << "\n";
-  }
-
   int nIters = 20;
 
   BenchResult result;
 
   std::vector<bool> tempis = {true, false};
+  std::vector<int64_t> scales = {1, 1024, 1024ll * 1024ll};
 
   if (0 == rank) {
     std::cout << "n,tempi,s,MiB/s\n";
@@ -143,28 +148,31 @@ int main(int argc, char **argv) {
 
   for (bool tempi : tempis) {
 
-    std::string s;
-    s = std::to_string(total) + "/" + std::to_string(tempi);
+    for (int64_t scale : scales) {
 
-    if (0 == rank) {
-      std::cout << s;
-      std::cout << "," << total;
-      std::cout << "," << tempi;
-      std::cout << std::flush;
-    }
+      std::string s;
+      s = std::to_string(scale) + "|" + std::to_string(tempi);
 
-    nvtxRangePush(s.c_str());
-    result = bench(map, tempi, nIters);
-    nvtxRangePop();
-    if (0 == rank) {
-      std::cout << "," << result.alltoallvTime << ","
-                << double(total) / 1024 / 1024 / result.alltoallvTime;
-      std::cout << std::flush;
-    }
+      if (0 == rank) {
+        std::cout << s;
+        std::cout << "," << scale;
+        std::cout << "," << tempi;
+        std::cout << std::flush;
+      }
 
-    if (0 == rank) {
-      std::cout << "\n";
-      std::cout << std::flush;
+      nvtxRangePush(s.c_str());
+      result = bench(scale, tempi, nIters);
+      nvtxRangePop();
+      if (0 == rank) {
+        std::cout << "," << result.alltoallvTime << ","
+                  << result.totalBytes / 1024 / 1024 / result.alltoallvTime;
+        std::cout << std::flush;
+      }
+
+      if (0 == rank) {
+        std::cout << "\n";
+        std::cout << std::flush;
+      }
     }
   }
 
