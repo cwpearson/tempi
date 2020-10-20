@@ -48,6 +48,8 @@ Performance fixes for CUDA+MPI code that requires no or minimal changes:
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
 - [x] Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
   - [ ] derived datatypes
+- [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
+  - [ ] derived datatypes
 
 Performance improvements that require `mpi-ext.h`:
 - [ ] coming soon...
@@ -99,7 +101,12 @@ TEMPI makes an effort to canonicalize those types in order to determine whether 
 
 Some optimizations require reorganizing data into temporary device buffers.
 The size of those buffers is not known until runtime.
-We use a primitive slab allocator to minimize the number of `cudaMalloc` calls required.
+We use a primitive slab allocator to minimize the number of `cudaMalloc` or `cudaHostRegister`.
+
+### Topology Discovery (`include/topology.hpp`)
+
+Some optimizations rely on knowing which MPI ranks are on the same node.
+This is discovered during `MPI_Init` and can be queried quickly during other MPI functions.
 
 ## Knobs
 
@@ -141,7 +148,8 @@ To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/sy
 
 ## Contributing
 
-* The API overrides are defined in `src/*.cpp`. New MPI functions should be added there, in a file of the same name as the function without the `MPI_` prefix.
+* Underlying MPI functions are declared in `include/symbols.hpp` and discovered in `src/internal/symbols.cpp`. Any MPI functions that will be overridden should be added there.
+* The new implementations are defined in `src/*.cpp`, in a file of the same name as the function without the `MPI_` prefix.
 * Most of the internal heavy lifting is done by `include/` and `src/internal`. Reusable parts of the implementation should happen there.
   * Reading environment variable configuration is in `include/env.hpp` and `src/internal/env.cpp`.
 * Support code for benchmarking and testing is in `support/`. This code should only be used in test and benchmarking binaries, never in the implementation.
