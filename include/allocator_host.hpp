@@ -23,8 +23,12 @@ public:
   host_allocator(const host_allocator &) {}
 
   pointer allocate(size_type n, const void * = 0) {
+    if (!n) {
+      return nullptr;
+    }
     T *t = new T[n];
     if (!t) {
+      LOG_ERROR("failed to allocate " << n << " elems of size " << sizeof(T));
       throw std::bad_alloc();
     }
     cudaError_t err =
