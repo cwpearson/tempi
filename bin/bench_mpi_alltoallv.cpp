@@ -6,7 +6,10 @@
 #include <mpi.h>
 #include <nvToolsExt.h>
 
+#include <algorithm>
 #include <chrono>
+#include <numeric>
+#include <random>
 #include <sstream>
 
 typedef std::chrono::system_clock Clock;
@@ -18,14 +21,13 @@ struct BenchResult {
   uint64_t totalBytes;
 };
 
-BenchResult
-bench(int64_t scale,
-      bool tempi,                          // use tempi or not
-      const int nIters) {
+BenchResult bench(int64_t scale, float density,
+                  bool tempi, // use tempi or not
+                  const int nIters) {
 
-        BenchResult result{};
+  BenchResult result{};
 
-        // all ranks have the same seed to make the same map
+  // all ranks have the same seed to make the same map
   srand(101);
 
   int rank, size;
@@ -33,56 +35,125 @@ bench(int64_t scale,
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   // bytes send i->j
-  std::vector<std::vector<int>> bytes;
-  for (int i = 0; i < size; ++i) {
-    bytes.push_back(std::vector<int>(size, 0));
-  }
+  std::vector<int> bytes(size * size, 0);
 
-  uint64_t total = 0, sendTotal, recvTotal;
+  // random number of bytes in each bin
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       int val = (rand() % 10 + 1) * scale;
-      bytes[i][j] = val;
+      bytes[i * size + j] = val;
+    }
+  }
+
+  // zero some bins to match target
+  std::vector<size_t> zeroes(bytes.size());
+  std::iota(zeroes.begin(), zeroes.end(), 0);
+  std::shuffle(zeroes.begin(), zeroes.end(), std::default_random_engine(101));
+  for (size_t i = 0; i < zeroes.size() * (1.0 - density); ++i) {
+    bytes[zeroes[i]] = 0;
+  }
+
+  // communication traffic statistics
+  uint64_t total = 0, sendTotal = 0, recvTotal = 0;
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      int val = bytes[i * size + j];
       total += val;
+      if (i == rank) {
+        sendTotal += val;
+      }
+      if (j == rank) {
+        recvTotal += val;
+      }
     }
   }
   result.totalBytes = total;
 
-  int sendBufSize = 0;
-  for (size_t dst = 0; dst < bytes.size(); ++dst) {
-    sendBufSize += bytes[rank][dst];
+#if 0
+  for (int r = 0; r < size; ++r) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (r == rank) {
+      std::cout << "rank:" << rank << "\n";
+      for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+          int val = bytes[i * size + j];
+          std::cout << val << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "\n";
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+#endif
+
+  size_t sendBufSize = 0;
+  for (size_t dst = 0; dst < size; ++dst) {
+    sendBufSize += bytes[rank * size + dst];
   }
   // LOG_INFO("sendBufSize=" << sendBufSize);
 
   std::vector<int> sendcounts;
-  for (size_t dst = 0; dst < bytes.size(); ++dst) {
-    sendcounts.push_back(bytes[rank][dst]);
+  for (size_t dst = 0; dst < size; ++dst) {
+    sendcounts.push_back(bytes[rank * size + dst]);
   }
 
   std::vector<int> sdispls;
   sdispls.push_back(0);
-  for (size_t dst = 1; dst < bytes.size(); ++dst) {
+  for (size_t dst = 1; dst < size; ++dst) {
     sdispls.push_back(sdispls[dst - 1] + sendcounts[dst - 1]);
   }
 
-  int recvBufSize = 0;
-  for (size_t src = 0; src < bytes.size(); ++src) {
-    recvBufSize += bytes[src][rank];
+  size_t recvBufSize = 0;
+  for (size_t src = 0; src < size; ++src) {
+    recvBufSize += bytes[src * size + rank];
   }
   // LOG_INFO("recvBufSize=" << recvBufSize);
 
   std::vector<int> recvcounts;
-  for (size_t src = 0; src < bytes.size(); ++src) {
-    recvcounts.push_back(bytes[src][rank]);
+  for (size_t src = 0; src < size; ++src) {
+    recvcounts.push_back(bytes[src * size + rank]);
   }
   // LOG_INFO("recvcounts=" << recvcounts[0] << "," << recvcounts[1]);
 
   std::vector<int> rdispls;
   rdispls.push_back(0);
-  for (size_t src = 1; src < bytes.size(); ++src) {
+  for (size_t src = 1; src < size; ++src) {
     rdispls.push_back(rdispls[src - 1] + recvcounts[src - 1]);
   }
   // LOG_INFO("rdispls=" << rdispls[0] << "," << rdispls[1]);
+
+#if 0
+  for (int r = 0; r < size; ++r) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (r == rank) {
+      std::cout << "rank:" << rank << "\n";
+      std::cout << "sendcounts=";
+      for (int i = 0; i < size; ++i) {
+        std::cout << sendcounts[i] << " ";
+      }
+      std::cout << "\n";
+      std::cout << "sdispls=";
+      for (int i = 0; i < size; ++i) {
+        std::cout << sdispls[i] << " ";
+      }
+      std::cout << "\n";
+      std::cout << "recvcounts=";
+      for (int i = 0; i < size; ++i) {
+        std::cout << recvcounts[i] << " ";
+      }
+      std::cout << "\n";
+      std::cout << "rdispls=";
+      for (int i = 0; i < size; ++i) {
+        std::cout << rdispls[i] << " ";
+      }
+      std::cout << "\n";
+      std::cout << "\n";
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+  std::cout << std::flush;
+#endif
 
   // configure TEMPI
   environment::noTempi = !tempi;
@@ -101,6 +172,7 @@ bench(int64_t scale,
     auto start = Clock::now();
     MPI_Alltoallv(src, sendcounts.data(), sdispls.data(), MPI_BYTE, dst,
                   recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
+
     auto stop = Clock::now();
     nvtxRangePop();
     Duration dur = stop - start;
@@ -114,7 +186,7 @@ bench(int64_t scale,
   CUDA_RUNTIME(cudaFree(src));
   CUDA_RUNTIME(cudaFree(dst));
 
-result.alltoallvTime = stats.trimean();
+  result.alltoallvTime = stats.trimean();
   return result;
 }
 
@@ -135,43 +207,50 @@ int main(int argc, char **argv) {
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int nIters = 20;
+  int nIters = 30;
 
   BenchResult result;
 
-  std::vector<bool> tempis = {true, false};
-  std::vector<int64_t> scales = {1, 1024, 1024ll * 1024ll};
+  std::vector<bool> tempis{true, false};
+  std::vector<int64_t> scales{1, 1024, 1024ll * 1024ll};
+  std::vector<float> densities{0.05, 0.1, 0.5, 1.0};
 
   if (0 == rank) {
-    std::cout << "n,tempi,s,MiB/s\n";
+    std::cout << "description,tempi,B,elapsed (s),aggregate (MiB/s)\n";
   }
 
   for (bool tempi : tempis) {
 
     for (int64_t scale : scales) {
 
-      std::string s;
-      s = std::to_string(scale) + "|" + std::to_string(tempi);
+      for (float density : densities) {
 
-      if (0 == rank) {
-        std::cout << s;
-        std::cout << "," << scale;
-        std::cout << "," << tempi;
-        std::cout << std::flush;
-      }
+        std::string s;
+        s = std::to_string(scale) + "|" + std::to_string(density) + "|" +
+            std::to_string(tempi);
 
-      nvtxRangePush(s.c_str());
-      result = bench(scale, tempi, nIters);
-      nvtxRangePop();
-      if (0 == rank) {
-        std::cout << "," << result.alltoallvTime << ","
-                  << result.totalBytes / 1024 / 1024 / result.alltoallvTime;
-        std::cout << std::flush;
-      }
+        if (0 == rank) {
+          std::cout << s;
+          std::cout << "," << scale;
+          std::cout << "," << tempi;
+          std::cout << std::flush;
+        }
 
-      if (0 == rank) {
-        std::cout << "\n";
-        std::cout << std::flush;
+        nvtxRangePush(s.c_str());
+        result = bench(scale, density, tempi, nIters);
+        nvtxRangePop();
+        if (0 == rank) {
+          std::cout << "," << result.totalBytes << "," << result.alltoallvTime
+                    << ","
+                    << double(result.totalBytes) / 1024 / 1024 /
+                           result.alltoallvTime;
+          std::cout << std::flush;
+        }
+
+        if (0 == rank) {
+          std::cout << "\n";
+          std::cout << std::flush;
+        }
       }
     }
   }
