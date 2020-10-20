@@ -112,6 +112,10 @@ private:
    */
   void *alloc_request(size_t n) {
 
+    if (0 == n) {
+      return nullptr;
+    }
+
     Pool &pool = get_pool_for_size(n);
 
     // if there is a pre-allocated available spot, mark it as full and return it
@@ -159,6 +163,9 @@ public:
   }
 
   void deallocate(void *p, size_type n) {
+    if (0 == n) {
+      return;
+    }
     ++stats_.numReleases;
     // retrieve the pool this allocation must have come from
     Pool &pool = get_pool_for_size(n);
