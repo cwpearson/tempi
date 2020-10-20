@@ -39,6 +39,21 @@ sendbuf, sendcounts, sdispls,\
                            rdispls, recvtype, comm
 typedef int (*Func_MPI_Neighbor_alltoallv)(PARAMS_MPI_Neighbor_alltoallv);
 
+
+#define PARAMS_MPI_Dist_graph_create \
+MPI_Comm comm_old, int n, const int sources[],\
+                          const int degrees[], const int destinations[],\
+                          const int weights[],\
+                          MPI_Info info, int reorder, MPI_Comm * comm_dist_graph
+#define ARGS_MPI_Dist_graph_create \
+comm_old, n, sources,\
+                          degrees, destinations,\
+                          weights,\
+                          info, reorder, comm_dist_graph
+typedef int (*Func_MPI_Dist_graph_create)(PARAMS_MPI_Dist_graph_create);
+
+
+
 struct MpiFunc {
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
@@ -46,6 +61,7 @@ struct MpiFunc {
   Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Alltoallv MPI_Alltoallv;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
+  Func_MPI_Dist_graph_create MPI_Dist_graph_create;
 };
 
 extern MpiFunc libmpi;
