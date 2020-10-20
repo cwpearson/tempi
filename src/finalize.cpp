@@ -21,6 +21,7 @@ extern "C" int MPI_Finalize() {
   // disabled now
   TEMPI_DISABLE_GUARD;
 
+#if TEMPI_OUTPUT_LEVEL >= 4
   {
     auto stats = hostAllocator.stats();
     LOG_DEBUG("Host Allocator Requests:        " << stats.numRequests);
@@ -37,6 +38,7 @@ extern "C" int MPI_Finalize() {
                                                           1024);
     LOG_DEBUG("Device Allocator allocs:          " << stats.numAllocs);
   }
+#endif
 
   worker_finalize();
   streams_finalize();
