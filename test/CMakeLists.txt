@@ -16,17 +16,17 @@ endmacro()
 
 # some tests just check semantics of MPI implementation
 pmpi_test_exe(type_size type_size.cpp)
-add_test(NAME type_size COMMAND ${MPIEXEC_EXECUTABLE} -n 1 type_size)
+add_test(NAME type_size COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_size)
 
 # tests for tempi functionality
 pmpi_test_exe(init_finalize init_finalize.cpp)
-add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} -n 1 init_finalize)
+add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 init_finalize)
 
 pmpi_test_exe(isend isend.cu)
-add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} -n 1 isend)
+add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isend)
 
 pmpi_test_exe(type_commit type_commit.cpp)
-add_test(NAME type_commit COMMAND ${MPIEXEC_EXECUTABLE} -n 1 type_commit)
+add_test(NAME type_commit COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_commit)
 
 pmpi_test_exe(pack pack.cpp)
-add_test(NAME pack COMMAND ${MPIEXEC_EXECUTABLE} -n 1 pack)
+add_test(NAME pack COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 pack)

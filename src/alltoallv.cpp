@@ -5,7 +5,7 @@
 #include "topology.hpp"
 #include "types.hpp"
 
-#include "allocator_host_slab.hpp"
+#include "allocators.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>

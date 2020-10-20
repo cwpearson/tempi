@@ -1,3 +1,4 @@
+#include "allocators.hpp"
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
@@ -27,14 +28,15 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   MPI_Query_thread(&provided);
   if (MPI_THREAD_SINGLE == provided) {
     LOG_DEBUG("MPI_THREAD_SINGLE");
-  } else if (MPI_THREAD_FUNNELED) {
+  } else if (MPI_THREAD_FUNNELED == provided) {
     LOG_DEBUG("MPI_THREAD_FUNNELED");
-  } else if (MPI_THREAD_SERIALIZED) {
+  } else if (MPI_THREAD_SERIALIZED == provided) {
     LOG_DEBUG("MPI_THREAD_SERIALIZED");
-  } else if (MPI_THREAD_MULTIPLE) {
+  } else if (MPI_THREAD_MULTIPLE == provided) {
     LOG_DEBUG("MPI_THREAD_MULTIPLE");
   }
 
+  allocators_init();
   topology_init();
   streams_init();
   worker_init();

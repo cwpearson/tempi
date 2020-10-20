@@ -29,12 +29,23 @@ const void *sendbuf, const int sendcounts[],\
 #define ARGS_MPI_Alltoallv sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, comm
 typedef int (*Func_MPI_Alltoallv)(PARAMS_MPI_Alltoallv);
 
+#define PARAMS_MPI_Neighbor_alltoallv \
+const void *sendbuf, const int sendcounts[], const int sdispls[],\
+                           MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],\
+                           const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm
+                           #define ARGS_MPI_Neighbor_alltoallv \
+sendbuf, sendcounts, sdispls,\
+                           sendtype, recvbuf, recvcounts,\
+                           rdispls, recvtype, comm
+typedef int (*Func_MPI_Neighbor_alltoallv)(PARAMS_MPI_Neighbor_alltoallv);
+
 struct MpiFunc {
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
   Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Alltoallv MPI_Alltoallv;
+  Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
 };
 
 extern MpiFunc libmpi;

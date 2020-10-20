@@ -3,6 +3,8 @@ ${CMAKE_CURRENT_LIST_DIR}/alltoallv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/finalize.cpp
 ${CMAKE_CURRENT_LIST_DIR}/init.cpp
 ${CMAKE_CURRENT_LIST_DIR}/isend.cpp
+${CMAKE_CURRENT_LIST_DIR}/isend.cpp
+${CMAKE_CURRENT_LIST_DIR}/neighbor_alltoallv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/recv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/send.cpp

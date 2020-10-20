@@ -1,3 +1,4 @@
+#include "allocators.hpp"
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
@@ -20,8 +21,28 @@ extern "C" int MPI_Finalize() {
   // disabled now
   TEMPI_DISABLE_GUARD;
 
+  {
+    auto stats = hostAllocator.stats();
+    LOG_DEBUG("Host Allocator Requests:        " << stats.numRequests);
+    LOG_DEBUG("Host Allocator Releases:        " << stats.numReleases);
+    LOG_DEBUG("Host Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
+                                                        1024);
+    LOG_DEBUG("Host Allocator allocs:          " << stats.numAllocs);
+  }
+  {
+    auto stats = deviceAllocator.stats();
+    LOG_DEBUG("Device Allocator Requests:        " << stats.numRequests);
+    LOG_DEBUG("Device Allocator Releases:        " << stats.numReleases);
+    LOG_DEBUG("Device Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
+                                                          1024);
+    LOG_DEBUG("Device Allocator allocs:          " << stats.numAllocs);
+  }
+
   worker_finalize();
   streams_finalize();
+  allocators_finalize();
 
-  return fn();
+  LOG_DEBUG("library MPI_Finalize");
+  int err = fn();
+  return err;
 }

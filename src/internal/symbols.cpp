@@ -12,4 +12,5 @@ void init_symbols() {
   DLSYM(MPI_Isend);
   DLSYM(MPI_Get_library_version);
   DLSYM(MPI_Alltoallv);
+  DLSYM(MPI_Neighbor_alltoallv);
 }

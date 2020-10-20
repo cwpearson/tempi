@@ -6,7 +6,7 @@
 #include "types.hpp"
 #include "worker.hpp"
 
-#include "allocator_device_slab.hpp"
+#include "allocators.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
