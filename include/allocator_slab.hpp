@@ -128,6 +128,7 @@ private:
     { // otherwise, make a few one and mark it as full and reuturn
       const size_t allocSize = alloc_size_for(n);
       void *newPtr = allocator.allocate(allocSize);
+      LOG_SPEW("calling allocator for " << allocSize << "B");
       ++stats_.numAllocs;
       stats_.currUsage += allocSize;
       stats_.maxUsage = std::max(stats_.maxUsage, stats_.currUsage);
