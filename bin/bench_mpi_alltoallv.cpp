@@ -18,7 +18,7 @@ typedef std::chrono::time_point<Clock, Duration> Time;
 
 struct BenchResult {
   double alltoallvTime;
-  uint64_t totalBytes;
+  uint64_t numBytes;
 };
 
 BenchResult bench(int64_t scale, float density,
@@ -54,11 +54,10 @@ BenchResult bench(int64_t scale, float density,
   }
 
   // communication traffic statistics
-  uint64_t total = 0, sendTotal = 0, recvTotal = 0;
+  uint64_t sendTotal = 0, recvTotal = 0;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       int val = bytes[i * size + j];
-      total += val;
       if (i == rank) {
         sendTotal += val;
       }
@@ -67,7 +66,10 @@ BenchResult bench(int64_t scale, float density,
       }
     }
   }
-  result.totalBytes = total;
+  if (sendTotal != recvTotal) {
+    LOG_FATAL("send/recv total mismatch");
+  }
+  result.numBytes = sendTotal;
 
 #if 0
   for (int r = 0; r < size; ++r) {
@@ -240,9 +242,9 @@ int main(int argc, char **argv) {
         result = bench(scale, density, tempi, nIters);
         nvtxRangePop();
         if (0 == rank) {
-          std::cout << "," << result.totalBytes << "," << result.alltoallvTime
+          std::cout << "," << result.numBytes << "," << result.alltoallvTime
                     << ","
-                    << double(result.totalBytes) / 1024 / 1024 /
+                    << double(result.numBytes) / 1024 / 1024 /
                            result.alltoallvTime;
           std::cout << std::flush;
         }
