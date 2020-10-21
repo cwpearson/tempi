@@ -46,7 +46,6 @@ static int staged(int numBytes, // pre-computed buffer size in bytes
 
   // reserve intermediate buffer
   void *hostBuf = hostAllocator.allocate(numBytes);
-  LOG_SPEW("allocate " << numBytes << "B host send buffer");
 
   // copy to host
   CUDA_RUNTIME(cudaMemcpy(hostBuf, buf, numBytes, cudaMemcpyDeviceToHost));
@@ -55,27 +54,26 @@ static int staged(int numBytes, // pre-computed buffer size in bytes
   int err = libmpi.MPI_Send(hostBuf, count, datatype, dest, tag, comm);
 
   // release temporary buffer
-  hostAllocator.deallocate(hostBuf, 0);
+  hostAllocator.deallocate(hostBuf, numBytes);
 
   return err;
 }
 
 extern "C" int MPI_Send(PARAMS_MPI_Send) {
   if (environment::noTempi) {
-    libmpi.MPI_Send(ARGS_MPI_Send);
+    return libmpi.MPI_Send(ARGS_MPI_Send);
   }
-  LOG_SPEW("MPI_Send");
-
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
   if (nullptr == attr.devicePointer) {
-    LOG_SPEW("use library (host memory)");
+    LOG_SPEW("MPI_Send: use library (host memory)");
     return libmpi.MPI_Send(ARGS_MPI_Send);
   }
 
   // optimize for fast GPU packer
   if (packerCache.count(datatype)) {
+    LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
     std::shared_ptr<Packer> packer = packerCache[datatype];
     return pack_gpu_gpu_unpack(attr.device, packer, ARGS_MPI_Send);
   }
@@ -89,11 +87,12 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
   }
 
   // use staged for big remote messages
-  if (!is_colocated(dest) && numBytes > (1 << 19)) {
+  if (!is_colocated(dest) && numBytes >= (1 << 19) && numBytes < (1 << 21)) {
     LOG_SPEW("MPI_Send: staged");
     return staged(numBytes, ARGS_MPI_Send);
   }
 
   // if all else fails, just do MPI_Send
+  LOG_SPEW("MPI_Send: use library (fallthrough)");
   return libmpi.MPI_Send(ARGS_MPI_Send);
 }
