@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
           std::cout << "," << tempi;
           std::cout << "," << host;
           std::cout << "," << size;
-          std::cout << "," << n;
+          std::cout << "," << n * size;
           std::cout << std::flush;
         }
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
         nvtxRangePop();
         if (0 == rank) {
           std::cout << "," << result.pingPongTime << ","
-                    << 2 * double(n) / 1024 / 1024 / result.pingPongTime;
+                    << double(n) * size / 1024 / 1024 / result.pingPongTime;
           std::cout << std::flush;
         }
 
