@@ -54,7 +54,17 @@ Performance fixes for CUDA+MPI code that requires no or minimal changes:
   - [ ] derived datatypes
 - [x] (OLCF Summit) Small improvements to `MPI_Send` for large GPU-GPU messages.
 - [x] Fast `MPI_Pack` on 3D strided data types (disable with `TEMPI_NO_PACK`)
+  - [x] vector
+  - [x] hvector
+  - [ ] subarray
+  - [ ] contiguous
+  - [ ] struct
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
+  - [x] vector
+  - [x] hvector
+  - [ ] subarray
+  - [ ] contiguous
+  - [ ] struct
 - [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
   - [ ] derived datatypes
 
