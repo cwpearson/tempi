@@ -77,6 +77,8 @@ struct Benchmark {
   const char *name;
 };
 
+/* use MPI_Alltoallv
+ */
 BenchResult bench_alltoallv(const SquareMat &mat, const int nIters) {
   BenchResult result{};
   int rank, size;
@@ -146,6 +148,8 @@ BenchResult bench_alltoallv(const SquareMat &mat, const int nIters) {
   return result;
 }
 
+/* use isend/irecv from a single buffer
+ */
 BenchResult bench_isend_irecv(const SquareMat &mat, const int nIters) {
   BenchResult result{};
   int rank, size;
@@ -198,12 +202,95 @@ BenchResult bench_isend_irecv(const SquareMat &mat, const int nIters) {
     auto start = Clock::now();
 
     for (size_t dst = 0; dst < size; ++dst) {
-      if (sendcounts[dst])
+      MPI_Isend(srcBuf + sdispls[dst], sendcounts[dst], MPI_BYTE, dst, 0,
+                MPI_COMM_WORLD, &sendReq[dst]);
+    }
+    for (size_t src = 0; src < size; ++src) {
+      MPI_Irecv(dstBuf + rdispls[src], recvcounts[src], MPI_BYTE, src, 0,
+                MPI_COMM_WORLD, &recvReq[src]);
+    }
+    MPI_Waitall(sendReq.size(), sendReq.data(), MPI_STATUS_IGNORE);
+    MPI_Waitall(recvReq.size(), recvReq.data(), MPI_STATUS_IGNORE);
+    auto stop = Clock::now();
+    nvtxRangePop();
+    Duration dur = stop - start;
+    double tmp = dur.count();
+
+    MPI_Allreduce(MPI_IN_PLACE, &tmp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    stats.insert(tmp);
+  }
+
+  result.minTime = stats.min();
+  result.numBytes = sendBufSize;
+  MPI_Allreduce(MPI_IN_PLACE, &result.numBytes, 1, MPI_UINT64_T, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  CUDA_RUNTIME(cudaFree(srcBuf));
+  CUDA_RUNTIME(cudaFree(dstBuf));
+
+  return result;
+}
+
+/* use isend/irecv from a single buffer, but don't do anything for zero-size
+ */
+BenchResult bench_sparse_isend_irecv(const SquareMat &mat, const int nIters) {
+  BenchResult result{};
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (mat.size() != size) {
+    LOG_FATAL("size mismatch");
+    exit(1);
+  }
+
+  // create GPU allocations
+  size_t sendBufSize = 0, recvBufSize = 0;
+  for (size_t i = 0; i < size; ++i) {
+    sendBufSize += mat[rank][i];
+    recvBufSize += mat[i][rank];
+  }
+
+  // create device allocations
+  char *srcBuf = {}, *dstBuf = {};
+  CUDA_RUNTIME(cudaSetDevice(0));
+  CUDA_RUNTIME(cudaMalloc(&srcBuf, sendBufSize));
+  CUDA_RUNTIME(cudaMalloc(&dstBuf, recvBufSize));
+
+  // create Alltoallv arguments
+  std::vector<int> sendcounts, recvcounts, sdispls, rdispls;
+  for (size_t dst = 0; dst < size; ++dst) {
+    sendcounts.push_back(mat[rank][dst]);
+  }
+  sdispls.push_back(0);
+  for (size_t dst = 1; dst < size; ++dst) {
+    sdispls.push_back(sdispls[dst - 1] + sendcounts[dst - 1]);
+  }
+  for (size_t src = 0; src < size; ++src) {
+    recvcounts.push_back(mat[src][rank]);
+  }
+  rdispls.push_back(0);
+  for (size_t src = 1; src < size; ++src) {
+    rdispls.push_back(rdispls[src - 1] + recvcounts[src - 1]);
+  }
+
+  std::vector<MPI_Request> sendReq(size, MPI_REQUEST_NULL);
+  std::vector<MPI_Request> recvReq(size, MPI_REQUEST_NULL);
+
+  // benchmark loop
+  Statistics stats;
+  for (int i = 0; i < nIters; ++i) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    nvtxRangePush("alltoallv");
+    auto start = Clock::now();
+
+    for (size_t dst = 0; dst < size; ++dst) {
+      if (0 != sendcounts[dst])
         MPI_Isend(srcBuf + sdispls[dst], sendcounts[dst], MPI_BYTE, dst, 0,
                   MPI_COMM_WORLD, &sendReq[dst]);
     }
     for (size_t src = 0; src < size; ++src) {
-      if (recvcounts[src])
+      if (0 != recvcounts[src])
         MPI_Irecv(dstBuf + rdispls[src], recvcounts[src], MPI_BYTE, src, 0,
                   MPI_COMM_WORLD, &recvReq[src]);
     }
@@ -245,15 +332,18 @@ int main(int argc, char **argv) {
     std::cout << version << std::endl;
   }
 
-  std::vector<Benchmark> benchmarks{{bench_alltoallv, "alltoallv"},
-                                    {bench_isend_irecv, "isend_irecv"}};
+  std::vector<Benchmark> benchmarks{
+      {bench_alltoallv, "alltoallv"},
+      {bench_isend_irecv, "isend_irecv"},
+      {bench_sparse_isend_irecv, "sp_isend_irecv"}};
 
   MPI_Barrier(MPI_COMM_WORLD);
 
   int nIters = 30;
 
   std::vector<bool> tempis{true, false};
-  std::vector<int64_t> scales{1, 10, 100, 1*1000, 10*1000, 100*1000, 1000*1000};
+  std::vector<int64_t> scales{1,         10,         100,        1 * 1000,
+                              10 * 1000, 100 * 1000, 1000 * 1000};
   std::vector<float> densities{0.05, 0.1, 0.5, 1.0};
 
   // add some more densities to target particular nnz per row
