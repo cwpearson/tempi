@@ -50,10 +50,11 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ## Features
 
 Performance fixes for CUDA+MPI code that requires no or minimal changes:
+- [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
+  - [ ] derived datatypes
+- [x] (OLCF Summit) Small improvements to `MPI_Send` for large GPU-GPU messages.
 - [x] Fast `MPI_Pack` on 3D strided data types (disable with `TEMPI_NO_PACK`)
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
-- [x] Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
-  - [ ] derived datatypes
 - [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
   - [ ] derived datatypes
 
@@ -113,6 +114,11 @@ We use a primitive slab allocator to minimize the number of `cudaMalloc` or `cud
 
 Some optimizations rely on knowing which MPI ranks are on the same node.
 This is discovered during `MPI_Init` and can be queried quickly during other MPI functions.
+
+### CPU-CPU vs GPU-GPU performance
+
+In certain scenarios, the CPU-CPU performance of MPI point-to-point communications is substantially faster than the GPU-GPU equivalent.
+When that is the case, there is opportunity to accelerate the GPU-GPU communication.
 
 ## Knobs
 
