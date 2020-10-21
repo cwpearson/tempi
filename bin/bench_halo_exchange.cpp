@@ -52,6 +52,45 @@ size_t halo_size(const int radius, cudaExtent ext, const int dir[3]) {
   return ret;
 }
 
+/* create a derived datatype describing the particular direction
+ */
+MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr, const int dir[3],
+                       bool exterior) {
+
+  MPI_Datatype cubetype{};
+
+  // each row either starts at x=0, or radius + xsize
+  int pos[3]{};
+  if (-1 == dir[0]) { // -x, no offset (exterior), radius (interior)
+    pos[0] = (exterior ? 0 : radius);
+  } else if (-1 == dir[0]) { // +x, xsize (interior), xsize + radius (exterior)
+    pos[0] = radius;
+  } else {
+    pos[0] = radius;
+  }
+
+  int ext[3]{};
+
+  {
+    int ndims = 3;
+    // elems in each dimension of the full array
+    int array_of_sizes[3]{
+        int(curr.pitch), int(curr.ysize),
+        pos[2] + ext[2] // array should be at least this big...
+    };
+    // elems of oldtype in each dimension of the subarray
+    int array_of_subsizes[3]{ext[0], ext[1], ext[2]};
+    int array_of_starts[3]{pos[0], pos[1],
+                           pos[2]}; // starting coordinates of subarray
+    int order = MPI_ORDER_C;
+    MPI_Datatype oldtype = MPI_BYTE;
+    MPI_Type_create_subarray(ndims, array_of_sizes, array_of_subsizes,
+                             array_of_starts, order, oldtype, &cubetype);
+  }
+
+  return cubetype;
+}
+
 struct BenchResult {};
 
 BenchResult bench(MPI_Comm comm, int nquants, int radius) {
@@ -87,6 +126,22 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius) {
   locExt.width = distExt.width / dims[0];
   locExt.height = distExt.height / dims[1];
   locExt.depth = distExt.depth / dims[2];
+
+  // allocation extent
+  cudaPitchedPtr curr{};
+  {
+    cudaExtent e = locExt;
+    e.width += 2 * radius;
+    e.height += 2 * radius;
+    e.depth += 2 * radius;
+    CUDA_RUNTIME(cudaMalloc3D(&curr, e));
+  }
+  if (0 == rank) {
+
+    std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
+              << "\n";
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // my coordinates in the distributed space
   int mycoord[3];
@@ -127,6 +182,8 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius) {
         dir[1] = dy;
         dir[2] = dz;
         size_t bufSize = halo_size(radius, locExt, dir);
+        MPI_Datatype interior = halo_type(radius, curr, dir, false);
+        MPI_Datatype exterior = halo_type(radius, curr, dir, true);
         nbrBufSize.push_back(bufSize);
       }
     }
