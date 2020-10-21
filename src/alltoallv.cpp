@@ -271,7 +271,6 @@ extern "C" int MPI_Alltoallv(PARAMS) {
   if (environment::noAlltoallv) {
     return fn(ARGS);
   }
-  LOG_DEBUG("MPI_Alltoallv");
 
   /* use library MPI for memory we can't reach on the device
     if a zero-size allocation is called with cudaMalloc, the null pointer will
@@ -283,16 +282,17 @@ extern "C" int MPI_Alltoallv(PARAMS) {
   CUDA_RUNTIME(cudaPointerGetAttributes(&recvAttr, recvbuf));
   if ((nullptr != sendbuf && nullptr == sendAttr.devicePointer) ||
       (nullptr != recvbuf && nullptr == recvAttr.devicePointer)) {
-    LOG_DEBUG("use library (host memory)");
+    LOG_SPEW("MPI_Alltoallv: use library (host memory)");
     return fn(ARGS);
   }
 
   if (MPI_COMM_WORLD != comm) {
-    LOG_WARN("alltoallv remote-first optimization disabled");
+    LOG_SPEW("MPI_Alltoallv: use library (not MPI_COMM_WORLD)");
     return fn(ARGS);
   } else {
     // return alltoallv_remote_first(ARGS);
     // return alltoallv_staged(ARGS);
+    LOG_SPEW("MPI_Alltoallv: alltoallv_staged_isir");
     return alltoallv_staged_isir(ARGS);
     // return alltoallv_isend_irecv(ARGS);
   }

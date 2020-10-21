@@ -18,3 +18,4 @@ add_tempi_executable(bench-mpi-send-types bench_mpi_send_types.cpp ../support/ty
 add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp statistics.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp statistics.cpp)
+add_tempi_executable(bench-mpi-pattern bench_mpi_pattern.cpp statistics.cpp)
