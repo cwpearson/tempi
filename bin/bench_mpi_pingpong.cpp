@@ -30,10 +30,8 @@ BenchResult bench(size_t numBytes, // size of each message
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  // configure TEMPI
-  environment::noTempi = !tempi;
-
+  
+  environment::noTempi = !tempi; // configure TEMPI for test
   // create device allocations
   char *src = {}, *dst = {};
   if (host) {
@@ -78,7 +76,7 @@ BenchResult bench(size_t numBytes, // size of each message
     CUDA_RUNTIME(cudaFree(dst));
   }
 
-  return BenchResult{.pingPongTime = stats.trimean()};
+  return BenchResult{.pingPongTime = stats.min()};
 }
 
 int main(int argc, char **argv) {
@@ -94,7 +92,7 @@ int main(int argc, char **argv) {
     LOG_FATAL("needs even number of ranks");
   }
 
-  int nIters = 10;
+  int nIters = 100;
 
   BenchResult result;
 
@@ -102,7 +100,7 @@ int main(int argc, char **argv) {
   std::vector<bool> hosts{true, false};
   std::vector<int> ns{1,     2,       4,     8,       16,      32,     64,
                       128,   256,     512,   1024,    1 << 11, 4096,   1 << 13,
-                      16384, 1 << 15, 65536, 1 << 17, 1 << 20, 1 << 24};
+                      16384, 1 << 15, 65536, 1 << 17, 1<<19, 1 << 20, 1<<21, 1 << 24};
 
   if (0 == rank) {
     std::cout << "desc,tempi,host,ranks,B/rank,B,elapsed (s),bandwidth/rank "
@@ -144,6 +142,7 @@ int main(int argc, char **argv) {
           std::cout << "\n";
           std::cout << std::flush;
         }
+        MPI_Barrier(MPI_COMM_WORLD);
       }
     }
   }
