@@ -1,6 +1,7 @@
 #include "cuda_runtime.hpp"
 #include "env.hpp"
 #include "logging.hpp"
+#include "symbols.hpp"
 #include "types.hpp"
 
 #include "allocators.hpp"
@@ -12,36 +13,9 @@
 
 #include <vector>
 
-#define PARAMS                                                                 \
-  const void *buf, int count, MPI_Datatype datatype, int dest, int tag,        \
-      MPI_Comm comm
-#define ARGS buf, count, datatype, dest, tag, comm
-
-extern "C" int MPI_Send(PARAMS) {
-  typedef int (*Func_MPI_Send)(PARAMS);
-  static Func_MPI_Send fn = nullptr;
-  if (!fn) {
-    fn = reinterpret_cast<Func_MPI_Send>(dlsym(RTLD_NEXT, "MPI_Send"));
-  }
-  TEMPI_DISABLE_GUARD;
-  LOG_DEBUG("MPI_Send");
-
-  // use library MPI if we don't have a fast packer
-  if (!packerCache.count(datatype)) {
-    LOG_DEBUG("use library (no fast packer)");
-    return fn(ARGS);
-  }
-
-  // use library MPI for memory we can't reach on the device
-  cudaPointerAttributes attr = {};
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
-  if (nullptr == attr.devicePointer) {
-    LOG_DEBUG("use library (host memory)");
-    return fn(ARGS);
-  }
-
-  CUDA_RUNTIME(cudaSetDevice(attr.device));
-  std::shared_ptr<Packer> packer = packerCache[datatype];
+static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
+                        PARAMS_MPI_Send) {
+  CUDA_RUNTIME(cudaSetDevice(device));
 
   // reserve intermediate buffer
   int packedBytes;
@@ -51,7 +25,6 @@ extern "C" int MPI_Send(PARAMS) {
     packedBytes = tySize * count;
   }
   void *packBuf = nullptr;
-  // CUDA_RUNTIME(cudaMalloc(&packBuf, packedBytes));
   packBuf = deviceAllocator.allocate(packedBytes);
   LOG_SPEW("allocate " << packedBytes << "B device send buffer");
 
@@ -60,11 +33,34 @@ extern "C" int MPI_Send(PARAMS) {
   packer->pack(packBuf, &pos, buf, count);
 
   // send to other device
-  int err = fn(packBuf, packedBytes, MPI_BYTE, dest, tag, comm);
+  int err = libmpi.MPI_Send(packBuf, packedBytes, MPI_BYTE, dest, tag, comm);
 
   // release temporary buffer
-  // CUDA_RUNTIME(cudaFree(packBuf));
   deviceAllocator.deallocate(packBuf, 0);
 
   return err;
+}
+
+extern "C" int MPI_Send(PARAMS_MPI_Send) {
+  if (environment::noTempi) {
+    libmpi.MPI_Send(ARGS_MPI_Send);
+  }
+  LOG_DEBUG("MPI_Send");
+
+  // use library MPI for memory we can't reach on the device
+  cudaPointerAttributes attr = {};
+  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
+  if (nullptr == attr.devicePointer) {
+    LOG_DEBUG("use library (host memory)");
+    return libmpi.MPI_Send(ARGS_MPI_Send);
+  }
+
+  // optimize for fast GPU packer
+  if (packerCache.count(datatype)) {
+    std::shared_ptr<Packer> packer = packerCache[datatype];
+    return pack_gpu_gpu_unpack(attr.device, packer, ARGS_MPI_Send);
+  }
+
+  // if all else fails, just do MPI_Send
+  return libmpi.MPI_Send(ARGS_MPI_Send);
 }

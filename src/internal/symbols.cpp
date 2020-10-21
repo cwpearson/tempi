@@ -14,4 +14,6 @@ void init_symbols() {
   DLSYM(MPI_Alltoallv);
   DLSYM(MPI_Neighbor_alltoallv);
   DLSYM(MPI_Dist_graph_create);
+  DLSYM(MPI_Recv);
+  DLSYM(MPI_Send);
 }

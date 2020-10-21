@@ -1,6 +1,7 @@
 #include "cuda_runtime.hpp"
 #include "env.hpp"
 #include "logging.hpp"
+#include "symbols.hpp"
 #include "types.hpp"
 
 #include "allocators.hpp"
@@ -8,42 +9,11 @@
 #include <cuda_runtime.h>
 #include <mpi.h>
 
-#include <dlfcn.h>
-
 #include <vector>
 
-#define PARAMS                                                                 \
-  void *buf, int count, MPI_Datatype datatype, int source, int tag,            \
-      MPI_Comm comm, MPI_Status *status
-#define ARGS buf, count, datatype, source, tag, comm, status
-
-extern "C" int MPI_Recv(PARAMS) {
-
-  // find the underlying MPI call
-  typedef int (*Func_MPI_Recv)(PARAMS);
-  static Func_MPI_Recv fn = nullptr;
-  if (!fn) {
-    fn = reinterpret_cast<Func_MPI_Recv>(dlsym(RTLD_NEXT, "MPI_Recv"));
-  }
-  TEMPI_DISABLE_GUARD;
-  LOG_DEBUG("MPI_Recv");
-
-  // use library MPI if we don't have a fast packer
-  if (!packerCache.count(datatype)) {
-    LOG_DEBUG("use library (no fast packer)");
-    return fn(ARGS);
-  }
-
-  // use library MPI for memory we can't reach on the device
-  cudaPointerAttributes attr = {};
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
-  if (nullptr == attr.devicePointer) {
-    LOG_DEBUG("use library (host memory)");
-    return fn(ARGS);
-  }
-
-  CUDA_RUNTIME(cudaSetDevice(attr.device));
-  std::shared_ptr<Packer> packer = packerCache[datatype];
+static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
+                               PARAMS_MPI_Recv) {
+  CUDA_RUNTIME(cudaSetDevice(device));
 
   // recv into device buffer
   int packedBytes;
@@ -53,12 +23,11 @@ extern "C" int MPI_Recv(PARAMS) {
     packedBytes = tySize * count;
   }
   void *packBuf = nullptr;
-  // CUDA_RUNTIME(cudaMalloc(&packBuf, packedBytes));
   packBuf = deviceAllocator.allocate(packedBytes);
   LOG_SPEW("allocate " << packedBytes << "B device recv buffer");
 
   // send to other device
-  int err = fn(packBuf, packedBytes, MPI_BYTE, source, tag, comm, status);
+  int err = libmpi.MPI_Recv(ARGS_MPI_Recv);
 
   // unpack from temporary buffer
   int pos = 0;
@@ -66,8 +35,33 @@ extern "C" int MPI_Recv(PARAMS) {
 
   // release temporary buffer
   LOG_SPEW("free intermediate recv buffer");
-  // CUDA_RUNTIME(cudaFree(packBuf));
   deviceAllocator.deallocate(packBuf, 0);
-
   return err;
+}
+
+extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
+
+  if (environment::noTempi) {
+    libmpi.MPI_Recv(ARGS_MPI_Recv);
+  }
+
+  LOG_DEBUG("MPI_Recv");
+
+  // use library MPI for memory we can't reach on the device
+  cudaPointerAttributes attr = {};
+  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
+  if (nullptr == attr.devicePointer) {
+    LOG_DEBUG("use library (host memory)");
+    return libmpi.MPI_Recv(ARGS_MPI_Recv);
+  }
+
+  // optimize packer
+  if (packerCache.count(datatype)) {
+    LOG_DEBUG("MPI_Recv: fast packer");
+    std::shared_ptr<Packer> packer = packerCache[datatype];
+    return pack_gpu_gpu_unpack(attr.device, packer, ARGS_MPI_Recv);
+  }
+
+  // if all else fails, just call MPI_Recv
+  return libmpi.MPI_Recv(ARGS_MPI_Recv);
 }
