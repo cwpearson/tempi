@@ -105,7 +105,8 @@ int main(int argc, char **argv) {
                       16384, 1 << 15, 65536, 1 << 17, 1 << 20, 1 << 24};
 
   if (0 == rank) {
-    std::cout << "desc,tempi,host,ranks,B,elapsed (s),bandwidth (MiB/s)\n";
+    std::cout << "desc,tempi,host,ranks,B/rank,B,elapsed (s),bandwidth/rank "
+                 "(MiB/s), bandwidth agg (MiB/s)\n";
   }
 
   for (bool tempi : tempis) {
@@ -121,6 +122,7 @@ int main(int argc, char **argv) {
           std::cout << "," << tempi;
           std::cout << "," << host;
           std::cout << "," << size;
+          std::cout << "," << n;
           std::cout << "," << n * size;
           std::cout << std::flush;
         }
@@ -129,7 +131,11 @@ int main(int argc, char **argv) {
         result = bench(n, tempi, host, nIters);
         nvtxRangePop();
         if (0 == rank) {
-          std::cout << "," << result.pingPongTime << ","
+          std::cout << "," << result.pingPongTime;
+
+          // half the ranks send, then the other half, so each rank sends once
+          std::cout << "," << double(n) / 1024 / 1024 / result.pingPongTime;
+          std::cout << ","
                     << double(n) * size / 1024 / 1024 / result.pingPongTime;
           std::cout << std::flush;
         }
