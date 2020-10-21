@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
                       16384, 1 << 15, 65536, 1 << 17, 1 << 20, 1 << 24};
 
   if (0 == rank) {
-    std::cout << "desc,tempi,host,B,elapsed (s),bandwidth (MiB/s)\n";
+    std::cout << "desc,tempi,host,ranks,B,elapsed (s),bandwidth (MiB/s)\n";
   }
 
   for (bool tempi : tempis) {
@@ -114,12 +114,13 @@ int main(int argc, char **argv) {
 
         std::string s;
         s = std::to_string(tempi) + "|" + std::to_string(host) + "|" +
-            std::to_string(n);
+            std::to_string(size) + "|" + std::to_string(n);
 
         if (0 == rank) {
           std::cout << s;
           std::cout << "," << tempi;
           std::cout << "," << host;
+          std::cout << "," << size;
           std::cout << "," << n;
           std::cout << std::flush;
         }
