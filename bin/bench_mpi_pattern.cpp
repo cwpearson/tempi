@@ -355,7 +355,8 @@ int main(int argc, char **argv) {
   }
 
   if (0 == rank) {
-    std::cout << "description,tempi,B,elapsed (s),aggregate (MiB/s)\n";
+    std::cout
+        << "description,tempi,scale,density,B,elapsed (s),aggregate (MiB/s)\n";
   }
 
   for (bool tempi : tempis) {
@@ -378,8 +379,9 @@ int main(int argc, char **argv) {
 
           if (0 == rank) {
             std::cout << s;
-            std::cout << "," << scale;
             std::cout << "," << tempi;
+            std::cout << "," << scale;
+            std::cout << "," << density;
             std::cout << std::flush;
           }
 
