@@ -77,10 +77,10 @@ int main(int argc, char **argv) {
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 
@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 
@@ -101,10 +101,10 @@ int main(int argc, char **argv) {
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 
@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 
@@ -125,10 +125,10 @@ int main(int argc, char **argv) {
     int count = 2;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 
@@ -137,10 +137,10 @@ int main(int argc, char **argv) {
     int count = 3;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_v_hv" << pe << " " << ae << " " << count;
+       << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv, pe, ae, count);
     nvtxRangePop();
   }
 

@@ -22,8 +22,6 @@ add_test(NAME type_size COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 
 pmpi_test_exe(init_finalize init_finalize.cpp)
 add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 init_finalize)
 
-
-
 pmpi_test_exe(type_commit type_commit.cpp)
 add_test(NAME type_commit COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_commit)
 

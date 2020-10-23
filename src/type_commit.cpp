@@ -15,6 +15,7 @@
 #define ARGS datatype
 
 extern "C" int MPI_Type_commit(PARAMS) {
+  LOG_DEBUG("here");
   typedef int (*Func_MPI_Type_commit)(PARAMS);
   static Func_MPI_Type_commit fn = nullptr;
   if (!fn) {

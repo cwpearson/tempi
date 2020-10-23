@@ -48,10 +48,17 @@ public:
     else if (idx == 2)
       return z;
     assert(0 && "only 3 dimensions!");
-    return x;
+    return z;
   }
   CUDA_CALLABLE_MEMBER const int64_t &operator[](const size_t idx) const {
-    return operator[](idx);
+    if (idx == 0)
+      return x;
+    else if (idx == 1)
+      return y;
+    else if (idx == 2)
+      return z;
+    assert(0 && "only 3 dimensions!");
+    return z;
   }
 
   /*! \brief elementwise max

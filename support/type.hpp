@@ -20,9 +20,13 @@ MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
                            const Dim3 allocExt // bytes
 );
 
-/* use vector + hvector
+/* use byte + vector + hvector
  */
-MPI_Datatype make_v_hv(const Dim3 copyExt, const Dim3 allocExt);
+MPI_Datatype make_byte_v_hv(const Dim3 copyExt, const Dim3 allocExt);
+
+/* use float + vector + hvector
+ */
+MPI_Datatype make_float_v_hv(const Dim3 copyExt, const Dim3 allocExt);
 
 /* use hindexed
 
@@ -35,3 +39,6 @@ MPI_Datatype make_hi(const Dim3 copyExt, const Dim3 allocExt);
   each block is a row
  */
 MPI_Datatype make_hib(const Dim3 copyExt, const Dim3 allocExt);
+
+// make a 3D cube with MPI_Type_create_subarray
+MPI_Datatype make_subarray(const Dim3 copyExt, const Dim3 allocExt);

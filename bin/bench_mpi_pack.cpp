@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
 #endif
 
 #if 1
-        ty = make_v_hv(ext, allocExt);
+        ty = make_byte_v_hv(ext, allocExt);
         MPI_Type_commit(&ty);
         result = bench(ty, ext, tempi, nIters);
         std::cout << ","

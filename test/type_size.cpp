@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
   {
     std::cerr << "TEST: v hv\n";
-    MPI_Datatype ty = make_v_hv(copyExt, allocExt);
+    MPI_Datatype ty = make_byte_v_hv(copyExt, allocExt);
     MPI_Type_commit(&ty);
     int size;
     MPI_Type_size(ty, &size);
