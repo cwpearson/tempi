@@ -2,14 +2,22 @@
 #include <mpi.h>
 #include <nvToolsExt.h>
 
+#include <iostream>
+
 #include "../include/env.hpp"
 
 int main(int argc, char **argv) {
   environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
-  int rank;
+  int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (size < 2) {
+    std::cerr << "requires >1 ranks\n";
+    return 1;
+  }
 
   if (rank < 2) {
 

@@ -2,12 +2,8 @@
 
 #include <mpi.h>
 
-#include <vector>
-
-
-extern std::vector<int> colocatedRanks;
-
 void topology_init();
 
-// true if this rank is colocated with other
-bool is_colocated(int other);
+// true if this rank is colocated with other for `comm`
+bool is_colocated(MPI_Comm comm, int other);
+

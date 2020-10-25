@@ -87,7 +87,8 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   }
 
   // use staged for big remote messages
-  if (!is_colocated(source) && numBytes >= (1 << 19) && numBytes < (1 << 21)) {
+  if (!is_colocated(comm, source) && numBytes >= (1 << 19) &&
+      numBytes < (1 << 21)) {
     LOG_SPEW("MPI_Recv: staged");
     return staged(numBytes, ARGS_MPI_Recv);
   }

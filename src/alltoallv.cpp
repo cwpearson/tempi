@@ -41,13 +41,13 @@ int alltoallv_remote_first(PARAMS) {
   // start remote comms first. if this isn't MPI_COMM_WORLD, it will still be
   // correct, just random which are first and second
   for (int j = 0; j < commSize; ++j) {
-    if (!is_colocated(j)) {
+    if (!is_colocated(comm, j)) {
       MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
                 comm, &sendReqs[j]);
     }
   }
   for (int j = 0; j < commSize; ++j) {
-    if (is_colocated(j)) {
+    if (is_colocated(comm, j)) {
       MPI_Isend(((char *)sendbuf) + sdispls[j], sendcounts[j], sendtype, j, 0,
                 comm, &sendReqs[j]);
     }
@@ -180,7 +180,7 @@ int alltoallv_isend_irecv(PARAMS) {
   remotes.reserve(commSize);
   locals.reserve(commSize);
   for (int j = 0; j < commSize; ++j) {
-    if (!is_colocated(j)) {
+    if (!is_colocated(comm, j)) {
       remotes.push_back(j);
     } else {
       locals.push_back(j);

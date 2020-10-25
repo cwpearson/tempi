@@ -71,6 +71,32 @@ typedef int (*Func_MPI_Recv)(PARAMS_MPI_Recv);
 #define ARGS_MPI_Send buf, count, datatype, dest, tag, comm
 typedef int (*Func_MPI_Send)(PARAMS_MPI_Send);
 
+//
+
+#define PARAMS_MPI_Comm_split_type                                             \
+  MPI_Comm comm, int split_type, int key, MPI_Info info, MPI_Comm *newcomm
+#define ARGS_MPI_Comm_split_type comm, split_type, key, info, newcomm
+typedef int (*Func_MPI_Comm_split_type)(PARAMS_MPI_Comm_split_type);
+
+#define PARAMS_MPI_Comm_rank MPI_Comm comm, int *rank
+#define ARGS_MPI_Comm_rank comm, rank
+typedef int (*Func_MPI_Comm_rank)(PARAMS_MPI_Comm_rank);
+
+#define PARAMS_MPI_Comm_size MPI_Comm comm, int *size
+#define ARGS_MPI_Comm_size comm, size
+typedef int (*Func_MPI_Comm_size)(PARAMS_MPI_Comm_size);
+
+#define PARAMS_MPI_Allgather                                                   \
+  const void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf,    \
+      int recvcount, MPI_Datatype recvtype, MPI_Comm comm
+#define ARGS_MPI_Allgather                                                     \
+  sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, comm
+typedef int (*Func_MPI_Allgather)(PARAMS_MPI_Allgather);
+
+#define PARAMS_MPI_Comm_free MPI_Comm *comm
+#define ARGS_MPI_Comm_free comm
+typedef int (*Func_MPI_Comm_free)(PARAMS_MPI_Comm_free);
+
 struct MpiFunc {
   Func_MPI_Alltoallv MPI_Alltoallv;
   Func_MPI_Dist_graph_create MPI_Dist_graph_create;
@@ -82,6 +108,11 @@ struct MpiFunc {
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;
+  Func_MPI_Comm_split_type MPI_Comm_split_type;
+  Func_MPI_Comm_rank MPI_Comm_rank;
+  Func_MPI_Comm_size MPI_Comm_size;
+  Func_MPI_Allgather MPI_Allgather;
+  Func_MPI_Comm_free MPI_Comm_free;
 };
 
 extern MpiFunc libmpi;

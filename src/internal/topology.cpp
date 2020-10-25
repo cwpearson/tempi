@@ -1,33 +1,56 @@
 #include "topology.hpp"
 
+#include "symbols.hpp"
+
+#include <mpi.h>
 #include <nvToolsExt.h>
 
 #include <algorithm>
+#include <cassert>
+#include <map>
+#include <vector>
 
-/*extern*/ std::vector<int> colocatedRanks;
+// MPI_COMM_WORLD ranks colocated with this rank
+std::vector<int> colocatedRanks;
 
-void topology_init() {
+// rhanks colocated with this rank for each communicator
+std::map<MPI_Comm, std::vector<int>> info;
 
-  nvtxRangePush("topology_init");
+namespace topology {
 
+// determine and store topology information for `comm`
+void cache_communicator(MPI_Comm comm) {
+  nvtxRangePush("cache_communicator");
   // Give every rank a list of co-located ranks
   {
-    MPI_Comm shm = {};
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                        &shm);
-    int rank, coloSize;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(shm, &coloSize);
-    colocatedRanks.resize(coloSize);
-    MPI_Allgather(&rank, 1, MPI_INT, colocatedRanks.data(), 1, MPI_INT, shm);
-    MPI_Comm_free(&shm);
+    MPI_Comm shm{};
+    libmpi.MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                               &shm);
+    int rank, size;
+    libmpi.MPI_Comm_rank(comm, &rank);
+    libmpi.MPI_Comm_size(shm, &size);
+    std::vector<int> colocatedRanks(size);
+    libmpi.MPI_Allgather(&rank, 1, MPI_INT, colocatedRanks.data(), 1, MPI_INT,
+                         shm);
+
+    // cache the colocated ranks
+    info[comm] = colocatedRanks;
+
+    // release temporary resources
+    libmpi.MPI_Comm_free(&shm);
     shm = {};
   }
-
   nvtxRangePop();
 }
+} // namespace topology
 
-bool is_colocated(int other) {
-  return colocatedRanks.end() !=
-         std::find(colocatedRanks.begin(), colocatedRanks.end(), other);
+void topology_init() {
+  // cache ranks in MPI_COMM_WORLD
+  topology::cache_communicator(MPI_COMM_WORLD);
+}
+
+bool is_colocated(MPI_Comm comm, int other) {
+  assert(info.count(comm));
+  const std::vector<int> &colo = info[comm];
+  return colo.end() != std::find(colo.begin(), colo.end(), other);
 }
