@@ -40,7 +40,7 @@ void to_1d(int *d1, const int d3[3], const int dim[3]) {
   *d1 = d3[0];
   *d1 += d3[1] * dim[0];
   *d1 += d3[2] * dim[1] * dim[0];
-  assert(d1 < dim3[0] * dim3[1] * dim3[2]);
+  assert(*d1 < d3[0] * d3[1] * d3[2]);
 }
 
 /* return the halo size in bytes for a region of size `ext`, with `radius`, for
