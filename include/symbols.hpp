@@ -48,6 +48,17 @@ typedef int (*Func_MPI_Neighbor_alltoallv)(PARAMS_MPI_Neighbor_alltoallv);
       comm_dist_graph
 typedef int (*Func_MPI_Dist_graph_create)(PARAMS_MPI_Dist_graph_create);
 
+#define PARAMS_MPI_Dist_graph_create_adjacent                                  \
+  MPI_Comm comm_old, int indegree, const int sources[],                        \
+      const int sourceweights[], int outdegree, const int destinations[],      \
+      const int destweights[], MPI_Info info, int reorder,                     \
+      MPI_Comm *comm_dist_graph
+#define ARGS_MPI_Dist_graph_create_adjacent                                    \
+  comm_old, indegree, sources, sourceweights, outdegree, destinations,         \
+      destweights, info, reorder, comm_dist_graph
+typedef int (*Func_MPI_Dist_graph_create_adjacent)(
+    PARAMS_MPI_Dist_graph_create_adjacent);
+
 #define PARAMS_MPI_Recv                                                        \
   void *buf, int count, MPI_Datatype datatype, int source, int tag,            \
       MPI_Comm comm, MPI_Status *status
@@ -61,13 +72,14 @@ typedef int (*Func_MPI_Recv)(PARAMS_MPI_Recv);
 typedef int (*Func_MPI_Send)(PARAMS_MPI_Send);
 
 struct MpiFunc {
+  Func_MPI_Alltoallv MPI_Alltoallv;
+  Func_MPI_Dist_graph_create MPI_Dist_graph_create;
+  Func_MPI_Dist_graph_create_adjacent MPI_Dist_graph_create_adjacent;
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
   Func_MPI_Get_library_version MPI_Get_library_version;
-  Func_MPI_Alltoallv MPI_Alltoallv;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
-  Func_MPI_Dist_graph_create MPI_Dist_graph_create;
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;
 };
