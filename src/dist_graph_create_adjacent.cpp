@@ -55,10 +55,20 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     int numRanks;
     libmpi.MPI_Comm_size(*comm_dist_graph, &numRanks);
 
-    // assign each communicator rank to a partition
+    // based on the weights provided, we assign each rank to a partition
     std::vector<int> partAssignment = random_partition(numRanks, numNodes);
+#if TEMPI_OUTPUT_LEVEL >= 4
+{
+  std::string s("node assignment app rank: ");
+  for (int r : partAssignment) {
+    s += std::to_string(r) + " ";
+  }
+  LOG_SPEW(s);
+}
 
-    // use the partition assignment as the node assignment for that rank
+#endif
+
+    // all the ranks assign to partition 0 will be backed by ranks on node 0
     topology::cache_node_assignment(*comm_dist_graph, partAssignment);
 
     // retrieve the comm rank for an application rank

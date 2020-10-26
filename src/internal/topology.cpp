@@ -36,12 +36,12 @@ void cache_communicator(MPI_Comm comm) {
   int rank, size;
   libmpi.MPI_Comm_rank(comm, &rank);
   libmpi.MPI_Comm_size(comm, &size);
-
-  {
+  LOG_SPEW("got rank and size");
     // get my node name
     char name[MPI_MAX_PROCESSOR_NAME]{};
     int namelen;
     MPI_Get_processor_name(name, &namelen);
+
 
     // distribute names to all nodes
     std::vector<char> names(MPI_MAX_PROCESSOR_NAME * size);
@@ -53,17 +53,26 @@ void cache_communicator(MPI_Comm comm) {
     for (int r = 0; r < size; ++r) {
       std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
       if (0 == labels.count(s)) {
-        labels[s] = labels.size();
+        LOG_SPEW(s << " is node " << labels.size());
+        size_t node = labels.size();
+        labels[s] = node;
       }
+    }
+
+    LOG_SPEW("nodes: " << labels.size());
+    for (auto &p : labels) {
+      LOG_SPEW(p.first << " " << p.second);
     }
 
     topo.ranksOfNode.resize(labels.size());
     topo.nodeOfRank.resize(size);
     for (int r = 0; r < size; ++r) {
       std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
+      assert(labels.count(s));
       size_t node = labels[s];
-      topo.ranksOfNode[node].push_back(r);
+      LOG_SPEW("rank " << r << " name=" << s << " node=" << node);
       topo.nodeOfRank[r] = node;
+      topo.ranksOfNode[node].push_back(r);
     }
 
     if (0 == rank) {
@@ -77,7 +86,6 @@ void cache_communicator(MPI_Comm comm) {
         LOG_DEBUG(s);
       }
     }
-  }
 
   nvtxRangePop();
 
@@ -103,9 +111,9 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
   const std::vector<std::vector<int>> &ranksOfNode = info[comm].ranksOfNode;
 
   // comm rank
-  for (int cr = 0; cr < int(nodeOfRank.size()); ++cr) {
-    int node = nodeOfRank[cr];
-    int ar = ranksOfNode[node][nextIdx[node]];
+  for (int ar = 0; ar < int(nodeOfRank.size()); ++ar) {
+    int node = nodeOfRank[ar];
+    int cr = ranksOfNode[node][nextIdx[node]];
     nextIdx[node]++;
 
     LOG_SPEW("ar=" << ar << "->"
@@ -119,8 +127,10 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
 } // namespace topology
 
 void topology_init() {
+  LOG_SPEW("topology_init()");
   // cache ranks in MPI_COMM_WORLD
   topology::cache_communicator(MPI_COMM_WORLD);
+  LOG_SPEW("finish topology_init()");
 }
 
 bool is_colocated(MPI_Comm comm, int other) {

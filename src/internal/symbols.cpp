@@ -1,10 +1,13 @@
 #include "symbols.hpp"
 
+#include "logging.hpp"
+
 #include <dlfcn.h>
 
 /* extern */ MpiFunc libmpi;
 
-#define DLSYM(A) libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A))
+#define DLSYM(A) \
+libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));
 
 void init_symbols() {
   DLSYM(MPI_Allgather);
