@@ -45,12 +45,35 @@ find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
 
 
+
+
+
+
+
+
+
+
 # only static libraries are suported by the device linker?
 # so I think we need STATIC with CUDA_SEPARABLE_COMPILATION
 add_subdirectory(src)
 add_library(tempi SHARED ${TEMPI_SOURCES})
 add_library(tempi::tempi ALIAS tempi)
 set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+
+include(ExternalProject)
+ExternalProject_Add(metis
+  GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
+  GIT_TAG "v5.1.1-DistDGL-v0.5"
+  GIT_SUBMODULES_RECURSE TRUE
+  INSTALL_DIR=metis-prefix
+  CMAKE_ARGS
+    -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
+)
+ExternalProject_Get_Property(metis INSTALL_DIR)
+message("install dir of metis = ${INSTALL_DIR}")
+add_dependencies(tempi metis)
+include_directories(tempi ${INSTALL_DIR}/include)
+target_link_libraries(tempi PUBLIC ${INSTALL_DIR}/lib/libmetis.a)
 
 if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
   target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=5)
