@@ -69,11 +69,11 @@ ExternalProject_Add(metis
   CMAKE_ARGS
     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
 )
+add_dependencies(tempi metis)
 ExternalProject_Get_Property(metis INSTALL_DIR)
 message("install dir of metis = ${INSTALL_DIR}")
-add_dependencies(tempi metis)
-include_directories(tempi ${INSTALL_DIR}/include)
-target_link_libraries(tempi PUBLIC ${INSTALL_DIR}/lib/libmetis.a)
+target_include_directories(tempi SYSTEM PRIVATE ${INSTALL_DIR}/include)
+target_link_libraries(tempi PRIVATE ${INSTALL_DIR}/lib/libmetis.a)
 
 if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
   target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=5)
