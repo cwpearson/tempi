@@ -71,11 +71,13 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 # )
 
 # the metis makescript writes out some files before calling cmake
+# not all gcc accepts march=native, so delete it from GKlib
 include(ExternalProject)
 ExternalProject_Add(metis
   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
   GIT_TAG "v5.1.1-DistDGL-v0.5"
   GIT_SUBMODULES_RECURSE TRUE
+  UPDATE_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
   CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
   BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
   BUILD_IN_SOURCE TRUE
