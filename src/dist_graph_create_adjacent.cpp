@@ -1,25 +1,8 @@
 #include "env.hpp"
 #include "logging.hpp"
+#include "partition.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
-
-#include <algorithm>
-#include <numeric>
-#include <random>
-
-std::default_random_engine generator(0);
-
-/* return a node assignment 0..<numNodes for each rank 0..<numRanks
- */
-static std::vector<int> random_partition(const int numRanks,
-                                         const int numNodes) {
-  std::vector<int> p(numRanks);
-  for (size_t i = 0; i < p.size(); ++i) {
-    p[i] = i * numNodes / numRanks;
-  }
-  std::shuffle(p.begin(), p.end(), generator);
-  return p;
-}
 
 extern "C" int
 MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
@@ -30,7 +13,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
   /* call the underlying impl to actually create a communicator
 
-     This also places the ranks on the nodes (the "communicator rank")
+     This also places the ranks on the nodes (the "library rank")
      We may be able to determine a better mapping between ranks and nodes.
      If so, we will relabel all the ranks, and present a different rank number
      to the application (the "application rank");
@@ -49,32 +32,31 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
   topology::cache_communicator(*comm_dist_graph);
 
   // graph partitioning
-  if (reorder) {
+  if (reorder && Placement::RANDOM == environment::placement) {
 
+    // assign each rank to a random partition
     const size_t numNodes = topology::num_nodes(*comm_dist_graph);
     int numRanks;
     libmpi.MPI_Comm_size(*comm_dist_graph, &numRanks);
-
-    // based on the weights provided, we assign each rank to a partition
-    std::vector<int> partAssignment = random_partition(numRanks, numNodes);
+    std::vector<int> partAssignment = partition::random(numRanks, numNodes);
 #if TEMPI_OUTPUT_LEVEL >= 4
-{
-  std::string s("node assignment app rank: ");
-  for (int r : partAssignment) {
-    s += std::to_string(r) + " ";
-  }
-  LOG_SPEW(s);
-}
-
+    {
+      int rank;
+      libmpi.MPI_Comm_rank(*comm_dist_graph, &rank);
+      if (0 == rank) {
+        std::string s("node assignment app rank: ");
+        for (int r : partAssignment) {
+          s += std::to_string(r) + " ";
+        }
+        LOG_SPEW(s);
+      }
+    }
 #endif
 
     // all the ranks assign to partition 0 will be backed by ranks on node 0
     topology::cache_node_assignment(*comm_dist_graph, partAssignment);
-
-    // retrieve the comm rank for an application rank
-    // topology::get_comm_rank(*comm_dist_graph, appRank);
-    // retrieve the application rank for a communicator rank
-    // topology::get_app_rank(*comm_dist_graph, commRank);
+  } else if (reorder && Placement::METIS == environment::placement) {
+    LOG_FATAL("METIS placement unimplemented");
   }
 
   return err;
