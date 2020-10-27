@@ -60,15 +60,31 @@ add_library(tempi SHARED ${TEMPI_SOURCES})
 add_library(tempi::tempi ALIAS tempi)
 set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
+# include(ExternalProject)
+# ExternalProject_Add(metis
+#   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
+#   GIT_TAG "v5.1.1-DistDGL-v0.5"
+#   GIT_SUBMODULES_RECURSE TRUE
+#   INSTALL_DIR=metis-prefix
+#   CMAKE_ARGS
+#     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
+# )
+
+# the metis makescript writes out some files before calling cmake
 include(ExternalProject)
 ExternalProject_Add(metis
   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
   GIT_TAG "v5.1.1-DistDGL-v0.5"
   GIT_SUBMODULES_RECURSE TRUE
+  CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
+  BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
+  BUILD_IN_SOURCE TRUE
+  INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
   INSTALL_DIR=metis-prefix
   CMAKE_ARGS
     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
 )
+
 add_dependencies(tempi metis)
 ExternalProject_Get_Property(metis INSTALL_DIR)
 message("install dir of metis = ${INSTALL_DIR}")
