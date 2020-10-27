@@ -158,7 +158,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                  std::to_string(std::get<1>(e)) + "," +
                  std::to_string(std::get<2>(e)) + "] ";
           }
-          LOG_SPEW("edges: " << s);
+          LOG_DEBUG("edges: " << s);
         }
 
         // build CSR
@@ -168,7 +168,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         idx_t rp = 0;
         for (size_t ei = 0; ei < edges.size(); ++ei) {
           for (; rp <= std::get<0>(edges[ei]); ++rp) {
-            xadj.push_back(rp);
+            xadj.push_back(ei);
           }
           adjncy.push_back(std::get<1>(edges[ei]));
           adjwgt.push_back(std::get<2>(edges[ei]));
@@ -184,21 +184,21 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           for (idx_t e : xadj) {
             s += std::to_string(e) + " ";
           }
-          LOG_SPEW("xadj: " << s);
+          LOG_DEBUG("xadj: " << s);
         }
         {
           std::string s;
           for (idx_t e : adjncy) {
             s += std::to_string(e) + " ";
           }
-          LOG_SPEW("adjncy: " << s);
+          LOG_DEBUG("adjncy: " << s);
         }
         {
           std::string s;
           for (idx_t e : adjwgt) {
             s += std::to_string(e) + " ";
           }
-          LOG_SPEW("adjwgt: " << s);
+          LOG_DEBUG("adjwgt: " << s);
         }
 
         idx_t nvtxs = graphSize; // number of vertices
@@ -214,7 +214,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
         // kway options. comment out means 0 default is okay
         METIS_SetDefaultOptions(options);
-        options[METIS_OPTION_DBGLVL] = 1;
+        //options[METIS_OPTION_DBGLVL] = 1;
         idx_t objval;
 
         nvtxRangePush("METIS_PartGraphKway");
@@ -248,13 +248,13 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           LOG_ERROR("unable to reorder nodes");
         }
 
-        LOG_SPEW("METIS objval=" << objval);
+        LOG_DEBUG("METIS objval=" << objval);
         {
           std::string s;
           for (idx_t i : part) {
             s += std::to_string(i) + " ";
           }
-          LOG_SPEW("part=" << s);
+          LOG_DEBUG("part=" << s);
         }
 
       } // 0 == graphRank

@@ -60,11 +60,6 @@ void cache_communicator(MPI_Comm comm) {
     }
   }
 
-  //LOG_SPEW("nodes: " << labels.size());
-  //for (auto &p : labels) {
-    //LOG_SPEW(p.first << " " << p.second);
-  //}
-
   topo.ranksOfNode.resize(labels.size());
   topo.nodeOfRank.resize(size);
   for (int r = 0; r < size; ++r) {
