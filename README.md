@@ -125,6 +125,11 @@ We use a primitive slab allocator to minimize the number of `cudaMalloc` or `cud
 Some optimizations rely on knowing which MPI ranks are on the same node.
 This is discovered during `MPI_Init` and can be queried quickly during other MPI functions.
 
+### Rank Placement
+
+When `MPI_Dist_graph_create_adjacent` is used, and `1` is passed for the `reorder` parameter, TEMPI uses METIS to group heavily-communicating ranks onto nodes.
+Internally, each rank is remapped onto one rank of the underlying library, and the substitution is made during all calls that use the communicator.
+
 ### CPU-CPU vs GPU-GPU performance
 
 In certain scenarios, the CPU-CPU performance of MPI point-to-point communications is substantially faster than the GPU-GPU equivalent.
@@ -142,6 +147,8 @@ Setting the corresponding variable to any value (even empty) will change behavio
 |`TEMPI_NO_ALLTOALLV`|Use library `MPI_Alltoallv`|
 |`TEMPI_NO_PACK`|Use library `MPI_Pack`|
 |`TEMPI_NO_TYPE_COMMIT`|Use library `MPI_Type_commit`. Don't analyze MPI types for allowable optimizations.|
+|`TEMPI_PLACEMENT_RANDOM`|Enable random rank placement for `MPI_Dist_graph_create_adjacent`|
+|`TEMPI_PLACEMENT_METIS`|Enable rank placement using METIS for `MPI_Dist_graph_create_adjacent`|
 
 to unset an environment variable in bash: `unset <VAR>`
 

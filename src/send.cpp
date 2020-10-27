@@ -63,6 +63,9 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
   if (environment::noTempi) {
     return libmpi.MPI_Send(ARGS_MPI_Send);
   }
+
+  dest = topology::library_rank(dest, comm);
+
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));

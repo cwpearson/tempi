@@ -35,3 +35,7 @@ add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isen
 
 pmpi_test_exe(send send.cpp)
 add_test(NAME send COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 send)
+
+
+pmpi_test_exe(dist_graph_create_adjacent dist_graph_create_adjacent.cpp)
+add_test(NAME dist_graph_create_adjacent COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 send)

@@ -1,10 +1,17 @@
 #pragma once
 
+enum class Placement {
+  NONE,   // library placement
+  RANDOM, // random placement of ranks
+  METIS   // use metis to place ranks
+};
+
 namespace environment {
 extern bool noTempi; // disable all TEMPI globally
 extern bool noAlltoallv;
 extern bool noPack;
 extern bool noTypeCommit;
+extern Placement placement;
 }; // namespace environment
 
 void read_environment();
