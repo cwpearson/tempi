@@ -44,15 +44,6 @@ find_package(MPI REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
 
-
-
-
-
-
-
-
-
-
 # only static libraries are suported by the device linker?
 # so I think we need STATIC with CUDA_SEPARABLE_COMPILATION
 add_subdirectory(src)
@@ -72,12 +63,15 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 # the metis makescript writes out some files before calling cmake
 # not all gcc accepts march=native, so delete it from GKlib
+
+
 include(ExternalProject)
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
 ExternalProject_Add(metis
   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
-  GIT_TAG "v5.1.1-DistDGL-v0.5"
+  GIT_TAG "22008804e8c9b78893ae10a94c0d8b4b592438b4" #"v5.1.1-DistDGL-v0.5"
   GIT_SUBMODULES_RECURSE TRUE
-  UPDATE_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
+  #PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
   CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
   BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
   BUILD_IN_SOURCE TRUE
@@ -86,12 +80,13 @@ ExternalProject_Add(metis
   CMAKE_ARGS
     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
 )
-
 add_dependencies(tempi metis)
-ExternalProject_Get_Property(metis INSTALL_DIR)
-message("install dir of metis = ${INSTALL_DIR}")
-target_include_directories(tempi SYSTEM PRIVATE ${INSTALL_DIR}/include)
-target_link_libraries(tempi PRIVATE ${INSTALL_DIR}/lib/libmetis.a)
+endif()
+
+#ExternalProject_Get_Property(metis INSTALL_DIR)
+#message("install dir of metis = ${INSTALL_DIR}")
+target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/include)
+target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
 
 if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
   target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=5)

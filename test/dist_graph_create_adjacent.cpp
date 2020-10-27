@@ -1,5 +1,7 @@
 #include <mpi.h>
 
+#include "../include/env.hpp"
+
 #include "../support/type.hpp"
 
 #include "test.hpp"
@@ -30,6 +32,8 @@ int main(int argc, char **argv) {
   }
 
   MPI_Comm graph{};
+
+  environment::placement = Placement::METIS;
 
   MPI_Dist_graph_create_adjacent(MPI_COMM_WORLD, sources.size(), sources.data(),
                                  sourceweights.data(), destinations.size(),

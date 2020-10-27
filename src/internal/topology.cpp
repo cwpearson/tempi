@@ -118,6 +118,25 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
     appRank[cr] = ar;
     libRank[ar] = cr;
   }
+
+  {
+  int rank;
+  libmpi.MPI_Comm_rank(comm, &rank);
+  if (0 == rank) {
+    std::string s;
+    for (int e : appRank) {
+      s += std::to_string(e) + " ";
+    }
+    LOG_DEBUG("appRank: " << s);
+  }
+  if (0 == rank) {
+    std::string s;
+    for (int e : libRank) {
+      s += std::to_string(e) + " ";
+    }
+    LOG_DEBUG("libRank: " << s);
+  }
+  }
 }
 
 void uncache(MPI_Comm comm) {

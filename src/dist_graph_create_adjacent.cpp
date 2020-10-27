@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <numeric>
+#include <tuple>
 
 extern "C" int
 MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
@@ -79,20 +80,26 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         weight.push_back(destweights[i]);
       }
 
-      // gather edgelist on root node
+      // get edge counts from all ranks
+      int edgeCnt = indegree + outdegree;
+      std::vector<int> edgeCnts(graphSize);
+      MPI_Gather(&edgeCnt, 1, MPI_INT, edgeCnts.data(), 1, MPI_INT, 0, *comm_dist_graph);
+
+      std::vector<int> edgeOffs(edgeCnts.size(), 0);
       if (0 == graphRank) {
-        edgeSrc.resize(graphSize);
-        edgeDst.resize(graphSize);
-        weight.resize(graphSize);
+        // recieve edges from all ranks
+        for (size_t i = 1; i < graphSize; ++i) {
+          edgeOffs[i] = edgeOffs[i-1] + edgeCnts[i-1];
+        }
+        edgeSrc.resize(edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
+        edgeDst.resize(edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
+        weight.resize( edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
       }
 
-      LOG_SPEW("GATHER");
-      MPI_Gather(edgeSrc.data(), edgeSrc.size(), MPI_INT, edgeSrc.data(),
-                 graphSize, MPI_INT, 0, *comm_dist_graph);
-      MPI_Gather(edgeDst.data(), edgeDst.size(), MPI_INT, edgeDst.data(),
-                 graphSize, MPI_INT, 0, *comm_dist_graph);
-      MPI_Gather(weight.data(), weight.size(), MPI_INT, weight.data(),
-                 graphSize, MPI_INT, 0, *comm_dist_graph);
+      // get edge data from all ranks
+      MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(), edgeCnts.data(),  edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
+      MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(), edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
+      MPI_Gatherv(weight.data(),  edgeCnt, MPI_INT, weight.data(), edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
 
       // this is the partition assignment that will be computed on rank 0 and
       // shared
@@ -126,13 +133,24 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
             auto lb =
                 std::lower_bound(edges.begin() + i + 1, edges.end(), edges[i]);
             auto ub =
-                std::lower_bound(edges.begin() + i + 1, edges.end(), edges[i]);
+                std::upper_bound(edges.begin() + i + 1, edges.end(), edges[i]);
             if (lb != ub) {
               edges.erase(lb, ub);
               changed = true;
               break;
             }
           }
+        }
+
+        // debug output
+        {
+          std::string s;
+          for (auto &e : edges) {
+            s += "[" + std::to_string(std::get<0>(e)) + "," +
+                 std::to_string(std::get<1>(e)) + "," +
+                 std::to_string(std::get<2>(e)) + "] ";
+          }
+          LOG_SPEW("edges: " << s);
         }
 
         // build CSR
@@ -150,7 +168,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (; rp <= graphSize; ++rp) {
           xadj.push_back(adjncy.size());
         }
-        assert(xadj.size() == graphSize);
+        assert(xadj.size() == graphSize+1);
 
         // debug output
         {
@@ -191,10 +209,12 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         options[METIS_OPTION_DBGLVL] = 1;
         idx_t objval;
 
+        nvtxRangePush("METIS_PartGraphKway");
         int metisErr =
             METIS_PartGraphKway(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
                                 vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
                                 options, &objval, part.data());
+        nvtxRangePop();
         bool success = false;
 
         switch (metisErr) {
