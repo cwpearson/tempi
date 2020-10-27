@@ -18,15 +18,11 @@ struct Topology {
   std::vector<std::vector<int>> ranksOfNode;
 };
 
-// how application ranks are mapped to library ranks
-struct Placement {
-  std::vector<int> appRank; // application rank for each library rank
-  std::vector<int> libRank; // library rank for each application rank
-};
+
 
 // ranks colocated with this rank for each communicator
 std::map<MPI_Comm, Topology> topos;
-std::map<MPI_Comm, Placement> placements;
+/*extern*/std::map<MPI_Comm, Placement> placements;
 
 namespace topology {
 

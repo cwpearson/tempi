@@ -24,7 +24,6 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 |![](static/summit-mpi-alltoallv.png)|![](static/summit-mpi-send.png)|
 
 
-
 ## Quick Start
 
 ```
@@ -49,7 +48,8 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 
 ## Features
 
-Performance fixes for CUDA+MPI code that requires no or minimal changes:
+Performance fixes for CUDA+MPI code that requires no source cose changes
+- [ ] node remapping in `MPI_Dist_graph_create` using METIS.
 - [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
   - [ ] derived datatypes
 - [x] (OLCF Summit) Small improvements to `MPI_Send` for large GPU-GPU messages.
@@ -58,13 +58,11 @@ Performance fixes for CUDA+MPI code that requires no or minimal changes:
   - [x] hvector
   - [ ] subarray
   - [ ] contiguous
-  - [ ] struct
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
   - [x] vector
   - [x] hvector
   - [ ] subarray
   - [ ] contiguous
-  - [ ] struct
 - [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
   - [ ] derived datatypes
 

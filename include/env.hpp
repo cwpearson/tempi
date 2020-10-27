@@ -1,6 +1,6 @@
 #pragma once
 
-enum class Placement {
+enum class PlacementMethod {
   NONE,   // library placement
   RANDOM, // random placement of ranks
   METIS   // use metis to place ranks
@@ -11,7 +11,7 @@ extern bool noTempi; // disable all TEMPI globally
 extern bool noAlltoallv;
 extern bool noPack;
 extern bool noTypeCommit;
-extern Placement placement;
+extern PlacementMethod placement;
 }; // namespace environment
 
 void read_environment();

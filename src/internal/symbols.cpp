@@ -18,6 +18,7 @@ void init_symbols() {
   DLSYM(MPI_Comm_split_type);
   DLSYM(MPI_Dist_graph_create);
   DLSYM(MPI_Dist_graph_create_adjacent);
+  DLSYM(MPI_Dist_graph_neighbors);
   DLSYM(MPI_Get_library_version);
   DLSYM(MPI_Init);
   DLSYM(MPI_Init_thread);

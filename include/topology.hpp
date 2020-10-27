@@ -3,6 +3,15 @@
 #include <mpi.h>
 
 #include <vector>
+#include <map>
+
+// how application ranks are mapped to library ranks
+struct Placement {
+  std::vector<int> appRank; // application rank for each library rank
+  std::vector<int> libRank; // library rank for each application rank
+};
+
+extern std::map<MPI_Comm, Placement> placements;
 
 void topology_init();
 

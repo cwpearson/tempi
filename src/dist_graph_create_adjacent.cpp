@@ -48,7 +48,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
   if (numNodes > 1) {
 
     // graph partitioning
-    if (reorder && Placement::RANDOM == environment::placement) {
+    if (reorder && PlacementMethod::RANDOM == environment::placement) {
 
       std::vector<int> partAssignment = partition::random(graphSize, numNodes);
 #if TEMPI_OUTPUT_LEVEL >= 4
@@ -66,7 +66,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       // all the ranks assign to partition 0 will be backed by ranks on node 0
       topology::cache_node_assignment(*comm_dist_graph, partAssignment);
 
-    } else if (reorder && Placement::METIS == environment::placement) {
+    } else if (reorder && PlacementMethod::METIS == environment::placement) {
 
       // build edgelist on every node
       std::vector<int> edgeSrc, edgeDst, weight;

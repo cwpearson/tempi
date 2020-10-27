@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
   MPI_Comm graph{};
 
-  environment::placement = Placement::METIS;
+  environment::placement = PlacementMethod::METIS;
 
   MPI_Dist_graph_create_adjacent(MPI_COMM_WORLD, sources.size(), sources.data(),
                                  sourceweights.data(), destinations.size(),

@@ -8,12 +8,12 @@ namespace environment {
 /*extern*/ bool noAlltoallv;
 /*extern*/ bool noPack;
 /*extern*/ bool noTypeCommit;
-/*extern*/ Placement placement;
+/*extern*/ PlacementMethod placement;
 }; // namespace environment
 
 void read_environment() {
   using namespace environment;
-  placement = Placement::NONE; // default to library placement
+  placement = PlacementMethod::NONE; // default to library placement
 
   noTempi = (nullptr != std::getenv("TEMPI_DISABLE"));
   noAlltoallv = (nullptr != std::getenv("TEMPI_NO_ALLTOALLV"));
@@ -21,9 +21,9 @@ void read_environment() {
   noTypeCommit = (nullptr != std::getenv("TEMPI_NO_TYPE_COMMIT"));
 
   if (nullptr != std::getenv("TEMPI_PLACEMENT_METIS")) {
-    placement = Placement::METIS;
+    placement = PlacementMethod::METIS;
   };
   if (nullptr != std::getenv("TEMPI_PLACEMENT_RANDOM")) {
-    placement = Placement::RANDOM;
+    placement = PlacementMethod::RANDOM;
   }
 }

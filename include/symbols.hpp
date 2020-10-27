@@ -97,10 +97,19 @@ typedef int (*Func_MPI_Allgather)(PARAMS_MPI_Allgather);
 #define ARGS_MPI_Comm_free comm
 typedef int (*Func_MPI_Comm_free)(PARAMS_MPI_Comm_free);
 
+#define PARAMS_MPI_Dist_graph_neighbors                                        \
+  MPI_Comm comm, int maxindegree, int sources[], int sourceweights[],          \
+      int maxoutdegree, int destinations[], int destweights[]
+#define ARGS_MPI_Dist_graph_neighbors                                          \
+  comm, maxindegree, sources, sourceweights, maxoutdegree, destinations,       \
+      destweights
+typedef int (*Func_MPI_Dist_graph_neighbors)(PARAMS_MPI_Dist_graph_neighbors);
+
 struct MpiFunc {
   Func_MPI_Alltoallv MPI_Alltoallv;
   Func_MPI_Dist_graph_create MPI_Dist_graph_create;
   Func_MPI_Dist_graph_create_adjacent MPI_Dist_graph_create_adjacent;
+  Func_MPI_Dist_graph_neighbors MPI_Dist_graph_neighbors;
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
