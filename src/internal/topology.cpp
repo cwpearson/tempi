@@ -39,7 +39,6 @@ void cache_communicator(MPI_Comm comm) {
   int rank, size;
   libmpi.MPI_Comm_rank(comm, &rank);
   libmpi.MPI_Comm_size(comm, &size);
-  LOG_SPEW("got rank and size");
   // get my node name
   char name[MPI_MAX_PROCESSOR_NAME]{};
   int namelen;
@@ -55,16 +54,16 @@ void cache_communicator(MPI_Comm comm) {
   for (int r = 0; r < size; ++r) {
     std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
     if (0 == labels.count(s)) {
-      LOG_SPEW(s << " is node " << labels.size());
+      //LOG_SPEW(s << " is node " << labels.size());
       size_t node = labels.size();
       labels[s] = node;
     }
   }
 
-  LOG_SPEW("nodes: " << labels.size());
-  for (auto &p : labels) {
-    LOG_SPEW(p.first << " " << p.second);
-  }
+  //LOG_SPEW("nodes: " << labels.size());
+  //for (auto &p : labels) {
+    //LOG_SPEW(p.first << " " << p.second);
+  //}
 
   topo.ranksOfNode.resize(labels.size());
   topo.nodeOfRank.resize(size);
@@ -72,7 +71,7 @@ void cache_communicator(MPI_Comm comm) {
     std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
     assert(labels.count(s));
     size_t node = labels[s];
-    LOG_SPEW("rank " << r << " name=" << s << " node=" << node);
+    //LOG_SPEW("rank " << r << " name=" << s << " node=" << node);
     topo.nodeOfRank[r] = node;
     topo.ranksOfNode[node].push_back(r);
   }
@@ -80,7 +79,7 @@ void cache_communicator(MPI_Comm comm) {
   if (0 == rank) {
     for (size_t node = 0; node < topo.ranksOfNode.size(); ++node) {
       std::string s("node ");
-      s += std::to_string(node) + ": ";
+      s += std::to_string(node) + " ranks: ";
       std::vector<int> &ranks = topo.ranksOfNode[node];
       for (int i : ranks) {
         s += std::to_string(i) + " ";
@@ -130,6 +129,8 @@ int library_rank(int rank, MPI_Comm comm) {
   auto it = placements.find(comm);
   if (it != placements.end()) {
     return it->second.libRank[rank];
+  } else {
+    return rank;
   }
 }
 
