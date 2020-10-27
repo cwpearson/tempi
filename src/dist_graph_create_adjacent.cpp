@@ -5,6 +5,7 @@
 #include "topology.hpp"
 
 #include <metis.h>
+#include <nvToolsExt.h>
 
 #include <algorithm>
 #include <cassert>
@@ -83,23 +84,30 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       // get edge counts from all ranks
       int edgeCnt = indegree + outdegree;
       std::vector<int> edgeCnts(graphSize);
-      MPI_Gather(&edgeCnt, 1, MPI_INT, edgeCnts.data(), 1, MPI_INT, 0, *comm_dist_graph);
+      MPI_Gather(&edgeCnt, 1, MPI_INT, edgeCnts.data(), 1, MPI_INT, 0,
+                 *comm_dist_graph);
 
       std::vector<int> edgeOffs(edgeCnts.size(), 0);
       if (0 == graphRank) {
         // recieve edges from all ranks
-        for (size_t i = 1; i < graphSize; ++i) {
-          edgeOffs[i] = edgeOffs[i-1] + edgeCnts[i-1];
+        for (int i = 1; i < graphSize; ++i) {
+          edgeOffs[i] = edgeOffs[i - 1] + edgeCnts[i - 1];
         }
-        edgeSrc.resize(edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
-        edgeDst.resize(edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
-        weight.resize( edgeOffs[graphSize-1] + edgeCnts[graphSize-1]);
+        edgeSrc.resize(edgeOffs[graphSize - 1] + edgeCnts[graphSize - 1]);
+        edgeDst.resize(edgeOffs[graphSize - 1] + edgeCnts[graphSize - 1]);
+        weight.resize(edgeOffs[graphSize - 1] + edgeCnts[graphSize - 1]);
       }
 
       // get edge data from all ranks
-      MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(), edgeCnts.data(),  edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
-      MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(), edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
-      MPI_Gatherv(weight.data(),  edgeCnt, MPI_INT, weight.data(), edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, *comm_dist_graph);
+      MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(),
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
+                  *comm_dist_graph);
+      MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(),
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
+                  *comm_dist_graph);
+      MPI_Gatherv(weight.data(), edgeCnt, MPI_INT, weight.data(),
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
+                  *comm_dist_graph);
 
       // this is the partition assignment that will be computed on rank 0 and
       // shared
@@ -168,7 +176,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (; rp <= graphSize; ++rp) {
           xadj.push_back(adjncy.size());
         }
-        assert(xadj.size() == graphSize+1);
+        assert(xadj.size() == graphSize + 1);
 
         // debug output
         {
@@ -199,7 +207,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                                // vertices the same
         idx_t *vsize =
             nullptr; // size of vertices. null for us to minimize edge cut
-        idx_t nparts = numNodes; // number of partitions for the graph
+        idx_t nparts = numNodes;  // number of partitions for the graph
         real_t *tpwgts = nullptr; // equally divided among partitions
         real_t *ubvec = nullptr; // load imbalance tolerance constraint is 1.001
         idx_t options[METIS_NOPTIONS]{};

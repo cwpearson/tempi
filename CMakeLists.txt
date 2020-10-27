@@ -67,20 +67,22 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 include(ExternalProject)
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
-ExternalProject_Add(metis
-  GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
-  GIT_TAG "22008804e8c9b78893ae10a94c0d8b4b592438b4" #"v5.1.1-DistDGL-v0.5"
-  GIT_SUBMODULES_RECURSE TRUE
-  #PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
-  CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
-  BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
-  BUILD_IN_SOURCE TRUE
-  INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
-  INSTALL_DIR=metis-prefix
-  CMAKE_ARGS
-    -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
-)
-add_dependencies(tempi metis)
+  ExternalProject_Add(metis
+    GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
+    GIT_TAG "22008804e8c9b78893ae10a94c0d8b4b592438b4" #"v5.1.1-DistDGL-v0.5"
+    GIT_SUBMODULES_RECURSE TRUE
+    PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
+    CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
+    BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
+    BUILD_IN_SOURCE TRUE
+    INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
+    INSTALL_DIR=metis-prefix
+    CMAKE_ARGS
+      -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
+  )
+  add_dependencies(tempi metis)
+else()
+  message(STATUS "libmetis.a found, not rebuilding. clean build directory and restart to rebuild.")
 endif()
 
 #ExternalProject_Get_Property(metis INSTALL_DIR)
