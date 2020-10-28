@@ -253,7 +253,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 #if TEMPI_OUTPUT_LEVEL >= 4
     if (0 == oldRank) {
       std::string s("node assignment app rank: ");
-      for (int r : partAssignment) {
+      for (int r : part) {
         s += std::to_string(r) + " ";
       }
       LOG_SPEW(s);
