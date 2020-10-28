@@ -64,7 +64,7 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
     return libmpi.MPI_Send(ARGS_MPI_Send);
   }
 
-  dest = topology::library_rank(dest, comm);
+  dest = topology::library_rank(comm, dest);
 
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};

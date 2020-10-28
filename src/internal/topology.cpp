@@ -137,10 +137,19 @@ void uncache(MPI_Comm comm) {
   placements.erase(comm);
 }
 
-int library_rank(int rank, MPI_Comm comm) {
+int library_rank(MPI_Comm comm, int rank) {
   auto it = placements.find(comm);
   if (it != placements.end()) {
     return it->second.libRank[rank];
+  } else {
+    return rank;
+  }
+}
+
+int application_rank(MPI_Comm comm, int rank) {
+  auto it = placements.find(comm);
+  if (it != placements.end()) {
+    return it->second.appRank[rank];
   } else {
     return rank;
   }

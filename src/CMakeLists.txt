@@ -1,5 +1,6 @@
 set(TEMPI_SOURCES ${TEMPI_SOURCES}
 ${CMAKE_CURRENT_LIST_DIR}/alltoallv.cpp
+${CMAKE_CURRENT_LIST_DIR}/comm_rank.cpp
 ${CMAKE_CURRENT_LIST_DIR}/dist_graph_create_adjacent.cpp
 ${CMAKE_CURRENT_LIST_DIR}/dist_graph_neighbors.cpp
 ${CMAKE_CURRENT_LIST_DIR}/finalize.cpp
