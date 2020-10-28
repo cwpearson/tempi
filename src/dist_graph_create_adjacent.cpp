@@ -55,17 +55,6 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
       // assign each rank to a random partition
       part = partition::random(oldSize, numNodes);
-#if TEMPI_OUTPUT_LEVEL >= 4
-      {
-        if (0 == graphRank) {
-          std::string s("node assignment app rank: ");
-          for (int r : partAssignment) {
-            s += std::to_string(r) + " ";
-          }
-          LOG_SPEW(s);
-        }
-      }
-#endif
 
     } else if (reorder && PlacementMethod::METIS == environment::placement) {
 
@@ -215,6 +204,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         idx_t objval;
 
         nvtxRangePush("METIS_PartGraphKway");
+        static_assert(sizeof(idx_t) == sizeof(int), "wrong metis idx_t");
         int metisErr =
             METIS_PartGraphKway(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
                                 vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
@@ -257,77 +247,79 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       } // 0 == graphRank
 
       // broadcast the partition assignment to all nodes
-      {
-        if (sizeof(idx_t) == sizeof(int)) {
-          MPI_Bcast(part.data(), part.size(), MPI_INT, 0, *comm_dist_graph);
-        } else if (sizeof(idx_t) == sizeof(int64_t)) {
-          MPI_Bcast(part.data(), part.size(), MPI_INT64_T, 0, *comm_dist_graph);
-        } else {
-          LOG_FATAL("unexpected size of idx_t");
-        }
-      }
-
-      /* library rank i (this rank) is presented as application rank j,
-       rank j needs to send edge information to rank i for the graph creation
-       call.
-       The edge information needs to be passed through the transformation
-       before it is provided to the underlying library as well.
-       the sources and destinations need to be adjusted accordingly so the
-       library ranks have the right neighbors
-      */
-      Placement placement = topology::make_placement(comm_old, part);
-
-      // transform sources and destinations to the library rank that will run
-      // them
-      std::vector<int> txsources(indegree), txdestinations(outdegree);
-      for (int i = 0; i < indegree; ++i) {
-        txsources[i] = placement.libRank[sources[i]];
-      }
-      for (int i = 0; i < outdegree; ++i) {
-        txdestinations[i] = placement.libRank[destinations[i]];
-      }
-
-      int libindegree, liboutdegree;
-
-      // indegree and outdegree
-      // this rank's indegree needs to be sent to the rank that will run it
-      // this rank needs the indegree of the app rank that it runs
-      MPI_Sendrecv(&indegree, 1, MPI_INT, placement.libRank[oldRank], 0,
-                   &libindegree, 1, MPI_INT, placement.appRank[oldRank], 0,
-                   comm_old, MPI_STATUS_IGNORE);
-      // outdegree
-      MPI_Sendrecv(&outdegree, 1, MPI_INT, placement.libRank[oldRank], 0,
-                   &liboutdegree, 1, MPI_INT, placement.appRank[oldRank], 0,
-                   comm_old, MPI_STATUS_IGNORE);
-
-      std::vector<int> libsources(libindegree), libsourceweights(libindegree),
-          libdestinations(liboutdegree), libdestweights(liboutdegree);
-      // edge data
-      MPI_Sendrecv(txsources.data(), indegree, MPI_INT,
-                   placement.libRank[oldRank], 0, libsources.data(),
-                   libsources.size(), MPI_INT, placement.appRank[oldRank], 0,
-                   comm_old, MPI_STATUS_IGNORE);
-      MPI_Sendrecv(sourceweights, indegree, MPI_INT, placement.libRank[oldRank],
-                   0, libsourceweights.data(), libsourceweights.size(), MPI_INT,
-                   placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
-      MPI_Sendrecv(txdestinations.data(), outdegree, MPI_INT,
-                   placement.libRank[oldRank], 0, libdestinations.data(),
-                   libdestinations.size(), MPI_INT, placement.appRank[oldRank],
-                   0, comm_old, MPI_STATUS_IGNORE);
-      MPI_Sendrecv(destweights, outdegree, MPI_INT, placement.libRank[oldRank],
-                   0, libdestweights.data(), libdestweights.size(), MPI_INT,
-                   placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
-
-      int err = libmpi.MPI_Dist_graph_create_adjacent(
-          comm_old, libindegree, libsources.data(), libsourceweights.data(),
-          liboutdegree, libdestinations.data(), libdestweights.data(), info,
-          0 /*we did reordering*/, comm_dist_graph);
-
-      topology::cache_communicator(*comm_dist_graph);
-      topology::cache_placement(*comm_dist_graph, placement);
-
-      return err;
+      MPI_Bcast(part.data(), part.size(), MPI_INT, 0, *comm_dist_graph);
     }
+
+#if TEMPI_OUTPUT_LEVEL >= 4
+    if (0 == oldRank) {
+      std::string s("node assignment app rank: ");
+      for (int r : partAssignment) {
+        s += std::to_string(r) + " ";
+      }
+      LOG_SPEW(s);
+    }
+#endif
+
+    /* library rank i (this rank) is presented as application rank j,
+     rank j needs to send edge information to rank i for the graph creation
+     call.
+     The edge information needs to be passed through the transformation
+     before it is provided to the underlying library as well.
+     the sources and destinations need to be adjusted accordingly so the
+     library ranks have the right neighbors
+    */
+    Placement placement = topology::make_placement(comm_old, part);
+
+    // transform sources and destinations to the library rank that will run
+    // them
+    std::vector<int> txsources(indegree), txdestinations(outdegree);
+    for (int i = 0; i < indegree; ++i) {
+      txsources[i] = placement.libRank[sources[i]];
+    }
+    for (int i = 0; i < outdegree; ++i) {
+      txdestinations[i] = placement.libRank[destinations[i]];
+    }
+
+    int libindegree, liboutdegree;
+
+    // indegree and outdegree
+    // this rank's indegree needs to be sent to the rank that will run it
+    // this rank needs the indegree of the app rank that it runs
+    MPI_Sendrecv(&indegree, 1, MPI_INT, placement.libRank[oldRank], 0,
+                 &libindegree, 1, MPI_INT, placement.appRank[oldRank], 0,
+                 comm_old, MPI_STATUS_IGNORE);
+    // outdegree
+    MPI_Sendrecv(&outdegree, 1, MPI_INT, placement.libRank[oldRank], 0,
+                 &liboutdegree, 1, MPI_INT, placement.appRank[oldRank], 0,
+                 comm_old, MPI_STATUS_IGNORE);
+
+    std::vector<int> libsources(libindegree), libsourceweights(libindegree),
+        libdestinations(liboutdegree), libdestweights(liboutdegree);
+    // edge data
+    MPI_Sendrecv(txsources.data(), indegree, MPI_INT,
+                 placement.libRank[oldRank], 0, libsources.data(),
+                 libsources.size(), MPI_INT, placement.appRank[oldRank], 0,
+                 comm_old, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(sourceweights, indegree, MPI_INT, placement.libRank[oldRank],
+                 0, libsourceweights.data(), libsourceweights.size(), MPI_INT,
+                 placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(txdestinations.data(), outdegree, MPI_INT,
+                 placement.libRank[oldRank], 0, libdestinations.data(),
+                 libdestinations.size(), MPI_INT, placement.appRank[oldRank], 0,
+                 comm_old, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(destweights, outdegree, MPI_INT, placement.libRank[oldRank], 0,
+                 libdestweights.data(), libdestweights.size(), MPI_INT,
+                 placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
+
+    int err = libmpi.MPI_Dist_graph_create_adjacent(
+        comm_old, libindegree, libsources.data(), libsourceweights.data(),
+        liboutdegree, libdestinations.data(), libdestweights.data(), info,
+        0 /*we did reordering*/, comm_dist_graph);
+
+    topology::cache_communicator(*comm_dist_graph);
+    topology::cache_placement(*comm_dist_graph, placement);
+
+    return err;
   }
 
   return libmpi.MPI_Dist_graph_create_adjacent(
