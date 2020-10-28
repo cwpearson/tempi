@@ -18,11 +18,12 @@ struct Topology {
   std::vector<std::vector<int>> ranksOfNode;
 };
 
-
-
 // ranks colocated with this rank for each communicator
 std::map<MPI_Comm, Topology> topos;
-/*extern*/std::map<MPI_Comm, Placement> placements;
+/*extern*/ std::map<MPI_Comm, Placement> placements;
+/*extern*/ std::map<MPI_Comm, Degree> degrees;
+
+
 
 namespace topology {
 
@@ -51,7 +52,7 @@ void cache_communicator(MPI_Comm comm) {
   for (int r = 0; r < size; ++r) {
     std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
     if (0 == labels.count(s)) {
-      //LOG_SPEW(s << " is node " << labels.size());
+      // LOG_SPEW(s << " is node " << labels.size());
       size_t node = labels.size();
       labels[s] = node;
     }
@@ -63,7 +64,7 @@ void cache_communicator(MPI_Comm comm) {
     std::string s(&names[r * MPI_MAX_PROCESSOR_NAME]);
     assert(labels.count(s));
     size_t node = labels[s];
-    //LOG_SPEW("rank " << r << " name=" << s << " node=" << node);
+    // LOG_SPEW("rank " << r << " name=" << s << " node=" << node);
     topo.nodeOfRank[r] = node;
     topo.ranksOfNode[node].push_back(r);
   }
@@ -112,22 +113,22 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
   }
 
   {
-  int rank;
-  libmpi.MPI_Comm_rank(comm, &rank);
-  if (0 == rank) {
-    std::string s;
-    for (int e : appRank) {
-      s += std::to_string(e) + " ";
+    int rank;
+    libmpi.MPI_Comm_rank(comm, &rank);
+    if (0 == rank) {
+      std::string s;
+      for (int e : appRank) {
+        s += std::to_string(e) + " ";
+      }
+      LOG_DEBUG("comm= " << uintptr_t(comm) << " appRank: " << s);
     }
-    LOG_DEBUG("comm= " << uintptr_t(comm) << " appRank: " << s);
-  }
-  if (0 == rank) {
-    std::string s;
-    for (int e : libRank) {
-      s += std::to_string(e) + " ";
+    if (0 == rank) {
+      std::string s;
+      for (int e : libRank) {
+        s += std::to_string(e) + " ";
+      }
+      LOG_DEBUG("comm= " << uintptr_t(comm) << " libRank: " << s);
     }
-    LOG_DEBUG("comm= " << uintptr_t(comm) << " libRank: " << s);
-  }
   }
 }
 

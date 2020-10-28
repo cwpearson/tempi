@@ -41,8 +41,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
   // get the topology for the new communicator
   topology::cache_communicator(*comm_dist_graph);
+  degrees[*comm_dist_graph].indegree = indegree;
+  degrees[*comm_dist_graph].outdegree = outdegree;
 
-  // assign each rank to a random partition
   const size_t numNodes = topology::num_nodes(*comm_dist_graph);
 
   if (numNodes > 1) {
@@ -50,6 +51,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     // graph partitioning
     if (reorder && PlacementMethod::RANDOM == environment::placement) {
 
+      // assign each rank to a random partition
       std::vector<int> partAssignment = partition::random(graphSize, numNodes);
 #if TEMPI_OUTPUT_LEVEL >= 4
       {
@@ -214,7 +216,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
         // kway options. comment out means 0 default is okay
         METIS_SetDefaultOptions(options);
-        //options[METIS_OPTION_DBGLVL] = 1;
+        // options[METIS_OPTION_DBGLVL] = 1;
         idx_t objval;
 
         nvtxRangePush("METIS_PartGraphKway");
