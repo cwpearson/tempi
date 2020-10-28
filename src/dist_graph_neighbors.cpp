@@ -4,13 +4,15 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 
+#include <cassert>
+
 extern "C" int MPI_Dist_graph_neighbors(PARAMS_MPI_Dist_graph_neighbors) {
   if (environment::noTempi) {
     return libmpi.MPI_Dist_graph_neighbors(ARGS_MPI_Dist_graph_neighbors);
   }
 
-  // the library provides its ranks in this call.
-  // if we did placement, those are not the same ranks that we want to present
+  // the library will return it's ranks in the call.
+  // if we reordered, those are not the same ranks that we want to present
   // to the application
   auto it = placements.find(comm);
   if (it != placements.end()) {
@@ -21,9 +23,6 @@ extern "C" int MPI_Dist_graph_neighbors(PARAMS_MPI_Dist_graph_neighbors) {
     int err = libmpi.MPI_Dist_graph_neighbors(
         comm, maxindegree, libsources.data(), sourceweights, maxoutdegree,
         libdestinations.data(), destweights);
-    if (MPI_SUCCESS != err) {
-      return err;
-    }
 
     for (int i = 0; i < maxindegree; ++i) {
       int librank = libsources[i];

@@ -23,8 +23,6 @@ std::map<MPI_Comm, Topology> topos;
 /*extern*/ std::map<MPI_Comm, Placement> placements;
 /*extern*/ std::map<MPI_Comm, Degree> degrees;
 
-
-
 namespace topology {
 
 // determine and store topology toposrmation for `comm`
@@ -91,16 +89,15 @@ size_t num_nodes(MPI_Comm comm) {
   return topos[comm].ranksOfNode.size();
 }
 
-void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
-  LOG_SPEW("cache_node_assignment(comm=" << uintptr_t(comm));
+Placement make_placement(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
+  LOG_SPEW("make_placement(comm=" << uintptr_t(comm) << ", ...)");
   // next free rank on each node
   std::vector<int> nextIdx(num_nodes(comm), 0);
 
-  std::vector<int> &appRank = placements[comm].appRank;
-  std::vector<int> &libRank = placements[comm].libRank;
+  Placement placement;
 
-  appRank.resize(nodeOfRank.size());
-  libRank.resize(nodeOfRank.size());
+  placement.appRank.resize(nodeOfRank.size());
+  placement.libRank.resize(nodeOfRank.size());
 
   const std::vector<std::vector<int>> &ranksOfNode = topos[comm].ranksOfNode;
 
@@ -108,8 +105,8 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
     int node = nodeOfRank[ar];
     int cr = ranksOfNode[node][nextIdx[node]];
     nextIdx[node]++;
-    appRank[cr] = ar;
-    libRank[ar] = cr;
+    placement.appRank[cr] = ar;
+    placement.libRank[ar] = cr;
   }
 
   {
@@ -117,19 +114,24 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
     libmpi.MPI_Comm_rank(comm, &rank);
     if (0 == rank) {
       std::string s;
-      for (int e : appRank) {
+      for (int e : placement.appRank) {
         s += std::to_string(e) + " ";
       }
       LOG_DEBUG("comm= " << uintptr_t(comm) << " appRank: " << s);
     }
     if (0 == rank) {
       std::string s;
-      for (int e : libRank) {
+      for (int e : placement.libRank) {
         s += std::to_string(e) + " ";
       }
       LOG_DEBUG("comm= " << uintptr_t(comm) << " libRank: " << s);
     }
   }
+  return placement;
+}
+
+void cache_placement(MPI_Comm comm, const Placement &placement) {
+  placements[comm] = placement;
 }
 
 void uncache(MPI_Comm comm) {

@@ -42,8 +42,11 @@ int library_rank(MPI_Comm comm, int rank);
 */
 int application_rank(MPI_Comm comm, int rank);
 
-// store the node that rank i should be on
-void cache_node_assignment(MPI_Comm comm, const std::vector<int> &assignment);
+// return placement information based on a partitioning of ranks
+Placement make_placement(MPI_Comm comm, const std::vector<int> &part);
+
+// store the mapping from library rank to application rank
+void cache_placement(MPI_Comm comm, const Placement &placement);
 
 // forget about a communicator
 void uncache(MPI_Comm comm);

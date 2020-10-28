@@ -14,6 +14,13 @@ extern "C" int MPI_Neighbor_alltoallv(PARAMS_MPI_Neighbor_alltoallv) {
 
     auto it = degrees.find(comm);
     if (it != degrees.end()) {
+
+      /* this call does not take ranks, so there is no need to handle
+         reordering. The library ranks are different than the application ranks,
+         but they have the right neighbors in a consistent order, just with
+         different numbers
+      */
+
       {
         std::string s;
         for (int i = 0; i < it->second.indegree; ++i) {
