@@ -1,18 +1,19 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 class SquareMat {
 private:
-  unsigned n_;
+  size_t n_;
 
 public:
   std::vector<int> data_;
 
 public:
   SquareMat(int n, int val) : n_(n), data_(n * n, val) {}
-  unsigned size() const noexcept { return n_; }
+  size_t size() const noexcept { return n_; }
 
   int *operator[](size_t i) noexcept { return &data_[i * n_]; }
   const int *operator[](size_t i) const noexcept { return &data_[i * n_]; }
@@ -24,6 +25,8 @@ public:
     }
     return ret;
   }
+
+  std::string str() const noexcept;
 
   /* create a `ranks` x `ranks` matrix with `rowNz` in each row.
      each value will be in [`lb`, `ub`) * `scale`

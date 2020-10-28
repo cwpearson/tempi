@@ -19,7 +19,15 @@ add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp statistics.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp statistics.cpp)
 
-add_tempi_executable(bench-mpi-pattern bench_mpi_pattern.cpp 
+add_tempi_executable(bench-mpi-pattern-random 
+  bench_mpi_pattern_random.cpp 
+  statistics.cpp 
+  ../support/squaremat.cpp
+  benchmark.cpp
+)
+
+add_tempi_executable(bench-mpi-pattern-blockdiagonal 
+  bench_mpi_pattern_blockdiagonal.cpp 
   statistics.cpp 
   ../support/squaremat.cpp
   benchmark.cpp

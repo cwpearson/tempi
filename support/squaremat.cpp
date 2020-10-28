@@ -1,10 +1,28 @@
 #include "squaremat.hpp"
 
-#include <random>
 #include <algorithm>
+#include <iostream>
+#include <mpi.h>
+#include <random>
+
+std::string SquareMat::str() const noexcept {
+  std::string s;
+
+  for (size_t i = 0; i < n_; ++i) {
+
+    for (size_t j = 0; j < n_; ++j) {
+      s += std::to_string(data_[i * n_ + j]) + " ";
+    }
+    // no final newline
+    if (i + 1 < n_) {
+      s += "\n";
+    }
+  }
+  return s;
+}
 
 SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
-                                         int scale) {
+                                        int scale) {
 
   const int SEED = 101;
   srand(SEED);
@@ -32,7 +50,10 @@ SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
 }
 
 SquareMat SquareMat::make_block_diagonal(int ranks, int bLb, int bUb, int lb,
-                                          int ub, int scale) {
+                                         int ub, int scale) {
+
+  // int rank;
+  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   const int SEED = 101;
   srand(SEED);
@@ -63,7 +84,8 @@ SquareMat SquareMat::make_block_diagonal(int ranks, int bLb, int bUb, int lb,
 
 /* permute the rows and columns of mat according to `p`
  */
-SquareMat SquareMat::make_permutation(const SquareMat &mat, const std::vector<int> &p) {
+SquareMat SquareMat::make_permutation(const SquareMat &mat,
+                                      const std::vector<int> &p) {
   SquareMat next = mat;
   for (int i = 0; i < mat.size(); ++i) {
     for (int j = 0; j < mat.size(); ++j) {
