@@ -4,16 +4,6 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 
-#include <metis.h>
-#include <nvToolsExt.h>
-
-#include <algorithm>
-#include <cassert>
-#include <numeric>
-#include <tuple>
-
-/*
- */
 extern "C" int MPI_Dist_graph_neighbors(PARAMS_MPI_Dist_graph_neighbors) {
   if (environment::noTempi) {
     return libmpi.MPI_Dist_graph_neighbors(ARGS_MPI_Dist_graph_neighbors);
@@ -36,10 +26,13 @@ extern "C" int MPI_Dist_graph_neighbors(PARAMS_MPI_Dist_graph_neighbors) {
     }
 
     for (int i = 0; i < maxindegree; ++i) {
-      sources[i] = it->second.appRank[libsources[i]];
+      int librank = libsources[i];
+      int apprank = it->second.appRank[librank];
+      sources[i] = apprank;
     }
     for (int i = 0; i < maxoutdegree; ++i) {
-      destinations[i] = it->second.appRank[libdestinations[i]];
+      int librank = libdestinations[i];
+      destinations[i] = it->second.appRank[librank];
     }
 
     return err;

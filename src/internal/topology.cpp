@@ -29,6 +29,7 @@ namespace topology {
 // determine and store topology toposrmation for `comm`
 void cache_communicator(MPI_Comm comm) {
   nvtxRangePush("cache_communicator");
+  LOG_SPEW("cache_communicator(" << uintptr_t(comm));
 
   Topology topo;
 
@@ -90,12 +91,12 @@ size_t num_nodes(MPI_Comm comm) {
 }
 
 void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
-
+  LOG_SPEW("cache_node_assignment(comm=" << uintptr_t(comm));
   // next free rank on each node
   std::vector<int> nextIdx(num_nodes(comm), 0);
 
-  std::vector<int> appRank = placements[comm].appRank;
-  std::vector<int> libRank = placements[comm].libRank;
+  std::vector<int> &appRank = placements[comm].appRank;
+  std::vector<int> &libRank = placements[comm].libRank;
 
   appRank.resize(nodeOfRank.size());
   libRank.resize(nodeOfRank.size());
@@ -118,14 +119,14 @@ void cache_node_assignment(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
     for (int e : appRank) {
       s += std::to_string(e) + " ";
     }
-    LOG_DEBUG("appRank: " << s);
+    LOG_DEBUG("comm= " << uintptr_t(comm) << " appRank: " << s);
   }
   if (0 == rank) {
     std::string s;
     for (int e : libRank) {
       s += std::to_string(e) + " ";
     }
-    LOG_DEBUG("libRank: " << s);
+    LOG_DEBUG("comm= " << uintptr_t(comm) << " libRank: " << s);
   }
   }
 }
