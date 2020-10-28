@@ -32,3 +32,10 @@ add_tempi_executable(bench-mpi-pattern-blockdiagonal
   ../support/squaremat.cpp
   benchmark.cpp
 )
+
+add_tempi_executable(bench-mpi-pattern-permblockdiagonal 
+  bench_mpi_pattern_permblockdiagonal.cpp 
+  statistics.cpp 
+  ../support/squaremat.cpp
+  benchmark.cpp
+)
