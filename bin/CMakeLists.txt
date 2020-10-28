@@ -2,7 +2,7 @@
 macro(add_tempi_executable exe)
     add_executable(${ARGV0} ${ARGN})
     # make tempi support code visible
-    target_include_directories(${ARGV0} PRIVATE ../support ../include)
+    target_include_directories(${ARGV0} PRIVATE)
     # link to pmpi first
     target_link_libraries(${ARGV0} PRIVATE tempi::tempi)
     ## just using target_link_libraries(pangolin INTERFACE MPI::MPI_CXX)
@@ -18,4 +18,9 @@ add_tempi_executable(bench-mpi-send-types bench_mpi_send_types.cpp ../support/ty
 add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp statistics.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp statistics.cpp)
-add_tempi_executable(bench-mpi-pattern bench_mpi_pattern.cpp statistics.cpp)
+
+add_tempi_executable(bench-mpi-pattern bench_mpi_pattern.cpp 
+  statistics.cpp 
+  ../support/squaremat.cpp
+  benchmark.cpp
+)
