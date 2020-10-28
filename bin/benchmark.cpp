@@ -333,40 +333,31 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
       auto stop = Clock::now();
       result.setup = stop - start;
     }
-    MPI_Comm_rank(graph, &graphRank);
   }
 
-  // map MPI_COMM_WORLD rank to graph rank
-  std::vector<int> graphRanks(size); // get graph rank from world rank
-  std::vector<int> worldRanks(size); // get world rank from graph rank
-  MPI_Allgather(&graphRank, 1, MPI_INT, graphRanks.data(), 1, MPI_INT,
-                MPI_COMM_WORLD);
-  MPI_Allgather(&rank, 1, MPI_INT, worldRanks.data(), 1, MPI_INT, graph);
 
-// debug print
-#if 0
-  {
-    if (0 == rank) {
-      std::cerr << "graphRanks: ";
-      for (auto &e : graphRanks) {
-        std::cerr << e << " ";
-      }
-      std::cerr << "\n";
+  MPI_Comm_rank(graph, &rank);
+  MPI_Comm_size(graph, &size);
 
-      std::cerr << "worldRanks: ";
-      for (auto &e : worldRanks) {
-        std::cerr << e << " ";
-      }
-      std::cerr << "\n";
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-  }
-#endif
-
-  // update neighbor orders (it is not defined to be the same as graph factory
+  // get my neighbors (not guaranteed to be the same order as create
   MPI_Dist_graph_neighbors(graph, sources.size(), sources.data(),
                            sourceweights.data(), destinations.size(),
                            destinations.data(), destweights.data());
+#if 1
+  {
+    std::string s,t;
+    for (int i = 0 ;i < sources.size(); ++i) {
+      s += std::to_string(sources[i]) + " ";
+      t += std::to_string(sourceweights[i]) + " ";
+    }
+    for (int r = 0; r < size; ++r) {
+      MPI_Barrier(graph);
+      if (r == rank) LOG_SPEW("rank " << rank << ": sources=" << s << " sourceweights=" << t);
+      MPI_Barrier(graph);
+    }
+  }
+#endif
+
 
   // create GPU allocations
   size_t sendBufSize = 0;
@@ -403,7 +394,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
   std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
   for (size_t i = 0; i < destinations.size(); ++i) {
     const int dest = destinations[i];
-    sendcounts.push_back(mat[rank][worldRanks[dest]]);
+    sendcounts.push_back(mat[rank][dest]);
   }
   sdispls.push_back(0);
   for (size_t i = 1; i < destinations.size(); ++i) {
@@ -411,7 +402,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
   }
   for (size_t i = 0; i < sources.size(); ++i) {
     const int src = sources[i];
-    recvcounts.push_back(mat[worldRanks[src]][rank]);
+    recvcounts.push_back(mat[src][rank]);
   }
   rdispls.push_back(0);
   for (size_t i = 1; i < sources.size(); ++i) {
