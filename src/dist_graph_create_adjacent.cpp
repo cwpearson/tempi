@@ -71,11 +71,12 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         weight.push_back(destweights[i]);
       }
 
+
       // get edge counts from all ranks
       int edgeCnt = indegree + outdegree;
       std::vector<int> edgeCnts(oldSize);
       MPI_Gather(&edgeCnt, 1, MPI_INT, edgeCnts.data(), 1, MPI_INT, 0,
-                 *comm_dist_graph);
+                 comm_old);
 
       std::vector<int> edgeOffs(edgeCnts.size(), 0);
       if (0 == oldRank) {
@@ -91,13 +92,13 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       // get edge data from all ranks
       MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(),
                   edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  *comm_dist_graph);
+                  comm_old);
       MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(),
                   edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  *comm_dist_graph);
+                  comm_old);
       MPI_Gatherv(weight.data(), edgeCnt, MPI_INT, weight.data(),
                   edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  *comm_dist_graph);
+                  comm_old);
 
       // build CSR on root node
       if (0 == oldRank) {
@@ -272,7 +273,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       } // 0 == graphRank
 
       // broadcast the partition assignment to all nodes
-      MPI_Bcast(part.data(), part.size(), MPI_INT, 0, *comm_dist_graph);
+      MPI_Bcast(part.data(), part.size(), MPI_INT, 0, comm_old);
     }
 
 #if TEMPI_OUTPUT_LEVEL >= 4
@@ -335,6 +336,8 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     MPI_Sendrecv(destweights, outdegree, MPI_INT, placement.libRank[oldRank], 0,
                  libdestweights.data(), libdestweights.size(), MPI_INT,
                  placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
+
+    LOG_SPEW("app rank " << placement.appRank[oldRank]);
 
     int err = libmpi.MPI_Dist_graph_create_adjacent(
         comm_old, libindegree, libsources.data(), libsourceweights.data(),
