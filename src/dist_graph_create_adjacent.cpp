@@ -139,6 +139,31 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           }
         }
 
+        // bidirectional edge weights must be the same for METIS.
+        // sum up the two directions
+
+        // comparator ignoring weight
+        auto ignore_weight = [](const std::tuple<int, int, int> &a,
+                                const std::tuple<int, int, int> &b) {
+          return std::make_pair(std::get<0>(a), std::get<1>(a)) <
+                 std::make_pair(std::get<0>(b), std::get<1>(b));
+        };
+        for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
+          // back edge with no weight
+          std::tuple<int, int, int> backedge(std::get<1>(edges[i]),
+                                             std::get<0>(edges[i]), 0);
+
+          // find the position of the back edge
+          auto lb = std::lower_bound(edges.begin() + i + 1, edges.end(),
+                                     backedge, ignore_weight);
+          auto ub = std::upper_bound(edges.begin() + i + 1, edges.end(),
+                                     backedge, ignore_weight);
+          if (lb != ub) {
+            std::get<2>(edges[i]) += std::get<2>(*lb);
+            std::get<2>(*lb) = std::get<2>(edges[i]);
+          }
+        }
+
         // debug output
         {
           std::string s;
