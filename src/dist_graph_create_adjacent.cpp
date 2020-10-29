@@ -71,7 +71,6 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         weight.push_back(destweights[i]);
       }
 
-
       // get edge counts from all ranks
       int edgeCnt = indegree + outdegree;
       std::vector<int> edgeCnts(oldSize);
@@ -91,14 +90,11 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
       // get edge data from all ranks
       MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  comm_old);
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
       MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  comm_old);
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
       MPI_Gatherv(weight.data(), edgeCnt, MPI_INT, weight.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0,
-                  comm_old);
+                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
 
       // build CSR on root node
       if (0 == oldRank) {
@@ -118,6 +114,13 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                  std::to_string(std::get<2>(e)) + "] ";
           }
           LOG_SPEW("edges: " << s);
+        }
+
+        // delete self edges
+        for (size_t i = 0; i < edges.size(); ++i) {
+          if (std::get<0>(edges[i]) == std::get<1>(edges[i])) {
+            edges.erase(edges.begin() + i, edges.begin() + i + 1);
+          }
         }
 
         // delete duplicate edges
