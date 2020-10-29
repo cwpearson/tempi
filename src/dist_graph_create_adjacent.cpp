@@ -109,6 +109,8 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
         std::sort(edges.begin(), edges.end());
 
+        // bidirectional edge weights must be the same
+
         // debug output
         {
           std::string s;
@@ -171,21 +173,21 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           for (idx_t e : xadj) {
             s += std::to_string(e) + " ";
           }
-          LOG_DEBUG("xadj: " << s);
+          LOG_DEBUG("xadj: (" << xadj.size() << ") " << s);
         }
         {
           std::string s;
           for (idx_t e : adjncy) {
             s += std::to_string(e) + " ";
           }
-          LOG_DEBUG("adjncy: " << s);
+          LOG_DEBUG("adjncy: (" << adjncy.size() << ") " << s);
         }
         {
           std::string s;
           for (idx_t e : adjwgt) {
             s += std::to_string(e) + " ";
           }
-          LOG_DEBUG("adjwgt: " << s);
+          LOG_DEBUG("adjwgt: (" << adjwgt.size() << ") " << s);
         }
 
         idx_t nvtxs = oldSize; // number of vertices
