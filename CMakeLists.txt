@@ -6,7 +6,7 @@
 # 3.17+ for CMAKE_CUDA_KNOWN_FEATURES/cuda_std_11
 cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
-project(tempi LANGUAGES CXX CUDA VERSION 0.1.0.0)
+project(tempi LANGUAGES C CXX CUDA VERSION 0.1.0.0)
 
 option(USE_CUDA_GRAPH "use CUDA graph API" ON)
 
@@ -65,14 +65,16 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 # not all gcc accepts march=native, so delete it from GKlib
 
 
+# pick this revision of metis due to a bug in a newer version
 include(ExternalProject)
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
   ExternalProject_Add(metis
     GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
-    GIT_TAG "22008804e8c9b78893ae10a94c0d8b4b592438b4" #"v5.1.1-DistDGL-v0.5"
+    GIT_TAG "18f391689433fabbd76721cfdfdd978b4197d089" # july 25
+    #GIT_TAG "22008804e8c9b78893ae10a94c0d8b4b592438b4" #"v5.1.1-DistDGL-v0.5"
     GIT_SUBMODULES_RECURSE TRUE
     PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
-    CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix
+    CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix cc=${CMAKE_C_COMPILER}
     BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
     BUILD_IN_SOURCE TRUE
     INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
