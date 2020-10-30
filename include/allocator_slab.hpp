@@ -147,10 +147,8 @@ public:
   void release_all() {
     for (Pool &pool : pools_) {
       for (size_t i = 0; i < pool.size(); ++i) {
-        if (pool.avail[i]) {
-          const size_t allocSize = 1ull << i;
-          allocator.deallocate(pool.ptrs[i], allocSize);
-        }
+        const size_t allocSize = size_t(1) << i;
+        allocator.deallocate(pool.ptrs[i], allocSize);
       }
       pool.clear();
     }

@@ -36,7 +36,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
     LOG_DEBUG("MPI_THREAD_MULTIPLE");
   }
 
-  allocators_init();
+  allocators::init();
   topology_init();
   streams_init();
   worker_init();

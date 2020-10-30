@@ -42,7 +42,7 @@ extern "C" int MPI_Finalize() {
 
   worker_finalize();
   streams_finalize();
-  allocators_finalize();
+  allocators::finalize();
 
   LOG_DEBUG("library MPI_Finalize");
   int err = fn();
