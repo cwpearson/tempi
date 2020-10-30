@@ -1,6 +1,7 @@
 #include "benchmark.hpp"
 
 #include "../include/cuda_runtime.hpp"
+#include "../include/env.hpp"
 #include "../include/logging.hpp"
 
 #include <cuda_runtime.h>
@@ -95,10 +96,11 @@ BM::Result BM::Pattern_isend_irecv::operator()(const SquareMat &mat,
   }
 
   // create device allocations
-  char *srcBuf = {}, *dstBuf = {};
+  char *srcBuf{}, *dstBuf{}, *expBuf{};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&srcBuf, sendBufSize));
   CUDA_RUNTIME(cudaMalloc(&dstBuf, recvBufSize));
+  CUDA_RUNTIME(cudaMalloc(&expBuf, recvBufSize)); // expected
 
   // create Alltoallv arguments
   std::vector<int> sendcounts, recvcounts, sdispls, rdispls;
@@ -119,6 +121,14 @@ BM::Result BM::Pattern_isend_irecv::operator()(const SquareMat &mat,
 
   std::vector<MPI_Request> sendReq(size, MPI_REQUEST_NULL);
   std::vector<MPI_Request> recvReq(size, MPI_REQUEST_NULL);
+
+  // generate expected result
+  {
+    environment::noTempi = true;
+    MPI_Alltoallv(srcBuf, sendcounts.data(), sdispls.data(), MPI_BYTE, expBuf,
+                  recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
+    environment::noTempi = false;
+  }
 
   // benchmark loop
   Statistics stats;
@@ -145,11 +155,26 @@ BM::Result BM::Pattern_isend_irecv::operator()(const SquareMat &mat,
     MPI_Allreduce(MPI_IN_PLACE, &tmp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     stats.insert(tmp);
   }
-
   result.iters = stats;
+
+  // compare results
+  {
+    std::vector<char> act(recvBufSize), exp(recvBufSize);
+    CUDA_RUNTIME(
+        cudaMemcpy(act.data(), dstBuf, recvBufSize, cudaMemcpyDeviceToHost));
+    CUDA_RUNTIME(
+        cudaMemcpy(exp.data(), expBuf, recvBufSize, cudaMemcpyDeviceToHost));
+
+    for (size_t i = 0; i < act.size(); ++i) {
+      if (act[i] != exp[i]) {
+        LOG_FATAL("mismatch at byte" << i);
+      }
+    }
+  }
 
   CUDA_RUNTIME(cudaFree(srcBuf));
   CUDA_RUNTIME(cudaFree(dstBuf));
+  CUDA_RUNTIME(cudaFree(expBuf));
 
   return result;
 }
@@ -175,10 +200,11 @@ BM::Result BM::Pattern_sparse_isend_irecv::operator()(const SquareMat &mat,
   }
 
   // create device allocations
-  char *srcBuf = {}, *dstBuf = {};
+  char *srcBuf{}, *dstBuf{}, *expBuf{};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&srcBuf, sendBufSize));
   CUDA_RUNTIME(cudaMalloc(&dstBuf, recvBufSize));
+  CUDA_RUNTIME(cudaMalloc(&expBuf, recvBufSize)); // expected
 
   // create Alltoallv arguments
   std::vector<int> sendcounts, recvcounts, sdispls, rdispls;
@@ -199,6 +225,14 @@ BM::Result BM::Pattern_sparse_isend_irecv::operator()(const SquareMat &mat,
 
   std::vector<MPI_Request> sendReq(size, MPI_REQUEST_NULL);
   std::vector<MPI_Request> recvReq(size, MPI_REQUEST_NULL);
+
+  // generate expected result
+  {
+    environment::noTempi = true;
+    MPI_Alltoallv(srcBuf, sendcounts.data(), sdispls.data(), MPI_BYTE, expBuf,
+                  recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
+    environment::noTempi = false;
+  }
 
   // benchmark loop
   Statistics stats;
@@ -230,8 +264,24 @@ BM::Result BM::Pattern_sparse_isend_irecv::operator()(const SquareMat &mat,
 
   result.iters = stats;
 
+  // compare results
+  {
+    std::vector<char> act(recvBufSize), exp(recvBufSize);
+    CUDA_RUNTIME(
+        cudaMemcpy(act.data(), dstBuf, recvBufSize, cudaMemcpyDeviceToHost));
+    CUDA_RUNTIME(
+        cudaMemcpy(exp.data(), expBuf, recvBufSize, cudaMemcpyDeviceToHost));
+
+    for (size_t i = 0; i < act.size(); ++i) {
+      if (act[i] != exp[i]) {
+        LOG_FATAL("mismatch at byte" << i);
+      }
+    }
+  }
+
   CUDA_RUNTIME(cudaFree(srcBuf));
   CUDA_RUNTIME(cudaFree(dstBuf));
+  CUDA_RUNTIME(cudaFree(expBuf));
 
   return result;
 }
@@ -335,7 +385,6 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     }
   }
 
-
   MPI_Comm_rank(graph, &rank);
   MPI_Comm_size(graph, &size);
 
@@ -345,19 +394,20 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
                            destinations.data(), destweights.data());
 #if 1
   {
-    std::string s,t;
-    for (int i = 0 ;i < sources.size(); ++i) {
+    std::string s, t;
+    for (int i = 0; i < sources.size(); ++i) {
       s += std::to_string(sources[i]) + " ";
       t += std::to_string(sourceweights[i]) + " ";
     }
     for (int r = 0; r < size; ++r) {
       MPI_Barrier(graph);
-      if (r == rank) LOG_SPEW("rank " << rank << ": sources=" << s << " sourceweights=" << t);
+      if (r == rank)
+        LOG_SPEW("rank " << rank << ": sources=" << s
+                         << " sourceweights=" << t);
       MPI_Barrier(graph);
     }
   }
 #endif
-
 
   // create GPU allocations
   size_t sendBufSize = 0;
@@ -385,10 +435,11 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
 #endif
 
   // create device allocations
-  char *sendbuf = {}, *recvbuf = {};
+  char *sendbuf{}, *recvbuf{}, *expBuf{};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&sendbuf, sendBufSize));
   CUDA_RUNTIME(cudaMalloc(&recvbuf, recvBufSize));
+  CUDA_RUNTIME(cudaMalloc(&expBuf, recvBufSize)); // expected
 
   // create Alltoallv arguments
   std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
@@ -407,6 +458,15 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
   rdispls.push_back(0);
   for (size_t i = 1; i < sources.size(); ++i) {
     rdispls.push_back(rdispls[i - 1] + recvcounts[i - 1]);
+  }
+
+  // generate expected result
+  {
+    environment::noTempi = true;
+    MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(), MPI_BYTE,
+                           expBuf, recvcounts.data(), rdispls.data(), MPI_BYTE,
+                           graph);
+    environment::noTempi = false;
   }
 
   // benchmark loop
@@ -429,8 +489,24 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
 
   result.iters = stats;
 
+  // compare results
+  {
+    std::vector<char> act(recvBufSize), exp(recvBufSize);
+    CUDA_RUNTIME(
+        cudaMemcpy(act.data(), recvbuf, recvBufSize, cudaMemcpyDeviceToHost));
+    CUDA_RUNTIME(
+        cudaMemcpy(exp.data(), expBuf, recvBufSize, cudaMemcpyDeviceToHost));
+
+    for (size_t i = 0; i < act.size(); ++i) {
+      if (act[i] != exp[i]) {
+        LOG_FATAL("mismatch at byte" << i);
+      }
+    }
+  }
+
   CUDA_RUNTIME(cudaFree(sendbuf));
   CUDA_RUNTIME(cudaFree(recvbuf));
+  CUDA_RUNTIME(cudaFree(expBuf));
 
   return result;
 }
