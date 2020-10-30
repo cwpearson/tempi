@@ -66,6 +66,7 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 
 # pick this revision of metis due to a bug in a newer version
+# remove -march=native for Power9 support
 include(ExternalProject)
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
   ExternalProject_Add(metis
