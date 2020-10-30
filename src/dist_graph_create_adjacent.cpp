@@ -102,11 +102,8 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (size_t i = 0; i < edgeSrc.size(); ++i) {
           edges.push_back(std::make_tuple(edgeSrc[i], edgeDst[i], weight[i]));
         }
-
-        std::sort(edges.begin(), edges.end());
-
-        // bidirectional edge weights must be the same
-
+        LOG_SPEW("built raw edge list");
+        
         // debug output
         {
           std::string s;
@@ -122,45 +119,93 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (size_t i = 0; i < edges.size(); ++i) {
           if (std::get<0>(edges[i]) == std::get<1>(edges[i])) {
             edges.erase(edges.begin() + i, edges.begin() + i + 1);
+            // don't want to skip the next element when ++i
+            --i;
           }
         }
+        LOG_SPEW("deleted self edges");
 
-        // delete duplicate edges
-        bool changed = true;
-        while (changed) {
-          changed = false;
-          for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
-            auto lb =
-                std::lower_bound(edges.begin() + i + 1, edges.end(), edges[i]);
-            auto ub =
-                std::upper_bound(edges.begin() + i + 1, edges.end(), edges[i]);
-            if (lb != ub) {
-              edges.erase(lb, ub);
-              changed = true;
-              break;
-            }
+        std::sort(edges.begin(), edges.end());
+        LOG_SPEW("sorted");
+
+        // delete duplicated edges
+        for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
+
+          // find the position of the back edge
+          auto lb = std::lower_bound(edges.begin()+i+1, edges.end(),
+                                     edges[i]);
+          auto ub = std::upper_bound(edges.begin()+i+1, edges.end(),
+                                     edges[i]);
+          if (ub != lb) {
+            edges.erase(lb, ub);
           }
         }
+        LOG_SPEW("delete duplicate edges");
 
-        // bidirectional edge weights must be the same for METIS.
-        // sum up the two directions
+        // debug output
+        {
+          std::string s;
+          for (auto &e : edges) {
+            s += "[" + std::to_string(std::get<0>(e)) + "," +
+                 std::to_string(std::get<1>(e)) + "," +
+                 std::to_string(std::get<2>(e)) + "] ";
+          }
+          LOG_DEBUG("edges: " << s);
+        }
 
+        // add missing back-edges.
+        // here we halve each of them, since they will be added together in a later step
         // comparator ignoring weight
+        // this can introduce edges with 0 weight, so round up the half
         auto ignore_weight = [](const std::tuple<int, int, int> &a,
                                 const std::tuple<int, int, int> &b) {
           return std::make_pair(std::get<0>(a), std::get<1>(a)) <
                  std::make_pair(std::get<0>(b), std::get<1>(b));
         };
         for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
-          // back edge with no weight
+          // back edge with the halved weight
           std::tuple<int, int, int> backedge(std::get<1>(edges[i]),
-                                             std::get<0>(edges[i]), 0);
+                                             std::get<0>(edges[i]), std::get<2>(edges[i])/2+1);
 
           // find the position of the back edge
-          auto lb = std::lower_bound(edges.begin() + i + 1, edges.end(),
+          auto lb = std::lower_bound(edges.begin(), edges.end(),
                                      backedge, ignore_weight);
-          auto ub = std::upper_bound(edges.begin() + i + 1, edges.end(),
+
+          if (std::get<0>(*lb) == std::get<0>(backedge) && std::get<1>(*lb) == std::get<1>(backedge)) {
+             // back edge exists
+          } else {
+            LOG_SPEW("adding back-edge for " << std::get<0>(edges[i]) << " " << std::get<1>(edges[i]));
+            edges.insert(lb, backedge);
+            std::get<2>(edges[i]) = std::get<2>(edges[i])/2+1;
+          }
+        }
+        LOG_SPEW("added missing back edges");
+
+        // debug output
+        {
+          std::string s;
+          for (auto &e : edges) {
+            s += "[" + std::to_string(std::get<0>(e)) + "," +
+                 std::to_string(std::get<1>(e)) + "," +
+                 std::to_string(std::get<2>(e)) + "] ";
+          }
+          LOG_SPEW("edges: " << s);
+        }
+
+        // bidirectional edge weights must be the same for METIS.
+        // sum up the two directions
+        for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
+          // back edge with matching weight
+          std::tuple<int, int, int> backedge(std::get<1>(edges[i]),
+                                             std::get<0>(edges[i]), std::get<2>(edges[i]));
+
+          // find the position of the back edge
+          auto lb = std::lower_bound(edges.begin()+i+1, edges.end(),
                                      backedge, ignore_weight);
+          auto ub = std::upper_bound(edges.begin()+i+1, edges.end(),
+                                     backedge, ignore_weight);
+          // this indicates there is a back edge.
+          // even though all edges have a back-edge, we may be searching only after the last edge, so we already handled it
           if (lb != ub) {
             std::get<2>(edges[i]) += std::get<2>(*lb);
             std::get<2>(*lb) = std::get<2>(edges[i]);
@@ -231,7 +276,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
         // kway options. comment out means 0 default is okay
         METIS_SetDefaultOptions(options);
-        // options[METIS_OPTION_DBGLVL] = 1;
+        //options[METIS_OPTION_DBGLVL] = 1;
         idx_t objval;
 
         nvtxRangePush("METIS_PartGraphKway");
