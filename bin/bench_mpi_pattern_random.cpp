@@ -33,7 +33,8 @@ int main(int argc, char **argv) {
   }
 
   std::vector<BM::Pattern *> benchmarks{
-      new BM::Pattern_alltoallv(), new BM::Pattern_isend_irecv(),
+      new BM::Pattern_alltoallv(),
+      new BM::Pattern_isend_irecv(),
       new BM::Pattern_sparse_isend_irecv(),
       new BM::Pattern_reorder_neighbor_alltoallv()};
 
