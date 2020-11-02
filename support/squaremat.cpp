@@ -26,6 +26,7 @@ SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
 
   const int SEED = 101;
   srand(SEED);
+  std::default_random_engine dre(SEED);
 
   SquareMat mat(ranks, 0);
 
@@ -35,8 +36,7 @@ SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
   for (int r = 0; r < ranks; ++r) {
     // selet this row's nonzeros
     std::vector<size_t> nzs;
-    std::shuffle(rowInd.begin(), rowInd.end(),
-                 std::default_random_engine(SEED));
+    std::shuffle(rowInd.begin(), rowInd.end(), dre);
     for (size_t i = 0; i < rowNnz; ++i) {
       nzs.push_back(rowInd[i]);
     }
