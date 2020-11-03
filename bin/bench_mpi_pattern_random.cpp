@@ -5,6 +5,7 @@
 #include "../include/cuda_runtime.hpp"
 #include "../include/env.hpp"
 #include "../include/logging.hpp"
+#include "../include/allocators.hpp"
 
 #include "benchmark.hpp"
 
@@ -36,7 +37,8 @@ int main(int argc, char **argv) {
       new BM::Pattern_alltoallv(),
       new BM::Pattern_isend_irecv(),
       new BM::Pattern_sparse_isend_irecv(),
-      new BM::Pattern_reorder_neighbor_alltoallv()};
+      new BM::Pattern_reorder_neighbor_alltoallv()
+   };
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -68,6 +70,8 @@ int main(int argc, char **argv) {
       for (int64_t scale : scales) {
 
         for (float density : densities) {
+
+          allocators::release_all();
 
           SquareMat mat = SquareMat::make_random_sparse(
               size, size * density + 0.5, 1, 10, scale);
