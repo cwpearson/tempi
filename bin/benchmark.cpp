@@ -286,6 +286,9 @@ BM::Result BM::Pattern_sparse_isend_irecv::operator()(const SquareMat &mat,
   return result;
 }
 
+
+/* difficult to compare expected results here because we have to create a different communicator too
+*/
 BM::Result
 BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
                                                    const int nIters) {
@@ -299,7 +302,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     exit(1);
   }
 
-  // if the matrix is empty, bail
+  // if the matrix is empty, nothing to measure
   bool empty = true;
   for (size_t i = 0; i < size; ++i) {
     for (size_t j = 0; j < size; ++j) {
@@ -312,7 +315,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     return result;
   }
 
-#if 0
+#if TEMPI_OUTPUT_LEVEL >= 4 && 1
   if (0 == rank) {
     std::cerr << "\nmat\n";
     for (size_t i = 0; i < size; ++i) {
@@ -334,6 +337,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
   int graphRank;
 
   {
+    MPI_Barrier(MPI_COMM_WORLD);
     for (size_t i = 0; i < size; ++i) {
       if (0 != mat[rank][i]) {
         destinations.push_back(i);
@@ -346,30 +350,22 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     }
 
 // print sources
-#if 0
+#if TEMPI_OUTPUT_LEVEL >= 4 && 1
+    MPI_Barrier(MPI_COMM_WORLD);
     for (int i = 0; i < size; ++i) {
       MPI_Barrier(MPI_COMM_WORLD);
       if (i == rank) {
-        std::cerr << "rank " << rank << " sources: ";
+        std::string s,t;
         for (auto &e : sources) {
-          std::cerr << e << " ";
+          s += std::to_string(e) + " ";
         }
-        std::cerr << "\n";
-      }
-    }
-#endif
-
-// print destinations
-#if 0
-    for (int i = 0; i < size; ++i) {
-      MPI_Barrier(MPI_COMM_WORLD);
-      if (i == rank) {
-        std::cerr << "rank " << rank << " destinations: ";
         for (auto &e : destinations) {
-          std::cerr << e << " ";
-        }
-        std::cerr << "\n";
+          t += std::to_string(e) + " ";
+        } 
+        LOG_SPEW("sources=" << s << " destinations=" << t);
       }
+      std::cerr << std::flush;
+      MPI_Barrier(MPI_COMM_WORLD);
     }
 #endif
 
@@ -383,16 +379,34 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
       auto stop = Clock::now();
       result.setup = stop - start;
     }
+    MPI_Barrier(MPI_COMM_WORLD);
   }
 
+  // after reorder, my rank has changed, so determine the indegree / outdegree again
   MPI_Comm_rank(graph, &rank);
   MPI_Comm_size(graph, &size);
 
-  // get my neighbors (not guaranteed to be the same order as create
+  sources.clear();
+  destinations.clear();
+  sourceweights.clear();
+  destweights.clear();
+    for (size_t j = 0; j < size; ++j) {
+      if (mat[rank][j] != 0) {
+        destinations.resize(destinations.size() + 1);
+      }
+      if (mat[j][rank] != 0) {
+        sources.resize(sources.size() + 1);
+      }
+  }
+  sourceweights.resize(sources.size());
+  destweights.resize(destinations.size());
+
+
+  // get my neighbors (not guaranteed to be the same order as create)
   MPI_Dist_graph_neighbors(graph, sources.size(), sources.data(),
                            sourceweights.data(), destinations.size(),
                            destinations.data(), destweights.data());
-#if 1
+#if TEMPI_OUTPUT_LEVEL >= 4 && 1
   {
     std::string s, t;
     for (int i = 0; i < sources.size(); ++i) {
@@ -400,11 +414,11 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
       t += std::to_string(sourceweights[i]) + " ";
     }
     for (int r = 0; r < size; ++r) {
-      MPI_Barrier(graph);
+      MPI_Barrier(MPI_COMM_WORLD);
       if (r == rank)
         LOG_SPEW("rank " << rank << ": sources=" << s
                          << " sourceweights=" << t);
-      MPI_Barrier(graph);
+      MPI_Barrier(MPI_COMM_WORLD);
     }
   }
 #endif
@@ -418,6 +432,7 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
   for (size_t i = 0; i < size; ++i) {
     recvBufSize += mat[i][rank];
   }
+ 
 
 // debug print
 #if 0
@@ -429,17 +444,17 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
         std::cerr << "rank " << rank << " sendBufSize,recvBufSize=";
         std::cerr << sendBufSize << "," << recvBufSize << "\n";
       }
+      MPI_Barrier(MPI_COMM_WORLD);
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }
 #endif
 
   // create device allocations
-  char *sendbuf{}, *recvbuf{}, *expBuf{};
+  char *sendbuf{}, *recvbuf{};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&sendbuf, sendBufSize));
   CUDA_RUNTIME(cudaMalloc(&recvbuf, recvBufSize));
-  CUDA_RUNTIME(cudaMalloc(&expBuf, recvBufSize)); // expected
 
   // create Alltoallv arguments
   std::vector<int> sendcounts, sdispls, recvcounts, rdispls;
@@ -460,14 +475,23 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     rdispls.push_back(rdispls[i - 1] + recvcounts[i - 1]);
   }
 
-  // generate expected result
+
+#if 1
   {
-    environment::noTempi = true;
-    MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(), MPI_BYTE,
-                           expBuf, recvcounts.data(), rdispls.data(), MPI_BYTE,
-                           graph);
-    environment::noTempi = false;
+    std::string s, t;
+    for (int i = 0; i < recvcounts.size(); ++i) {
+      s += std::to_string(recvcounts[i]) + " ";
+      t += std::to_string(rdispls[i]) + " ";
+    }
+    for (int r = 0; r < size; ++r) {
+      MPI_Barrier(MPI_COMM_WORLD);
+      if (r == rank)
+        LOG_SPEW("rank " << rank << ": recvcounts=" << s
+                         << " recvdispls=" << t);
+      MPI_Barrier(MPI_COMM_WORLD);
+    }
   }
+#endif
 
   // benchmark loop
   Statistics stats;
@@ -475,8 +499,11 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
     MPI_Barrier(MPI_COMM_WORLD);
     nvtxRangePush("alltoallv");
     auto start = Clock::now();
+
+    // it's possible that we will not send or recv data,
+    // but the MPI impl may not want a nullptr.
     MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(), MPI_BYTE,
-                           recvbuf, recvcounts.data(), rdispls.data(), MPI_BYTE,
+                           recvbuf ? recvbuf : (void*)(0xDEADBEEF), recvcounts.data() ? recvcounts.data() : (int*)0xDEADBEEF, rdispls.data() ? rdispls.data() : (int*)0xDEADBEEF, MPI_BYTE,
                            graph);
     auto stop = Clock::now();
     nvtxRangePop();
@@ -489,24 +516,8 @@ BM::Pattern_reorder_neighbor_alltoallv::operator()(const SquareMat &mat,
 
   result.iters = stats;
 
-  // compare results
-  {
-    std::vector<char> act(recvBufSize), exp(recvBufSize);
-    CUDA_RUNTIME(
-        cudaMemcpy(act.data(), recvbuf, recvBufSize, cudaMemcpyDeviceToHost));
-    CUDA_RUNTIME(
-        cudaMemcpy(exp.data(), expBuf, recvBufSize, cudaMemcpyDeviceToHost));
-
-    for (size_t i = 0; i < act.size(); ++i) {
-      if (act[i] != exp[i]) {
-        LOG_FATAL("mismatch at byte" << i);
-      }
-    }
-  }
-
   CUDA_RUNTIME(cudaFree(sendbuf));
   CUDA_RUNTIME(cudaFree(recvbuf));
-  CUDA_RUNTIME(cudaFree(expBuf));
 
   return result;
 }
