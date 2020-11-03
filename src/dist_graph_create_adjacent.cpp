@@ -279,36 +279,69 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         //options[METIS_OPTION_DBGLVL] = 1;
         idx_t objval;
 
-        nvtxRangePush("METIS_PartGraphKway");
         static_assert(sizeof(idx_t) == sizeof(int), "wrong metis idx_t");
-        int metisErr =
-            METIS_PartGraphKway(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
-                                vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
-                                options, &objval, part.data());
-        nvtxRangePop();
-        bool success = false;
 
-        switch (metisErr) {
-        case METIS_OK: {
-          success = true;
-          break;
-        }
-        case METIS_ERROR_INPUT:
-          LOG_FATAL("metis input error");
-          break;
-        case METIS_ERROR_MEMORY:
-          LOG_FATAL("metis memory error");
-          break;
-        case METIS_ERROR:
-          LOG_FATAL("metis other error");
-          break;
-        default:
-          LOG_FATAL("unexpected METIS error");
-          break;
+        bool success = false;
+        // some seeds produce an unbalanced partition
+        for (int seed = 0; seed < 20; ++seed) {
+          nvtxRangePush("METIS_PartGraphKway");
+          options[METIS_OPTION_SEED] = seed/2; // some seeds may produce an unbalanced partition
+          int metisErr;
+          if (seed % 2) {
+            metisErr =
+                METIS_PartGraphRecursive(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
+                                    vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
+                                    options, &objval, part.data());
+          } else {
+            metisErr =
+                METIS_PartGraphKway(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
+                                    vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
+                                    options, &objval, part.data());
+          }
+          nvtxRangePop();
+
+          if (metisErr == METIS_OK) {
+            success = true;
+            std::map<int, int> partSize;
+            for (int e : part) {
+              partSize[e] += 1;
+            }
+            for (const auto &kv : partSize) {
+              if (partSize.begin()->second != kv.second) {
+                LOG_WARN("seed " << seed << " created imbalanced partition: " << partSize.begin()->second << " vs " << kv.second);
+                success = false;
+                break;
+              }
+            }
+
+            if (success) {
+              break;
+            } else {
+              continue;
+            }
+          }
+
+          else if (metisErr == METIS_ERROR_INPUT) {
+            LOG_FATAL("metis input error");
+            break;
+          }
+          else if (metisErr ==  METIS_ERROR_MEMORY) {
+            LOG_FATAL("metis memory error");
+            break;
+          }
+          else if (metisErr == METIS_ERROR) {
+            LOG_FATAL("metis other error");
+            break;
+          } else {
+            LOG_FATAL("unexpected METIS error");
+            break;
+          }
         }
 
         if (!success) {
-          LOG_ERROR("unable to reorder nodes");
+          LOG_ERROR("unable to partition nodes");
+          MPI_Finalize();
+          exit(1);
         }
 
         LOG_DEBUG("METIS objval=" << objval);
@@ -327,14 +360,20 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     }
 
 #if TEMPI_OUTPUT_LEVEL >= 4
-    if (0 == oldRank) {
-      std::string s("node assignment app rank: ");
-      for (int r : part) {
-        s += std::to_string(r) + " ";
+    for (int r = 0; r < oldSize; ++r) {
+      if (r == oldRank) {
+      MPI_Barrier(comm_old);
+        std::string s;
+        for (int e : part) {
+          s += std::to_string(e) + " ";
+        }
+        LOG_SPEW("node assignment " << s);
       }
-      LOG_SPEW(s);
+      MPI_Barrier(comm_old);
     }
 #endif
+
+
 
     /* library rank i (this rank) is presented as application rank j,
      rank j needs to send edge information to rank i for the graph creation
@@ -345,6 +384,24 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
      library ranks have the right neighbors
     */
     Placement placement = topology::make_placement(comm_old, part);
+
+
+#if TEMPI_OUTPUT_LEVEL >= 4
+    for (int r = 0; r < oldSize; ++r) {
+      if (r == oldRank) {
+        MPI_Barrier(comm_old);
+        std::string s, t;
+        for (int e : placement.appRank) {
+          s += std::to_string(e) + " ";
+        }
+        for (int e : placement.libRank) {
+          t += std::to_string(e) + " ";
+        }
+        LOG_SPEW("appRank=" << s << " libRank=" << t);
+      }
+      MPI_Barrier(comm_old);
+    }
+#endif
 
     // transform sources and destinations to the library rank that will run
     // them
@@ -361,6 +418,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     // indegree and outdegree
     // this rank's indegree needs to be sent to the rank that will run it
     // this rank needs the indegree of the app rank that it runs
+    LOG_SPEW("send to " << placement.libRank[oldRank] << " recv from " << placement.appRank[oldRank]);
     MPI_Sendrecv(&indegree, 1, MPI_INT, placement.libRank[oldRank], 0,
                  &libindegree, 1, MPI_INT, placement.appRank[oldRank], 0,
                  comm_old, MPI_STATUS_IGNORE);
@@ -388,6 +446,27 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                  placement.appRank[oldRank], 0, comm_old, MPI_STATUS_IGNORE);
 
     LOG_SPEW("app rank " << placement.appRank[oldRank]);
+
+
+#if TEMPI_OUTPUT_LEVEL >= 4 && 1
+    {
+      std::string s,t;
+      for (auto &e : libsources) {
+        s += std::to_string(e) + " ";
+      }
+      for (auto &e : libdestinations) {
+        t += std::to_string(e) + " ";
+      }
+      for (int r = 0; r < oldSize; ++r) {
+        if (r == oldRank) {
+          MPI_Barrier(comm_old);
+          LOG_SPEW("libsources=" << s << " libdestinations=" << t);
+          MPI_Barrier(comm_old);
+        }
+      }
+    }
+#endif
+
 
     int err = libmpi.MPI_Dist_graph_create_adjacent(
         comm_old, libindegree, libsources.data(), libsourceweights.data(),
