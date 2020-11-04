@@ -13,9 +13,10 @@ partition::Result partition::partition_metis(const int nParts,
                                              const std::vector<int> &colInd,
                                              const std::vector<int> &colVal) {
   static_assert(sizeof(idx_t) == sizeof(int), "wrong metis idx_t");
+  assert(rowPtrs.size() > 0);
 
   partition::Result result;
-  result.part = std::vector<int>(nParts, -1);
+  result.part = std::vector<int>(rowPtrs.size()-1, -1);
 
   idx_t nvtxs = rowPtrs.size() - 1; // number of vertices
   idx_t ncon = 1;         // number of balancing constraints (at least 1)
