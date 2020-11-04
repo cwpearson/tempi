@@ -19,7 +19,6 @@
 
 int main(int argc, char **argv) {
 
-  environment::noTempi = false; // enable at init
   MPI_Init(&argc, &argv);
 
   int size, rank;
@@ -44,7 +43,6 @@ int main(int argc, char **argv) {
 
   int nIters = 30;
 
-  std::vector<bool> tempis{true, false};
   std::vector<int64_t> scales{1,         10,         100,        1 * 1000,
                               10 * 1000, 100 * 1000, 1000 * 1000};
   std::vector<float> densities{1.0, 0.5, 0.1, 0.05};
@@ -57,56 +55,53 @@ int main(int argc, char **argv) {
     }
   }
 
+  std::sort(densities.begin(), densities.end());
+
   if (0 == rank) {
     std::cout << "description,name,tempi,scale,density,B,min iter (s),agg iter "
                  "(MiB/s)\n";
   }
 
-  for (bool tempi : tempis) {
-    environment::noTempi = !tempi;
+  for (BM::Pattern *benchmark : benchmarks) {
 
-    for (BM::Pattern *benchmark : benchmarks) {
+    for (int64_t scale : scales) {
 
-      for (int64_t scale : scales) {
+      for (float density : densities) {
 
-        for (float density : densities) {
+        allocators::release_all();
 
-          allocators::release_all();
+        SquareMat mat = SquareMat::make_random_sparse(
+            size, size * density + 0.5, 1, 10, scale);
+        int64_t numBytes = mat.reduce_sum();
+        MPI_Bcast(mat.data_.data(), mat.data_.size(), MPI_INT, 0,
+                  MPI_COMM_WORLD);
 
-          SquareMat mat = SquareMat::make_random_sparse(
-              size, size * density + 0.5, 1, 10, scale);
-          int64_t numBytes = mat.reduce_sum();
-          MPI_Bcast(mat.data_.data(), mat.data_.size(), MPI_INT, 0,
-                    MPI_COMM_WORLD);
+        std::string s;
+        s = std::string(benchmark->name()) + "|"
+            + std::to_string(scale) + "|" + std::to_string(density);
 
-          std::string s;
-          s = std::string(benchmark->name()) + "|" + std::to_string(tempi) +
-              "|" + std::to_string(scale) + "|" + std::to_string(density);
-
-          if (0 == rank) {
-            std::cout << s;
-            std::cout << "," << benchmark->name();
-            std::cout << "," << tempi;
-            std::cout << "," << scale;
-            std::cout << "," << density;
-            std::cout << std::flush;
-          }
-
-          nvtxRangePush(s.c_str());
-          BM::Result result = (*benchmark)(mat, nIters);
-          nvtxRangePop();
-          if (0 == rank) {
-            std::cout << "," << numBytes << "," << result.iters.min() << ","
-                      << double(numBytes) / 1024 / 1024 / result.iters.min();
-            std::cout << std::flush;
-          }
-
-          if (0 == rank) {
-            std::cout << "\n";
-            std::cout << std::flush;
-          }
-          MPI_Barrier(MPI_COMM_WORLD);
+        if (0 == rank) {
+          std::cout << s;
+          std::cout << "," << benchmark->name();
+          std::cout << "," << scale;
+          std::cout << "," << density;
+          std::cout << std::flush;
         }
+
+        nvtxRangePush(s.c_str());
+        BM::Result result = (*benchmark)(mat, nIters);
+        nvtxRangePop();
+        if (0 == rank) {
+          std::cout << "," << numBytes << "," << result.iters.min() << ","
+                    << double(numBytes) / 1024 / 1024 / result.iters.min();
+          std::cout << std::flush;
+        }
+
+        if (0 == rank) {
+          std::cout << "\n";
+          std::cout << std::flush;
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
       }
     }
   }
@@ -115,7 +110,6 @@ int main(int argc, char **argv) {
     delete e;
   }
 
-  environment::noTempi = false; // enable since it was enabled at init
   MPI_Finalize();
   return 0;
 }
