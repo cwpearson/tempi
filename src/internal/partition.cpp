@@ -1,6 +1,7 @@
 #include "partition.hpp"
 
 #include <algorithm>
+#include <map>
 #include <random>
 
 // give all ranks the same seed
@@ -19,4 +20,19 @@ std::vector<int> random(const int numRanks, const int numNodes) {
   return p;
 }
 
+/* true if each partition is the same size
+ */
+bool is_balanced(const Result &r) {
+  std::map<int, int> sizes;
+  for (int e : r.part) {
+    sizes[e] += 1;
+  }
+  for (auto &kv : sizes) {
+    if (sizes.begin()->second != kv.second) {
+      return false;
+    }
+  }
+  return true;
 }
+
+} // namespace partition

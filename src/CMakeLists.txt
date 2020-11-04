@@ -19,6 +19,8 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_1.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_2.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/partition.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/partition_kahip.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/partition_metis.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/requests.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/symbols.cpp

@@ -4,7 +4,6 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 
-#include <metis.h>
 #include <nvToolsExt.h>
 
 #include <algorithm>
@@ -103,7 +102,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           edges.push_back(std::make_tuple(edgeSrc[i], edgeDst[i], weight[i]));
         }
         LOG_SPEW("built raw edge list");
-        
+
         // debug output
         {
           std::string s;
@@ -132,10 +131,10 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
 
           // find the position of the back edge
-          auto lb = std::lower_bound(edges.begin()+i+1, edges.end(),
-                                     edges[i]);
-          auto ub = std::upper_bound(edges.begin()+i+1, edges.end(),
-                                     edges[i]);
+          auto lb =
+              std::lower_bound(edges.begin() + i + 1, edges.end(), edges[i]);
+          auto ub =
+              std::upper_bound(edges.begin() + i + 1, edges.end(), edges[i]);
           if (ub != lb) {
             edges.erase(lb, ub);
           }
@@ -154,9 +153,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         }
 
         // add missing back-edges.
-        // here we halve each of them, since they will be added together in a later step
-        // comparator ignoring weight
-        // this can introduce edges with 0 weight, so round up the half
+        // here we halve each of them, since they will be added together in a
+        // later step comparator ignoring weight this can introduce edges with 0
+        // weight, so round up the half
         auto ignore_weight = [](const std::tuple<int, int, int> &a,
                                 const std::tuple<int, int, int> &b) {
           return std::make_pair(std::get<0>(a), std::get<1>(a)) <
@@ -165,18 +164,22 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
           // back edge with the halved weight
           std::tuple<int, int, int> backedge(std::get<1>(edges[i]),
-                                             std::get<0>(edges[i]), std::get<2>(edges[i])/2+1);
+                                             std::get<0>(edges[i]),
+                                             std::get<2>(edges[i]) / 2 + 1);
 
           // find the position of the back edge
-          auto lb = std::lower_bound(edges.begin(), edges.end(),
-                                     backedge, ignore_weight);
+          auto lb = std::lower_bound(edges.begin(), edges.end(), backedge,
+                                     ignore_weight);
 
-          if (std::get<0>(*lb) == std::get<0>(backedge) && std::get<1>(*lb) == std::get<1>(backedge)) {
-             // back edge exists
+          if (std::get<0>(*lb) == std::get<0>(backedge) &&
+              std::get<1>(*lb) == std::get<1>(backedge)) {
+            // back edge exists
           } else {
+#if 0
             LOG_SPEW("adding back-edge for " << std::get<0>(edges[i]) << " " << std::get<1>(edges[i]));
+#endif
             edges.insert(lb, backedge);
-            std::get<2>(edges[i]) = std::get<2>(edges[i])/2+1;
+            std::get<2>(edges[i]) = std::get<2>(edges[i]) / 2 + 1;
           }
         }
         LOG_SPEW("added missing back edges");
@@ -197,20 +200,23 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         for (int64_t i = 0; i < int64_t(edges.size()) - 1; ++i) {
           // back edge with matching weight
           std::tuple<int, int, int> backedge(std::get<1>(edges[i]),
-                                             std::get<0>(edges[i]), std::get<2>(edges[i]));
+                                             std::get<0>(edges[i]),
+                                             std::get<2>(edges[i]));
 
           // find the position of the back edge
-          auto lb = std::lower_bound(edges.begin()+i+1, edges.end(),
+          auto lb = std::lower_bound(edges.begin() + i + 1, edges.end(),
                                      backedge, ignore_weight);
-          auto ub = std::upper_bound(edges.begin()+i+1, edges.end(),
+          auto ub = std::upper_bound(edges.begin() + i + 1, edges.end(),
                                      backedge, ignore_weight);
           // this indicates there is a back edge.
-          // even though all edges have a back-edge, we may be searching only after the last edge, so we already handled it
+          // even though all edges have a back-edge, we may be searching only
+          // after the last edge, so we already handled it
           if (lb != ub) {
             std::get<2>(edges[i]) += std::get<2>(*lb);
             std::get<2>(*lb) = std::get<2>(edges[i]);
           }
         }
+        LOG_SPEW("matched u,v and v,u edge weights");
 
         // debug output
         {
@@ -224,10 +230,10 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         }
 
         // build CSR
-        std::vector<idx_t> xadj;   // adjacency structure (row pointers)
-        std::vector<idx_t> adjncy; // adjacency structure (col indices)
-        std::vector<idx_t> adjwgt; // weight of edges
-        idx_t rp = 0;
+        std::vector<int> xadj;   // adjacency structure (row pointers)
+        std::vector<int> adjncy; // adjacency structure (col indices)
+        std::vector<int> adjwgt; // weight of edges
+        int rp = 0;
         for (size_t ei = 0; ei < edges.size(); ++ei) {
           for (; rp <= std::get<0>(edges[ei]); ++rp) {
             xadj.push_back(ei);
@@ -242,115 +248,30 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
         // debug output
         {
-          std::string s;
-          for (idx_t e : xadj) {
+          std::string s, t, u;
+          for (int e : xadj) {
             s += std::to_string(e) + " ";
           }
-          LOG_DEBUG("xadj: (" << xadj.size() << ") " << s);
-        }
-        {
-          std::string s;
-          for (idx_t e : adjncy) {
-            s += std::to_string(e) + " ";
+          for (int e : adjncy) {
+            t += std::to_string(e) + " ";
           }
-          LOG_DEBUG("adjncy: (" << adjncy.size() << ") " << s);
-        }
-        {
-          std::string s;
-          for (idx_t e : adjwgt) {
-            s += std::to_string(e) + " ";
+          for (int e : adjwgt) {
+            u += std::to_string(e) + " ";
           }
           LOG_DEBUG("adjwgt: (" << adjwgt.size() << ") " << s);
+          LOG_DEBUG("adjncy: (" << adjncy.size() << ") " << t);
+          LOG_DEBUG("xadj: (" << xadj.size() << ") " << u);
         }
 
-        idx_t nvtxs = oldSize; // number of vertices
-        idx_t ncon = 1; // number of balancing constraints (at least 1) (?)
-        idx_t *vwgt = nullptr; // weights of vertices. null for us to make all
-                               // vertices the same
-        idx_t *vsize =
-            nullptr; // size of vertices. null for us to minimize edge cut
-        idx_t nparts = numNodes;  // number of partitions for the graph
-        real_t *tpwgts = nullptr; // equally divided among partitions
-        real_t *ubvec = nullptr; // load imbalance tolerance constraint is 1.001
-        idx_t options[METIS_NOPTIONS]{};
+        partition::Result result =
+            partition::partition_metis(oldSize, xadj, adjncy, adjwgt);
 
-        // kway options. comment out means 0 default is okay
-        METIS_SetDefaultOptions(options);
-        //options[METIS_OPTION_DBGLVL] = 1;
-        idx_t objval;
-
-        static_assert(sizeof(idx_t) == sizeof(int), "wrong metis idx_t");
-
-        bool success = false;
-        // some seeds produce an unbalanced partition
-        for (int seed = 0; seed < 20; ++seed) {
-          nvtxRangePush("METIS_PartGraphKway");
-          options[METIS_OPTION_SEED] = seed/2; // some seeds may produce an unbalanced partition
-          int metisErr;
-          if (seed % 2) {
-            metisErr =
-                METIS_PartGraphRecursive(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
-                                    vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
-                                    options, &objval, part.data());
-          } else {
-            metisErr =
-                METIS_PartGraphKway(&nvtxs, &ncon, xadj.data(), adjncy.data(), vwgt,
-                                    vsize, adjwgt.data(), &nparts, tpwgts, ubvec,
-                                    options, &objval, part.data());
-          }
-          nvtxRangePop();
-
-          if (metisErr == METIS_OK) {
-            success = true;
-            std::map<int, int> partSize;
-            for (int e : part) {
-              partSize[e] += 1;
-            }
-            for (const auto &kv : partSize) {
-              if (partSize.begin()->second != kv.second) {
-                LOG_WARN("seed " << seed << " created imbalanced partition: " << partSize.begin()->second << " vs " << kv.second);
-                success = false;
-                break;
-              }
-            }
-
-            if (success) {
-              break;
-            } else {
-              continue;
-            }
-          }
-
-          else if (metisErr == METIS_ERROR_INPUT) {
-            LOG_FATAL("metis input error");
-            break;
-          }
-          else if (metisErr ==  METIS_ERROR_MEMORY) {
-            LOG_FATAL("metis memory error");
-            break;
-          }
-          else if (metisErr == METIS_ERROR) {
-            LOG_FATAL("metis other error");
-            break;
-          } else {
-            LOG_FATAL("unexpected METIS error");
-            break;
-          }
-        }
-
-        if (!success) {
-          LOG_ERROR("unable to partition nodes");
-          MPI_Finalize();
-          exit(1);
-        }
-
-        LOG_DEBUG("METIS objval=" << objval);
         {
           std::string s;
-          for (idx_t i : part) {
+          for (int i : result.part) {
             s += std::to_string(i) + " ";
           }
-          LOG_DEBUG("part=" << s);
+          LOG_DEBUG("objective= " << result.objective << " part=" << s);
         }
 
       } // 0 == graphRank
@@ -362,7 +283,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 #if TEMPI_OUTPUT_LEVEL >= 4
     for (int r = 0; r < oldSize; ++r) {
       if (r == oldRank) {
-      MPI_Barrier(comm_old);
+        MPI_Barrier(comm_old);
         std::string s;
         for (int e : part) {
           s += std::to_string(e) + " ";
@@ -373,8 +294,6 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     }
 #endif
 
-
-
     /* library rank i (this rank) is presented as application rank j,
      rank j needs to send edge information to rank i for the graph creation
      call.
@@ -384,7 +303,6 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
      library ranks have the right neighbors
     */
     Placement placement = topology::make_placement(comm_old, part);
-
 
 #if TEMPI_OUTPUT_LEVEL >= 4
     for (int r = 0; r < oldSize; ++r) {
@@ -418,7 +336,8 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     // indegree and outdegree
     // this rank's indegree needs to be sent to the rank that will run it
     // this rank needs the indegree of the app rank that it runs
-    LOG_SPEW("send to " << placement.libRank[oldRank] << " recv from " << placement.appRank[oldRank]);
+    LOG_SPEW("send to " << placement.libRank[oldRank] << " recv from "
+                        << placement.appRank[oldRank]);
     MPI_Sendrecv(&indegree, 1, MPI_INT, placement.libRank[oldRank], 0,
                  &libindegree, 1, MPI_INT, placement.appRank[oldRank], 0,
                  comm_old, MPI_STATUS_IGNORE);
@@ -447,10 +366,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
 
     LOG_SPEW("app rank " << placement.appRank[oldRank]);
 
-
 #if TEMPI_OUTPUT_LEVEL >= 4 && 1
     {
-      std::string s,t;
+      std::string s, t;
       for (auto &e : libsources) {
         s += std::to_string(e) + " ";
       }
@@ -466,7 +384,6 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       }
     }
 #endif
-
 
     int err = libmpi.MPI_Dist_graph_create_adjacent(
         comm_old, libindegree, libsources.data(), libsourceweights.data(),
