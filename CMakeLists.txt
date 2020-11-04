@@ -92,13 +92,16 @@ target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix
 target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
 
 ExternalProject_Add(kahip
-GIT_REPOSITORY git@github.com:KaHIP/KaHIP.git
-    GIT_TAG "86a40ec71b8ddafd818982ca3950fc9c4974256a"
+GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
+    GIT_TAG "b466cdf2ffb3c5c6124f0b212bf808cdcf5a1d7d"
     GIT_SUBMODULES_RECURSE TRUE
     CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/kahip-prefix
+      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
 )
+add_dependencies(tempi kahip)
 target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/include)
 target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/lib/libinterface_static.a)
 
