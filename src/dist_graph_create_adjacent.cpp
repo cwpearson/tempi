@@ -263,15 +263,25 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           LOG_DEBUG("xadj: (" << xadj.size() << ") " << u);
         }
 
+        //partition::Result result =
+        //    partition::partition_metis(numNodes, xadj, adjncy, adjwgt);
         partition::Result result =
-            partition::partition_metis(oldSize, xadj, adjncy, adjwgt);
+            partition::partition_kahip(numNodes, xadj, adjncy, adjwgt);
+
+        part = result.part;
 
         {
           std::string s;
-          for (int i : result.part) {
+          for (int i : part) {
             s += std::to_string(i) + " ";
           }
           LOG_DEBUG("objective= " << result.objective << " part=" << s);
+        }
+
+        if (!partition::is_balanced(result)) {
+          LOG_ERROR("partition is not balanced.");
+          MPI_Finalize();
+          exit(1);
         }
 
       } // 0 == graphRank
