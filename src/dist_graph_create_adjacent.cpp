@@ -11,6 +11,42 @@
 #include <numeric>
 #include <tuple>
 
+// gather sendbuf from each rank into recvbuf at the root
+// at the root recvbuf will be resized appropriately
+int TEMPI_Gatherv(const std::vector<int> &sendbuf, std::vector<int> &recvbuf,
+                  int root, MPI_Comm comm) {
+
+  int err = MPI_SUCCESS;
+
+  int size, rank;
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
+
+  // get the counts from each rank
+  std::vector<int> counts(size, -1);
+  {
+    int tmp = sendbuf.size();
+    err = MPI_Gather(&tmp, 1, MPI_INT, counts.data(), 1, MPI_INT, root, comm);
+  }
+
+  if (MPI_SUCCESS != err) {
+    return err;
+  }
+
+  std::vector<int> displs(size, 0);
+  if (root == rank) {
+    for (int i = 1; i < size; ++i) {
+      displs[i] = displs[i - 1] + counts[i - 1];
+    }
+    recvbuf.resize(displs[size - 1] + counts[size - 1]);
+  }
+
+  err = MPI_Gatherv(sendbuf.data(), sendbuf.size(), MPI_INT, recvbuf.data(),
+                    counts.data(), displs.data(), MPI_INT, root, comm);
+
+  return err;
+}
+
 extern "C" int
 MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
   if (environment::noTempi) {
@@ -88,12 +124,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       }
 
       // get edge data from all ranks
-      MPI_Gatherv(edgeSrc.data(), edgeCnt, MPI_INT, edgeSrc.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
-      MPI_Gatherv(edgeDst.data(), edgeCnt, MPI_INT, edgeDst.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
-      MPI_Gatherv(weight.data(), edgeCnt, MPI_INT, weight.data(),
-                  edgeCnts.data(), edgeOffs.data(), MPI_INT, 0, comm_old);
+      TEMPI_Gatherv(edgeSrc, edgeSrc, 0, comm_old);
+      TEMPI_Gatherv(edgeDst, edgeDst, 0, comm_old);
+      TEMPI_Gatherv(weight, weight, 0, comm_old);
 
       // build CSR on root node
       if (0 == oldRank) {
@@ -263,7 +296,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           LOG_DEBUG("xadj: (" << xadj.size() << ") " << u);
         }
 
-        //partition::Result result =
+        // partition::Result result =
         //    partition::partition_metis(numNodes, xadj, adjncy, adjwgt);
         partition::Result result =
             partition::partition_kahip(numNodes, xadj, adjncy, adjwgt);

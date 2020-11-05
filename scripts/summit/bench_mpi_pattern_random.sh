@@ -35,11 +35,14 @@ for nodes in 1 2 4 8 16 32; do
 
     echo ${nodes}nodes,${rpn}rankspernode,tempi >> $OUT
     unset TEMPI_DISABLE
-    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pattern-random | tee -a $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-random-neighbor-alltoallv | tee -a $OUT
 
     echo ${nodes}nodes,${rpn}rankspernode,notempi >> $OUT
     export TEMPI_DISABLE=""
-    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pattern-random | tee -a $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-random-alltoallv          | tee -a $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-random-isend-irecv        | tee -a $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-random-sparse-isend-irecv | tee -a $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-random-neighbor-alltoallv | tee -a $OUT
   done
 done
 

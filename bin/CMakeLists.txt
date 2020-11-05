@@ -12,6 +12,8 @@ macro(add_tempi_executable exe)
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
 endmacro()
 
+set(TEMPI_BINARY_SOURCES statistics.cpp ../support/squaremat.cpp method.cpp benchmark.cpp)
+
 add_tempi_executable(bench-mpi-alltoallv bench_mpi_alltoallv.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-pack bench_mpi_pack.cpp ../support/type.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-send-types bench_mpi_send_types.cpp ../support/type.cpp statistics.cpp)
@@ -19,23 +21,34 @@ add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp statistics.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp statistics.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp statistics.cpp)
 
-add_tempi_executable(bench-mpi-pattern-random 
-  bench_mpi_pattern_random.cpp 
-  statistics.cpp 
-  ../support/squaremat.cpp
-  benchmark.cpp
+add_tempi_executable(bench-mpi-random-alltoallv 
+  bench_mpi_random_alltoallv.cpp ${TEMPI_BINARY_SOURCES}
 )
 
-add_tempi_executable(bench-mpi-pattern-blockdiagonal 
-  bench_mpi_pattern_blockdiagonal.cpp 
-  statistics.cpp 
-  ../support/squaremat.cpp
-  benchmark.cpp
+add_tempi_executable(bench-mpi-random-isend-irecv 
+  bench_mpi_random_isend_irecv.cpp ${TEMPI_BINARY_SOURCES}
 )
 
-add_tempi_executable(bench-mpi-pattern-permblockdiagonal 
-  bench_mpi_pattern_permblockdiagonal.cpp 
-  statistics.cpp 
-  ../support/squaremat.cpp
-  benchmark.cpp
+add_tempi_executable(bench-mpi-random-sparse-isend-irecv 
+  bench_mpi_random_sparse_isend_irecv.cpp ${TEMPI_BINARY_SOURCES}
 )
+
+add_tempi_executable(bench-mpi-random-neighbor-alltoallv 
+  bench_mpi_random_neighbor_alltoallv.cpp ${TEMPI_BINARY_SOURCES}
+)
+
+#add_tempi_executable(bench-mpi-pattern-blockdiagonal 
+#  bench_mpi_pattern_blockdiagonal.cpp 
+#  statistics.cpp 
+#  ../support/squaremat.cpp
+#  method.cpp
+#  benchmark.cpp
+#)
+
+# add_tempi_executable(bench-mpi-pattern-permblockdiagonal 
+#   bench_mpi_pattern_permblockdiagonal.cpp 
+#   statistics.cpp 
+#   ../support/squaremat.cpp
+#   method.cpp
+#   benchmark.cpp
+# )
