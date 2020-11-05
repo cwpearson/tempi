@@ -37,21 +37,12 @@ BenchResult bench(int64_t scale, float density, const int nIters) {
   int rowNnz = size * density + 0.5;
   SquareMat mat = SquareMat::make_random_sparse(size, rowNnz, 1, 10, scale);
 
-  // communication traffic statistics
-  uint64_t sendTotal = 0, recvTotal = 0;
+  size_t sendTotal;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       int val = mat[i][j];
-      if (i == rank) {
-        sendTotal += val;
-      }
-      if (j == rank) {
-        recvTotal += val;
-      }
+      sendTotal += val;
     }
-  }
-  if (sendTotal != recvTotal) {
-    LOG_FATAL("send/recv total mismatch");
   }
   result.numBytes = sendTotal;
 
