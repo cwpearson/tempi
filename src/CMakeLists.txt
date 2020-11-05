@@ -14,13 +14,12 @@ ${CMAKE_CURRENT_LIST_DIR}/send.cpp
 ${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
 ${CMAKE_CURRENT_LIST_DIR}/wait.cpp
 
+${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_1.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_2.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/partition.cpp
-${CMAKE_CURRENT_LIST_DIR}/internal/partition_kahip.cpp
-${CMAKE_CURRENT_LIST_DIR}/internal/partition_metis.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/requests.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/symbols.cpp
@@ -29,6 +28,14 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/topology.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/types.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/worker.cpp
 )
+
+if(TEMPI_ENABLE_METIS)
+  set(TEMPI_SOURCES ${TEMPI_SOURCES} ${CMAKE_CURRENT_LIST_DIR}/internal/partition_metis.cpp)
+endif()
+
+if(TEMPI_ENABLE_KAHIP)
+  set(TEMPI_SOURCES ${TEMPI_SOURCES} ${CMAKE_CURRENT_LIST_DIR}/internal/partition_kahip.cpp)
+endif()  
 
 set(TEMPI_SOURCES 
   ${TEMPI_SOURCES}

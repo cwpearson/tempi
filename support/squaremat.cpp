@@ -21,6 +21,20 @@ std::string SquareMat::str() const noexcept {
   return s;
 }
 
+static SquareMat make_random(int ranks, int lb, int ub, int scale) {
+  const int SEED = 101;
+  srand(SEED);
+  std::default_random_engine dre(SEED);
+  SquareMat mat(ranks, 0);
+  for (int r = 0; r < ranks; ++r) {
+    for (int c = 0; c < ranks; ++c) {
+      int val = (lb + rand() % (ub - lb)) * scale;
+      mat[r][c] = val;
+    }
+  }
+  return mat;
+}
+
 SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
                                         int scale) {
 

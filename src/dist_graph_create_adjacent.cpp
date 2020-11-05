@@ -296,10 +296,18 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           LOG_DEBUG("xadj: (" << xadj.size() << ") " << u);
         }
 
-        // partition::Result result =
-        //    partition::partition_metis(numNodes, xadj, adjncy, adjwgt);
-        partition::Result result =
-            partition::partition_kahip(numNodes, xadj, adjncy, adjwgt);
+        partition::Result result;
+
+#ifdef TEMPI_ENABLE_METIS
+        if (PlacementMethod::METIS == environment::placement) {
+          result = partition::partition_metis(numNodes, xadj, adjncy, adjwgt);
+        }
+#endif
+#ifdef TEMPI_ENABLE_KAHIP
+        if (PlacementMethod::KAHIP == environment::placement) {
+          result = partition::partition_kahip(numNodes, xadj, adjncy, adjwgt);
+        }
+#endif
 
         part = result.part;
 

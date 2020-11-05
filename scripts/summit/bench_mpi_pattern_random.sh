@@ -21,7 +21,7 @@ set -x
 
 mkdir -p $SCRATCH
 
-export TEMPI_PLACEMENT_METIS=""
+export TEMPI_PLACEMENT_KAHIP=""
 
 #echo "2nodes,6rankpernode" >> $OUT
 #jsrun --smpiargs="-gpu" -n 12 -r 6 -a 1 -g 1 -c 7 -b rs \

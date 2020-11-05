@@ -28,6 +28,11 @@ public:
 
   std::string str() const noexcept;
 
+  /* create a `ranks` x `ranks` matrix
+     each value will be in [`lb`, `ub`) * `scale`
+   */
+  static SquareMat make_random(int ranks, int lb, int ub, int scale);
+
   /* create a `ranks` x `ranks` matrix with `rowNz` in each row.
      each value will be in [`lb`, `ub`) * `scale`
    */

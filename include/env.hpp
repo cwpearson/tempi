@@ -3,15 +3,25 @@
 enum class PlacementMethod {
   NONE,   // library placement
   RANDOM, // random placement of ranks
-  METIS   // use metis to place ranks
+  METIS,  // use METIS to place ranks
+  KAHIP   // use KaHIP to place ranks
+};
+
+enum class AlltoallvMethod {
+  NONE, // use library MPI_Alltoallv
+  AUTO,
+  REMOTE_FIRST,
+  STAGED,
+  ISIR_STAGED,
+  ISIR_REMOTE_STAGED
 };
 
 namespace environment {
 extern bool noTempi; // disable all TEMPI globally
-extern bool noAlltoallv;
 extern bool noPack;
 extern bool noTypeCommit;
 extern PlacementMethod placement;
+extern AlltoallvMethod alltoallv;
 }; // namespace environment
 
 void read_environment();

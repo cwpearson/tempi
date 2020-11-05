@@ -8,7 +8,9 @@ cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
 project(tempi LANGUAGES C CXX CUDA VERSION 0.1.0.0)
 
-option(USE_CUDA_GRAPH "use CUDA graph API" ON)
+option(TEMPI_ENABLE_KAHIP "allow KaHIP for placement" ON)
+option(TEMPI_ENABLE_METIS "allow metis for placement" OFF)
+
 
 # Set a log level if none was specified
 if(NOT DEFINED TEMPI_OUTPUT_LEVEL)
@@ -26,14 +28,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/GetGitRevisionDescription.cmake")
-
 get_git_head_revision(GIT_REFSPEC GIT_HASH)
 git_local_changes(GIT_LOCAL_CHANGES)
 message(STATUS GIT_REFSPEC=${GIT_REFSPEC})
@@ -51,48 +52,14 @@ add_library(tempi SHARED ${TEMPI_SOURCES})
 add_library(tempi::tempi ALIAS tempi)
 set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-# include(ExternalProject)
-# ExternalProject_Add(metis
-#   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
-#   GIT_TAG "v5.1.1-DistDGL-v0.5"
-#   GIT_SUBMODULES_RECURSE TRUE
-#   INSTALL_DIR=metis-prefix
-#   CMAKE_ARGS
-#     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
-# )
-
-# the metis makescript writes out some files before calling cmake
-# not all gcc accepts march=native, so delete it from GKlib
-
-
-# pick this revision of metis due to a bug in a newer version (https://github.com/KarypisLab/METIS/issues/20)
-# remove -march=native for Power9 support
 include(ExternalProject)
-if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
-  ExternalProject_Add(metis
-    GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
-    GIT_TAG "18f391689433fabbd76721cfdfdd978b4197d089" # july 25
-    GIT_SUBMODULES_RECURSE TRUE
-    PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
-    CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix cc=${CMAKE_C_COMPILER}
-    BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
-    BUILD_IN_SOURCE TRUE
-    INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
-    INSTALL_DIR=metis-prefix
-    CMAKE_ARGS
-      -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
-  )
-  add_dependencies(tempi metis)
-else()
-  message(STATUS "libmetis.a found, not rebuilding. clean build directory and restart to rebuild.")
-endif()
-#ExternalProject_Get_Property(metis INSTALL_DIR)
-#message("install dir of metis = ${INSTALL_DIR}")
-target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/include)
-target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
 
-ExternalProject_Add(kahip
-GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
+if(TEMPI_ENABLE_KAHIP)
+  message(STATUS "define TEMPI_ENABLE_KAHIP")
+  target_compile_definitions(tempi PRIVATE TEMPI_ENABLE_KAHIP)
+
+  ExternalProject_Add(kahip
+    GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
     GIT_TAG "b466cdf2ffb3c5c6124f0b212bf808cdcf5a1d7d"
     GIT_SUBMODULES_RECURSE TRUE
     CMAKE_ARGS
@@ -100,10 +67,54 @@ GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
       -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/kahip-prefix
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
       -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-)
-add_dependencies(tempi kahip)
-target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/include)
-target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/lib/libinterface_static.a)
+    )
+  add_dependencies(tempi kahip)
+  target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/include)
+  target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/lib/libinterface_static.a)
+endif(TEMPI_ENABLE_KAHIP)
+
+if(TEMPI_ENABLE_METIS)
+  message(STATUS "define TEMPI_ENABLE_METIS")
+  target_compile_definitions(tempi PRIVATE TEMPI_ENABLE_METIS)
+
+  # ExternalProject_Add(metis
+  #   GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
+  #   GIT_TAG "v5.1.1-DistDGL-v0.5"
+  #   GIT_SUBMODULES_RECURSE TRUE
+  #   INSTALL_DIR=metis-prefix
+  #   CMAKE_ARGS
+  #     -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
+  # )
+
+  # the metis makescript writes out some files before calling cmake
+  # pick this revision of metis due to a bug in a newer version (https://github.com/KarypisLab/METIS/issues/20)
+  # remove -march=native for Power9 support
+  if (NOT EXISTS ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
+    ExternalProject_Add(metis
+      GIT_REPOSITORY git@github.com:KarypisLab/METIS.git
+      GIT_TAG "18f391689433fabbd76721cfdfdd978b4197d089" # july 25
+      GIT_SUBMODULES_RECURSE TRUE
+      PATCH_COMMAND sed -i /-march=native/d ${CMAKE_BINARY_DIR}/metis-prefix/src/metis/GKlib/GKlibSystem.cmake
+      CONFIGURE_COMMAND make config prefix=${CMAKE_BINARY_DIR}/metis-prefix cc=${CMAKE_C_COMPILER}
+      BUILD_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make
+      BUILD_IN_SOURCE TRUE
+      INSTALL_COMMAND unset MAKEFLAGS && unset MAKELEVEL && make install
+      INSTALL_DIR=metis-prefix
+      CMAKE_ARGS
+        -D CMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/metis-prefix
+    )
+    add_dependencies(tempi metis)
+  else()
+    message(STATUS "libmetis.a found, not rebuilding. delete metis-prefix and re-run cmake to rebuild")
+  endif()
+  target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/include)
+  target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/metis-prefix/lib/libmetis.a)
+endif(TEMPI_ENABLE_METIS)
+
+
+
+
+
 
 
 

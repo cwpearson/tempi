@@ -11,6 +11,7 @@ struct Result {
 
 std::vector<int> random(const int numRanks, const int numNodes);
 
+#ifdef TEMPI_ENABLE_KAHIP
 /* use KaHIP to partition.
    the parameters are a CSR matrix.
    edges and back-edges should be represented.
@@ -18,7 +19,9 @@ std::vector<int> random(const int numRanks, const int numNodes);
 Result partition_kahip(const int nParts, const std::vector<int> &rowPtrs,
                        const std::vector<int> &colInd,
                        const std::vector<int> &colVal);
+#endif
 
+#ifdef TEMPI_ENABLE_METIS
 /* use METIS to partition.
    the parameters are a CSR matrix.
    edges and back-edges should be represented and be identical
@@ -26,6 +29,7 @@ Result partition_kahip(const int nParts, const std::vector<int> &rowPtrs,
 Result partition_metis(const int nParts, const std::vector<int> &rowPtrs,
                        const std::vector<int> &colInd,
                        const std::vector<int> &colVal);
+#endif
 
 /* true if all partitions are equal size
  */
