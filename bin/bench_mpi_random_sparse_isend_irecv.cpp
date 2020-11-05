@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     std::cout << version << std::endl;
   }
 
-  BM::Method *method = new BM::Method_isend_irecv();
+  BM::Method *method = new BM::Method_sparse_isend_irecv();
   int nIters = 30;
   std::vector<int64_t> scales{1,         10,         100,        1 * 1000,
                               10 * 1000, 100 * 1000, 1000 * 1000};
