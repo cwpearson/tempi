@@ -35,6 +35,7 @@ endif()
 
 if(TEMPI_ENABLE_KAHIP)
   set(TEMPI_SOURCES ${TEMPI_SOURCES} ${CMAKE_CURRENT_LIST_DIR}/internal/partition_kahip.cpp)
+  set(TEMPI_SOURCES ${TEMPI_SOURCES} ${CMAKE_CURRENT_LIST_DIR}/internal/partition_kahip_process_mapping.cpp)
 endif()  
 
 set(TEMPI_SOURCES 

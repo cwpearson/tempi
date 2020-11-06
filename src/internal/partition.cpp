@@ -9,6 +9,14 @@ std::default_random_engine generator(0);
 
 namespace partition {
 
+size_t Result::num_parts() const noexcept {
+  std::map<int, int> sizes;
+  for (int e : part) {
+    sizes[e] += 1;
+  }
+  return sizes.size();
+}
+
 /* return a node assignment 0..<numNodes for each rank 0..<numRanks
  */
 std::vector<int> random(const int numRanks, const int numNodes) {
