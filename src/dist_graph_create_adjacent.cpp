@@ -54,6 +54,11 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
         ARGS_MPI_Dist_graph_create_adjacent);
   }
 
+  if (PlacementMethod::NONE == environment::placement) {
+    return libmpi.MPI_Dist_graph_create_adjacent(
+        ARGS_MPI_Dist_graph_create_adjacent);
+  }
+
   /* Two options:
      1)
      pass arguments directly to the library call, to create a graph communicator
@@ -91,7 +96,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
       // assign each rank to a random partition
       part = partition::random(oldSize, numNodes);
 
-    } else if (reorder && PlacementMethod::METIS == environment::placement) {
+    } else if (reorder) {
 
       // build edgelist on every node
       std::vector<int> edgeSrc, edgeDst, weight;

@@ -22,6 +22,7 @@ set -x
 mkdir -p $SCRATCH
 
 export TEMPI_PLACEMENT_KAHIP=""
+export TEMPI_NO_ALLTOALLV=""
 
 #echo "2nodes,6rankpernode" >> $OUT
 #jsrun --smpiargs="-gpu" -n 12 -r 6 -a 1 -g 1 -c 7 -b rs \
@@ -29,8 +30,8 @@ export TEMPI_PLACEMENT_KAHIP=""
 
 echo "" > $OUT
 
-for nodes in 1 2 4 8 16 32; do
-  for rpn in 1 2 6; do
+for nodes in 2 4 8 16 32; do
+  for rpn in 2 6; do
     let n=$rpn*$nodes
 
     echo ${nodes}nodes,${rpn}rankspernode,tempi >> $OUT
