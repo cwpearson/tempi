@@ -30,7 +30,7 @@ int main(void) {
   int rowNnz = 1;
   int matSeed = 101;
 
-  for (int numNodes : {1, 2, 4, 8, 16, 32}) {
+  for (int numNodes : {1, 2, 4, 8}) {
     for (int ranksPerNode : {1, 6}) {
       std::cerr << "TEST partition_kahip " << numNodes << " " << ranksPerNode
                 << " " << matSeed << "\n";
