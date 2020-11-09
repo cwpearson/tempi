@@ -2,6 +2,7 @@
 
 #include <cuda_runtime.h>
 #include <mpi.h>
+#include <nvToolsExt.h>
 
 #include <cassert>
 #include <cstdio>
@@ -401,26 +402,35 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
 #endif
 
   // create the total send/recv buffer
-  std::vector<char> sendbuf, recvbuf;
+  size_t sendBufSize = 0, recvBufSize = 0;
   for (const auto &kv : nbrSendType) {
     for (MPI_Datatype ty : kv.second) {
       int size;
       MPI_Type_size(ty, &size);
-      sendbuf.resize(sendbuf.size() + size);
+      sendBufSize += size;
     }
   }
   for (const auto &kv : nbrRecvType) {
     for (MPI_Datatype ty : kv.second) {
       int size;
       MPI_Type_size(ty, &size);
-      recvbuf.resize(recvbuf.size() + size);
+      recvBufSize += size;
     }
   }
 
+  char *sendbuf{}, *recvbuf{};
+#ifdef USE_CUDA
+  CUDA_RUNTIME(cudaMalloc(&sendbuf, sendBufSize));
+  CUDA_RUNTIME(cudaMalloc(&recvbuf, recvBufSize));
+#else
+  sendbuf = new char[sendBufSize];
+  recvbuf = new char[recvBufSize];
+#endif
+
 // print buffer sizes
 #if 1
-  std::cout << "rank " << rank << " sendbuf=" << sendbuf.size() << "\n";
-  std::cout << "rank " << rank << " recvbuf=" << recvbuf.size() << "\n";
+  std::cout << "rank " << rank << " sendbuf=" << sendBufSize << "\n";
+  std::cout << "rank " << rank << " recvbuf=" << recvBufSize << "\n";
   std::cout << std::flush;
 #endif
 
@@ -490,48 +500,58 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
 
     // pack the send buf
     {
+      nvtxRangePush("pack");
       double start = MPI_Wtime();
       int position = 0;
       for (int nbr : destinations) {
         for (MPI_Datatype ty : nbrSendType[nbr]) {
-          MPI_Pack(curr.ptr, 1, ty, sendbuf.data(), sendbuf.size(), &position,
-                   graphComm);
+          MPI_Pack(curr.ptr, 1, ty, sendbuf, sendBufSize, &position, graphComm);
         }
       }
       result.pack.insert(MPI_Wtime() - start);
+      nvtxRangePop();
     }
 
     // exchange
     {
-
+      nvtxRangePush("alltoallv");
       double start = MPI_Wtime();
-      MPI_Neighbor_alltoallv(sendbuf.data(), sendcounts.data(), sdispls.data(),
-                             MPI_BYTE, recvbuf.data(), recvcounts.data(),
+      MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
+                             MPI_BYTE, recvbuf, recvcounts.data(),
                              rdispls.data(), MPI_BYTE, graphComm);
       result.alltoallv.insert(MPI_Wtime() - start);
+      nvtxRangePop();
     }
 
     // unpack recv buf
     {
+      nvtxRangePush("unpack");
       double start = MPI_Wtime();
       int position = 0;
       for (int nbr : sources) {
         for (MPI_Datatype ty : nbrRecvType[nbr]) {
-          MPI_Unpack(recvbuf.data(), recvbuf.size(), &position, curr.ptr, 1, ty,
+          MPI_Unpack(recvbuf, recvBufSize, &position, curr.ptr, 1, ty,
                      graphComm);
         }
       }
       result.unpack.insert(MPI_Wtime() - start);
+      nvtxRangePop();
     }
   }
 
+  nvtxRangePush("MPI_Comm_free");
   MPI_Comm_free(&graphComm);
   graphComm = {};
+  nvtxRangePop();
 
 #ifdef USE_CUDA
   CUDA_RUNTIME(cudaFree(curr.ptr));
+  CUDA_RUNTIME(cudaFree(sendbuf));
+  CUDA_RUNTIME(cudaFree(recvbuf));
 #else
   delete[] curr.ptr;
+  delete[] sendbuf;
+  delete[] recvbuf;
 #endif
 
   return result;
@@ -544,7 +564,7 @@ int main(void) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int nIters = 30;
+  int nIters = 2;
   int nQuants = 2;
   int radius = 2;
 
