@@ -159,6 +159,7 @@ int alltoallv_isir_remote_staged(PARAMS_MPI_Alltoallv) {
 
   char *hSendBuf = {};
   char *hRecvBuf = {};
+  size_t sendBufSize = 0, recvBufSize = 0;
 
   // precompute remote and local ranks
   std::vector<int> remotes, locals;
@@ -174,14 +175,14 @@ int alltoallv_isir_remote_staged(PARAMS_MPI_Alltoallv) {
 
   nvtxRangePush("alloc");
   if (!remotes.empty()) {
-    size_t sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
-    size_t recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
-    CUDA_RUNTIME(cudaMallocHost(&hSendBuf, sendBufSize));
-    CUDA_RUNTIME(cudaMallocHost(&hRecvBuf, recvBufSize));
+    sendBufSize = sdispls[commSize - 1] + sendcounts[commSize - 1];
+    recvBufSize = rdispls[commSize - 1] + recvcounts[commSize - 1];
+    hSendBuf = hostAllocator.allocate(sendBufSize);
+    hRecvBuf = hostAllocator.allocate(recvBufSize);
   }
   nvtxRangePop();
 
-  // copy remote messages to host
+  // copy remote sends to host
   for (int j : remotes) {
     CUDA_RUNTIME(cudaMemcpy(hSendBuf + sdispls[j],
                             ((char *)sendbuf) + sdispls[j], sendcounts[j],
@@ -236,6 +237,7 @@ int alltoallv_isir_remote_staged(PARAMS_MPI_Alltoallv) {
     err = (MPI_SUCCESS == e ? err : e);
   }
 
+  // copy remote recvs to device
   for (int j : remotes) {
     CUDA_RUNTIME(cudaMemcpy(((char *)recvbuf) + rdispls[j],
                             hRecvBuf + rdispls[j], recvcounts[j],
@@ -243,8 +245,8 @@ int alltoallv_isir_remote_staged(PARAMS_MPI_Alltoallv) {
   }
 
   nvtxRangePush("free");
-  CUDA_RUNTIME(cudaFreeHost(hSendBuf));
-  CUDA_RUNTIME(cudaFreeHost(hRecvBuf));
+  hostAllocator.deallocate(hSendBuf, sendBufSize);
+  hostAllocator.deallocate(hRecvBuf, recvBufSize);
   nvtxRangePop();
 
   return err;
