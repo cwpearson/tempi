@@ -164,6 +164,7 @@ Type traverse(MPI_Datatype datatype) {
   if (0 != traverseCache.count(datatype)) {
     return traverseCache[datatype];
   } else {
+    LOG_SPEW("miss " << uintptr_t(datatype) << " in traverse cache.");
     Type result;
     traverse_helper(result, datatype);
     if (Type::unknown() != result) {
@@ -179,7 +180,7 @@ Type traverse(MPI_Datatype datatype) {
 std::shared_ptr<Packer> plan_pack(Type &type) {
 
   if (Type::unknown() == type) {
-    LOG_WARN("couldn't optimize packing strategy for unknown type");
+    LOG_WARN("couldn't plan packing strategy for unknown type");
     return nullptr;
   }
 

@@ -22,7 +22,6 @@ extern "C" int MPI_Type_commit(PARAMS) {
         dlsym(RTLD_NEXT, "MPI_Type_commit"));
   }
   TEMPI_DISABLE_GUARD;
-  LOG_DEBUG("MPI_Type_commit");
 
   int result = fn(ARGS);
 
@@ -42,7 +41,7 @@ extern "C" int MPI_Type_commit(PARAMS) {
   }
 
   if (MPI_SUCCESS != result) {
-    LOG_ERROR("error in underlying MPI call");
+    LOG_ERROR("error in system MPI_Pack call");
     return result;
   }
   return result;
