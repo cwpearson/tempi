@@ -4,7 +4,9 @@
 #include <mpi.h>
 #include <nvToolsExt.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -22,6 +24,13 @@ inline void checkCuda(cudaError_t result, const char *file, const int line) {
   }
 }
 #define CUDA_RUNTIME(stmt) checkCuda(stmt, __FILE__, __LINE__);
+
+#define FATAL(expr)                                                            \
+  {                                                                            \
+    std::cerr << expr << "\n";                                                 \
+    MPI_Finalize();                                                            \
+    exit(1);                                                                   \
+  }
 
 cudaExtent div_cudaExtent(cudaExtent &a, cudaExtent &b) {
   cudaExtent c;
@@ -140,6 +149,27 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
   return cubetype;
 }
 
+std::vector<int> prime_factors(int n) {
+  std::vector<int> result;
+  if (0 == n) {
+    return result;
+  }
+  while (n % 2 == 0) {
+    result.push_back(2);
+    n = n / 2;
+  }
+  for (int i = 3; i <= sqrt(n); i = i + 2) {
+    while (n % i == 0) {
+      result.push_back(i);
+      n = n / i;
+    }
+  }
+  if (n > 2)
+    result.push_back(n);
+  std::sort(result.begin(), result.end(), [](int a, int b) { return b < a; });
+  return result;
+}
+
 struct BenchResult {
   Statistics pack;
   Statistics alltoallv;
@@ -147,7 +177,8 @@ struct BenchResult {
   Statistics comm;
 };
 
-BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
+BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
+                  int nIters) {
 
   BenchResult result;
 
@@ -156,31 +187,43 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
   MPI_Comm_size(comm, &size);
 
   // distributed extent
-  cudaExtent distExt = make_cudaExtent(512, 512, 512);
-  int dims[3];
-  if (1 == size) {
-    dims[0] = 1;
-    dims[1] = 1;
-    dims[2] = 1;
-  } else if (2 == size) {
-    dims[0] = 2;
-    dims[1] = 1;
-    dims[2] = 1;
-  } else if (4 == size) {
-    dims[0] = 2;
-    dims[1] = 2;
-    dims[2] = 1;
-  } else {
-    std::cerr << "bad dims\n";
-    exit(1);
+  // 768 is divisible by 3 and x | 2^x <= 256
+  cudaExtent distExt = make_cudaExtent(786, 786, 786);
+
+  // do recursive bisection
+  cudaExtent locExt = distExt;
+  int dims[3]{1, 1, 1};
+  for (int f : prime_factors(size)) {
+    if (locExt.width >= locExt.height && locExt.width >= locExt.depth) {
+      if (locExt.width % f != 0) {
+        FATAL("bad x size");
+      }
+      locExt.width /= f;
+      dims[0] *= f;
+    } else if (locExt.height >= locExt.depth) {
+      if (locExt.height % f != 0) {
+        FATAL("bad y size");
+      }
+      locExt.height /= f;
+      dims[1] *= f;
+    } else {
+      if (locExt.depth % f != 0) {
+        FATAL("bad z size");
+      }
+      locExt.depth /= f;
+      dims[2] *= f;
+    }
+  }
+  if (dims[0] * dims[1] * dims[2] != size) {
+    FATAL("dims product != size");
   }
 
   // local extent
-  cudaExtent locExt;
-  locExt.width = distExt.width / dims[0];
-  locExt.height = distExt.height / dims[1];
-  locExt.depth = distExt.depth / dims[2];
   int lcr[3]{int(locExt.width), int(locExt.height), int(locExt.depth)};
+
+  if (0 == rank) {
+    std::cerr << "lcr: " << lcr[0] << "x" << lcr[1] << "x" << lcr[2] << "\n";
+  }
 
   // allocation extent
   cudaPitchedPtr curr{};
@@ -202,7 +245,6 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
 #endif
   }
   if (0 == rank) {
-
     std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
               << "\n";
   }
@@ -496,7 +538,9 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
 
   for (int i = 0; i < nIters; ++i) {
 
-    std::cerr << "iter " << i << std::endl;
+    if (0 == rank) {
+      std::cerr << "iter " << i << std::endl;
+    }
 
     // pack the send buf
     {
@@ -557,8 +601,21 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
   return result;
 }
 
-int main(void) {
-  MPI_Init(nullptr, nullptr);
+int main(int argc, char **argv) {
+  MPI_Init(&argc, &argv);
+
+  int ext[3]{};
+  if (argc == 2) {
+    ext[0] = std::atoi(argv[1]);
+    ext[1] = std::atoi(argv[1]);
+    ext[2] = std::atoi(argv[1]);
+  } else if (4 == argc) {
+    ext[0] = std::atoi(argv[1]);
+    ext[1] = std::atoi(argv[2]);
+    ext[2] = std::atoi(argv[3]);
+  } else {
+    FATAL(argv[0] << "X Y Z");
+  }
 
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -573,7 +630,7 @@ int main(void) {
     std::cout << std::flush;
   }
 
-  BenchResult result = bench(MPI_COMM_WORLD, nQuants, radius, nIters);
+  BenchResult result = bench(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
 
   double pack, alltoallv, unpack, comm;
 
