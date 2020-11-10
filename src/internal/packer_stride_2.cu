@@ -142,16 +142,14 @@ PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
         bd_;
 }
 
-void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
-                         const int incount) const {
+void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
+                               const int incount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride2::pack() on CUDA " << device);
-
-  assert(kernStream.size() > 0 && "no streams. Are GPUs enabled and was MPI_Init called?");
-  cudaStream_t stream = kernStream[device];
-
+  LaunchInfo info = pack_launch_info(inbuf);
+  LOG_SPEW("PackerStride2::pack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
 #if 0
   char *__restrict__ op = reinterpret_cast<char *>(outbuf);
@@ -178,19 +176,19 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    pack_bytes<4><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<4><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    pack_bytes<8><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<8><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    pack_bytes<1><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<1><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
   }
@@ -200,31 +198,34 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
   assert(position);
   (*position) += incount * count_[1] * count_[0] * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  LOG_SPEW("PackerStride2::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }
 
 void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
-                           const int outcount) const {
+                                 const int outcount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride2::unpack() on CUDA " << device);
+  LaunchInfo info = unpack_launch_info(outbuf);
+  LOG_SPEW("PackerStride2::unpack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    unpack_bytes<4><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<4><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    unpack_bytes<8><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<8><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    unpack_bytes<1><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<1><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
   }
@@ -233,6 +234,7 @@ void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
 
   (*position) += outcount * count_[1] * count_[0] * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
+  LOG_SPEW("PackerStride2::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }
-

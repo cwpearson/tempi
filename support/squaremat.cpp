@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <mpi.h>
 #include <random>
 
 void SquareMat::zero_diagonal() {

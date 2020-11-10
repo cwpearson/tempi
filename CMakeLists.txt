@@ -52,6 +52,10 @@ add_library(tempi SHARED ${TEMPI_SOURCES})
 add_library(tempi::tempi ALIAS tempi)
 set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
+add_subdirectory(support)
+add_subdirectory(test)
+add_subdirectory(bin)
+
 include(ExternalProject)
 
 if(TEMPI_ENABLE_KAHIP)
@@ -273,5 +277,4 @@ target_include_directories(tempi PUBLIC
 # "this command should be in the source directory root for CTest to find the test file"
 enable_testing() 
 
-add_subdirectory(test)
-add_subdirectory(bin)
+

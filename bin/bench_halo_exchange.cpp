@@ -564,7 +564,7 @@ int main(void) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int nIters = 2;
+  int nIters = 3;
   int nQuants = 2;
   int radius = 2;
 

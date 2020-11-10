@@ -20,9 +20,9 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
   // reserve intermediate buffer
   int packedBytes;
   {
-    int tySize;
-    MPI_Type_size(datatype, &tySize);
-    packedBytes = tySize * count;
+    int size;
+    MPI_Pack_size(count, datatype, comm, &size);
+    packedBytes = size;
   }
   void *packBuf = nullptr;
   packBuf = deviceAllocator.allocate(packedBytes);
@@ -30,7 +30,8 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
 
   // pack into device buffer
   int pos = 0;
-  packer->pack(packBuf, &pos, buf, count);
+  packer->pack_async(packBuf, &pos, buf, count);
+  packer->sync(buf);
 
   // send to other device
   int err = libmpi.MPI_Send(packBuf, packedBytes, MPI_BYTE, dest, tag, comm);

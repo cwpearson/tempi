@@ -58,6 +58,8 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
   // prefetch to host to accelerate comparison
   CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, -1, kernStream[0]));
   REQUIRE(positionTest == positionExpected); // output position is identical
+
+  // compare with system MPI
   REQUIRE(0 == memcmp(dstTest, dstExpected,
                       packExt.flatten())); // pack buffer identical
 

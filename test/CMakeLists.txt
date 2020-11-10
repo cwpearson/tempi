@@ -1,9 +1,9 @@
-find_package(MPI REQUIRED)
-message(STATUS "MPI_CXX_LIBRARIES=" ${MPI_CXX_LIBRARIES})
-message(STATUS "MPIEXEC_EXECUTABLE=" ${MPIEXEC_EXECUTABLE})
+# find_package(MPI REQUIRED)
+# message(STATUS "MPI_CXX_LIBRARIES=" ${MPI_CXX_LIBRARIES})
+# message(STATUS "MPIEXEC_EXECUTABLE=" ${MPIEXEC_EXECUTABLE})
 
 macro(pmpi_test_exe exe)
-    add_executable(${ARGV0} ${ARGN} ../support/type.cpp ../support/squaremat.cpp ../support/csr.cpp)
+    add_executable(${ARGV0} ${ARGN})
     # link to pmpi first
     target_link_libraries(${ARGV0} PRIVATE tempi::tempi)
     ## just using target_link_libraries(pangolin INTERFACE MPI::MPI_CXX)
@@ -11,6 +11,8 @@ macro(pmpi_test_exe exe)
     ## https://gitlab.kitware.com/cmake/cmake/issues/18897
     target_include_directories(${ARGV0} PRIVATE ${MPI_CXX_INCLUDE_DIRS})
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
+
+    target_link_libraries(${ARGV0} PRIVATE tempi_support)
 
     if(TEMPI_ENABLE_METIS)
       target_compile_definitions(${ARGV0} PRIVATE TEMPI_ENABLE_METIS)

@@ -1,3 +1,13 @@
+/*
+ The implementation defines what the output of MPI_Pack is: it is allowed to
+ prefix or postfix packed data with additional information. And future calls to
+ MPI_Send should use the same communicator, and MPI_Packed datatype
+
+ So, this timplementation makes the packing asynchronous, and before calls with
+ a packable datatype in communication routines, we will synchronize there. This
+ removes the synch overhead at each call
+*/
+
 #include "logging.hpp"
 
 #include "cuda_runtime.hpp"
@@ -40,7 +50,7 @@ extern "C" int MPI_Pack(PARAMS) {
 
   if (packerCache.count(datatype)) {
     // only optimize device-to-device pack
-    cudaPointerAttributes outAttrs = {}, inAttrs = {};
+    cudaPointerAttributes outAttrs{}, inAttrs{};
     CUDA_RUNTIME(cudaPointerGetAttributes(&outAttrs, outbuf));
     CUDA_RUNTIME(cudaPointerGetAttributes(&inAttrs, inbuf));
 
@@ -55,7 +65,7 @@ extern "C" int MPI_Pack(PARAMS) {
     }
     std::shared_ptr<Packer> packer = packerCache[datatype];
     CUDA_RUNTIME(cudaSetDevice(inAttrs.device));
-    packer->pack(outbuf, position, inbuf, incount);
+    packer->pack_async(outbuf, position, inbuf, incount);
     err = MPI_SUCCESS;
     goto cleanup_and_exit;
   } else {

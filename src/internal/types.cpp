@@ -417,32 +417,6 @@ void subarrays_merge_subsize_one_dims(Type &type) {
   LOG_SPEW("type.height=" << type.height());
 }
 
-void subarrays_byte_strides(Type &type) {
-
-  for (Type &child : type.children()) {
-    subarrays_byte_strides(child);
-  }
-
-  // I'm not a subarray so I can't merge
-  if (!std::holds_alternative<SubarrayData>(type.data)) {
-    LOG_SPEW("merge_subsize_one: not subarray");
-    return;
-  }
-  SubarrayData &data = std::get<SubarrayData>(type.data);
-
-  // for (int i = 0; i < data.ndims(); ++i) {
-  //   if (data.strides[i] < 0) {
-  //     if (0 == i) {
-  //       data.strides[i] = data.byteLength;
-  //     } else {
-  //       data.strides[i] = data.strides[i - 1] * data.elemSizes[i - 1];
-  //     }
-  //   }
-  // }
-
-  LOG_SPEW(data.str());
-}
-
 /* tries to convert as much of the type to subarrays as possible
  */
 Type simplify(const Type &type) {
@@ -642,9 +616,11 @@ StridedBlock to_strided_block(const Type &type) {
     return ret;
   }
 
+#if TEMPI_OUTPUT_LEVEL >= 4
   for (auto &d : data) {
     LOG_SPEW(d.index());
   }
+#endif
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {
