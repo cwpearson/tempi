@@ -1,7 +1,3 @@
-# find_package(MPI REQUIRED)
-# message(STATUS "MPI_CXX_LIBRARIES=" ${MPI_CXX_LIBRARIES})
-# message(STATUS "MPIEXEC_EXECUTABLE=" ${MPIEXEC_EXECUTABLE})
-
 macro(pmpi_test_exe exe)
     add_executable(${ARGV0} ${ARGN})
     # link to pmpi first
@@ -43,8 +39,8 @@ add_test(NAME partition_kahip COMMAND partition_kahip)
 pmpi_test_exe(type_commit type_commit.cpp)
 add_test(NAME type_commit COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_commit)
 
-pmpi_test_exe(pack pack.cpp)
-add_test(NAME pack COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 pack)
+pmpi_test_exe(pack_unpack pack_unpack.cpp)
+add_test(NAME pack_unpack COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 pack_unpack)
 
 pmpi_test_exe(isend isend.cu)
 add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isend)

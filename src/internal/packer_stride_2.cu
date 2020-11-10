@@ -22,6 +22,14 @@ __global__ static void pack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+#if 0
+  printf("count0=%u count1=%u, stride0=%u stride1=%u\n", count0, count1,
+         stride0, stride1);
+#endif
+  // n-1 counts of the stride, plus the extent of the last count
+  const int extent =
+      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -31,7 +39,7 @@ __global__ static void pack_bytes(
 
   for (int i = 0; i < incount; ++i) {
     char *__restrict__ dst = op + i * count1 * count0 * blockLength;
-    const char *__restrict__ src = ip + i * stride1 * count1 * stride0 * count0;
+    const char *__restrict__ src = ip + i * extent;
 
     for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
       for (unsigned y = ty; y < count0; y += gridDim.y * blockDim.y) {
@@ -39,7 +47,10 @@ __global__ static void pack_bytes(
              x += gridDim.x * blockDim.x) {
           unsigned bo = z * count0 * blockLength + y * blockLength + x * N;
           unsigned bi = z * stride1 + y * stride0 + x * N;
-          // printf("%u -> %u\n", bi, bo);
+#if 0
+          printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                 uintptr_t(dst) + bo - uintptr_t(outbuf));
+#endif
 
           if (N == 1) {
             dst[bo] = src[bi];
@@ -78,6 +89,10 @@ __global__ static void unpack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  // n-1 counts of the stride, plus the extent of the last count
+  const int extent =
+      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -86,7 +101,7 @@ __global__ static void unpack_bytes(
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
   for (int i = 0; i < incount; ++i) {
-    char *__restrict__ dst = op + i * stride1 * count1 * stride0 * count0;
+    char *__restrict__ dst = op + i * extent;
     const char *__restrict__ src = ip + i * count1 * count0 * blockLength;
 
     for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
@@ -140,6 +155,9 @@ PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
   gd_ = (Dim3(blockLength_ / wordSize_, count_[0], count_[1]) + bd_ -
          Dim3(1, 1, 1)) /
         bd_;
+
+  // bd_ = Dim3(1, 1, 1);
+  // gd_ = Dim3(1, 1, 1);
 }
 
 void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
@@ -203,7 +221,7 @@ void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
 }
 
 void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
-                                 const int outcount) const {
+                           const int outcount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));

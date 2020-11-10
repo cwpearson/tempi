@@ -33,7 +33,7 @@ std::map<MPI_Datatype, Type> traverseCache;
 // MPI_Type_get_contents()
 Type Type::from_mpi_datatype(MPI_Datatype datatype) {
 
-  LOG_DEBUG("from_mpi_datatype ");
+  LOG_SPEW("from_mpi_datatype ");
 
   int numIntegers;
   int numAddresses;

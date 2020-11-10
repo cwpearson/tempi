@@ -23,6 +23,8 @@ pack_bytes(void *__restrict__ outbuf,
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  const int extent = (count - 1) * stride + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -34,7 +36,7 @@ pack_bytes(void *__restrict__ outbuf,
     // each packed datatype will take count * blockLength bytes in outbuf
     // each datatype input has stride * count separating their starts
     char *__restrict__ dst = op + z * blockLength * count;
-    const char *__restrict__ src = ip + z * stride * count;
+    const char *__restrict__ src = ip + z * extent;
 
     // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
@@ -85,6 +87,8 @@ __global__ static void unpack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  const int extent = (count - 1) * stride + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -95,7 +99,7 @@ __global__ static void unpack_bytes(
   for (int z = tz; z < outcount; z += gridDim.z * blockDim.z) {
     // each datatype will have stride * count separating their starts in outbuf
     // each packed datatype has blockLength * count separating their starts
-    char *__restrict__ dst = op + z * stride * count;
+    char *__restrict__ dst = op + z * extent;
     const char *__restrict__ src = ip + z * blockLength * count;
 
     // x direction handle the blocks, y handles the block counts
