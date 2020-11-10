@@ -593,7 +593,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   CUDA_RUNTIME(cudaFree(sendbuf));
   CUDA_RUNTIME(cudaFree(recvbuf));
 #else
-  delete[] curr.ptr;
+  delete[] (char*)curr.ptr;
   delete[] sendbuf;
   delete[] recvbuf;
 #endif
