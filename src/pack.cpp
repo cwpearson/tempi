@@ -1,3 +1,13 @@
+/*
+ The implementation defines what the output of MPI_Pack is: it is allowed to
+ prefix or postfix packed data with additional information. And future calls to
+ MPI_Send should use the same communicator, and MPI_Packed datatype
+
+ So, this timplementation makes the packing asynchronous, and before calls with
+ a packable datatype in communication routines, we will synchronize there. This
+ removes the synch overhead at each call
+*/
+
 #include "logging.hpp"
 
 #include "cuda_runtime.hpp"
@@ -28,39 +38,38 @@ extern "C" int MPI_Pack(PARAMS) {
   }
   TEMPI_DISABLE_GUARD;
   nvtxRangePush("MPI_Pack");
-  LOG_DEBUG("MPI_Pack");
   int err = MPI_ERR_UNKNOWN;
 
   bool enabled = true;
   enabled &= !environment::noPack;
   if (!enabled) {
-    LOG_DEBUG("library MPI_Pack: disabled by env");
+    LOG_SPEW("library MPI_Pack: disabled by env");
     err = fn(ARGS);
     goto cleanup_and_exit;
   }
 
   if (packerCache.count(datatype)) {
     // only optimize device-to-device pack
-    cudaPointerAttributes outAttrs = {}, inAttrs = {};
+    cudaPointerAttributes outAttrs{}, inAttrs{};
     CUDA_RUNTIME(cudaPointerGetAttributes(&outAttrs, outbuf));
     CUDA_RUNTIME(cudaPointerGetAttributes(&inAttrs, inbuf));
 
     // if the data can be accessed from the GPU, use the GPU
-    bool outDev = outAttrs.devicePointer;
-    bool inDev = inAttrs.devicePointer;
+    bool isOutDev = outAttrs.devicePointer;
+    bool isInDev = inAttrs.devicePointer;
 
-    if (!outDev || !inDev) {
-      LOG_DEBUG("library MPI_Pack: not device-device");
+    if (!isOutDev || !isInDev) {
+      LOG_SPEW("library MPI_Pack: not device-device");
       err = fn(ARGS);
       goto cleanup_and_exit;
     }
     std::shared_ptr<Packer> packer = packerCache[datatype];
     CUDA_RUNTIME(cudaSetDevice(inAttrs.device));
-    packer->pack(outbuf, position, inbuf, incount);
+    packer->pack_async(outbuf, position, inbuf, incount);
     err = MPI_SUCCESS;
     goto cleanup_and_exit;
   } else {
-    LOG_DEBUG("library MPI_Pack");
+    LOG_SPEW("library MPI_Pack: no packer");
     err = fn(ARGS);
     goto cleanup_and_exit;
   }

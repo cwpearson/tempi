@@ -1,6 +1,5 @@
 #include "type.hpp"
 
-
 MPI_Datatype make_vn_hv_hv(const Dim3 copyExt, // bytes
                            const Dim3 allocExt // bytes
 ) {
@@ -33,7 +32,6 @@ MPI_Datatype make_vn_hv_hv(const Dim3 copyExt, // bytes
 
   return fullType;
 }
-
 
 MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
                            const Dim3 allocExt // bytes
@@ -68,8 +66,7 @@ MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
   return fullType;
 }
 
-
-MPI_Datatype make_v_hv(const Dim3 copyExt, const Dim3 allocExt) {
+MPI_Datatype make_byte_v_hv(const Dim3 copyExt, const Dim3 allocExt) {
   MPI_Datatype planeType = {};
   MPI_Datatype fullType = {};
   {
@@ -92,6 +89,28 @@ MPI_Datatype make_v_hv(const Dim3 copyExt, const Dim3 allocExt) {
   return fullType;
 }
 
+MPI_Datatype make_float_v_hv(const Dim3 copyExt, const Dim3 allocExt) {
+  MPI_Datatype planeType = {};
+  MPI_Datatype fullType = {};
+  {
+    {
+      // number of blocks
+      int count = copyExt.y;
+      // number of elements in each block
+      int blocklength = copyExt.x / 4;
+      // elements between start of each block
+      const int stride = allocExt.x / 4;
+      MPI_Type_vector(count, blocklength, stride, MPI_FLOAT, &planeType);
+    }
+    int count = copyExt.z;
+    int blocklength = 1;
+    // bytes between start of each block
+    const int stride = allocExt.x * allocExt.y;
+    MPI_Type_create_hvector(count, blocklength, stride, planeType, &fullType);
+  }
+
+  return fullType;
+}
 
 MPI_Datatype make_hi(const Dim3 copyExt, const Dim3 allocExt) {
 
@@ -119,7 +138,6 @@ MPI_Datatype make_hi(const Dim3 copyExt, const Dim3 allocExt) {
   return fullType;
 }
 
-
 MPI_Datatype make_hib(const Dim3 copyExt, const Dim3 allocExt) {
   MPI_Datatype fullType = {};
   // z*y rows
@@ -139,4 +157,18 @@ MPI_Datatype make_hib(const Dim3 copyExt, const Dim3 allocExt) {
   MPI_Type_create_hindexed_block(count, blocklength, displacements, MPI_BYTE,
                                  &fullType);
   return fullType;
+}
+
+MPI_Datatype make_subarray(const Dim3 copyExt, const Dim3 allocExt) {
+
+  int ndims = 3;
+  int array_of_sizes[3]{int(allocExt[0]), int(allocExt[1]), int(allocExt[2])};
+  int array_of_subsizes[3]{int(copyExt[0]), int(copyExt[1]), int(copyExt[2])};
+  int array_of_starts[3]{0, 0, 0};
+  int order = MPI_ORDER_C;
+
+  MPI_Datatype cube{};
+  MPI_Type_create_subarray(ndims, array_of_sizes, array_of_subsizes,
+                           array_of_starts, order, MPI_BYTE, &cube);
+  return cube;
 }

@@ -2,8 +2,23 @@
 
 #include <algorithm>
 #include <iostream>
-#include <mpi.h>
 #include <random>
+
+void SquareMat::zero_diagonal() {
+  for (size_t i = 0; i < n_; ++i) {
+    data_[i * n_ + i] = 0;
+  }
+}
+
+void SquareMat::balance_symmetric() {
+  for (size_t i = 0; i < n_; ++i) {
+    for (size_t j = i; j < n_; ++j) {
+      int total = data_[i * n_ + j] + data_[j * n_ + i];
+      data_[i * n_ + j] = total / 2;
+      data_[j * n_ + i] = total / 2;
+    }
+  }
+}
 
 std::string SquareMat::str() const noexcept {
   std::string s;
@@ -21,10 +36,9 @@ std::string SquareMat::str() const noexcept {
   return s;
 }
 
-static SquareMat make_random(int ranks, int lb, int ub, int scale) {
-  const int SEED = 101;
-  srand(SEED);
-  std::default_random_engine dre(SEED);
+static SquareMat make_random(int ranks, int lb, int ub, int scale, int seed) {
+  srand(seed);
+  std::default_random_engine dre(seed);
   SquareMat mat(ranks, 0);
   for (int r = 0; r < ranks; ++r) {
     for (int c = 0; c < ranks; ++c) {
@@ -36,11 +50,11 @@ static SquareMat make_random(int ranks, int lb, int ub, int scale) {
 }
 
 SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
-                                        int scale) {
+                                        int scale, int seed) {
+  srand(seed);
+  std::default_random_engine dre(seed);
 
-  const int SEED = 101;
-  srand(SEED);
-  std::default_random_engine dre(SEED);
+  rowNnz = std::max(rowNnz, ranks);
 
   SquareMat mat(ranks, 0);
 

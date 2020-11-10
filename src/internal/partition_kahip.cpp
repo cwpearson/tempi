@@ -51,7 +51,7 @@ partition::Result partition::partition_kahip(const int nParts,
   double imbalance = 0;
   bool suppress_output = false;
   bool perfectly_balance = true;
-  int mode = STRONG;
+  int mode = FAST;
   int edgecut;
   int *part = result.part.data();
 

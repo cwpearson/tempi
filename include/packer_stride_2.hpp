@@ -13,7 +13,7 @@ class PackerStride2 : public Packer {
 public:
   PackerStride2(unsigned blockLength, unsigned count0, unsigned stride0,
                 unsigned count1, unsigned stride1);
-  void pack(void *outbuf, int *position, const void *inbuf,
+  void pack_async(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;

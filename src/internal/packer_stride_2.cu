@@ -22,6 +22,14 @@ __global__ static void pack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+#if 0
+  printf("count0=%u count1=%u, stride0=%u stride1=%u\n", count0, count1,
+         stride0, stride1);
+#endif
+  // n-1 counts of the stride, plus the extent of the last count
+  const int extent =
+      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -31,7 +39,7 @@ __global__ static void pack_bytes(
 
   for (int i = 0; i < incount; ++i) {
     char *__restrict__ dst = op + i * count1 * count0 * blockLength;
-    const char *__restrict__ src = ip + i * stride1 * count1 * stride0 * count0;
+    const char *__restrict__ src = ip + i * extent;
 
     for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
       for (unsigned y = ty; y < count0; y += gridDim.y * blockDim.y) {
@@ -39,7 +47,10 @@ __global__ static void pack_bytes(
              x += gridDim.x * blockDim.x) {
           unsigned bo = z * count0 * blockLength + y * blockLength + x * N;
           unsigned bi = z * stride1 + y * stride0 + x * N;
-          // printf("%u -> %u\n", bi, bo);
+#if 0
+          printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                 uintptr_t(dst) + bo - uintptr_t(outbuf));
+#endif
 
           if (N == 1) {
             dst[bo] = src[bi];
@@ -78,6 +89,10 @@ __global__ static void unpack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  // n-1 counts of the stride, plus the extent of the last count
+  const int extent =
+      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -86,7 +101,7 @@ __global__ static void unpack_bytes(
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
   for (int i = 0; i < incount; ++i) {
-    char *__restrict__ dst = op + i * stride1 * count1 * stride0 * count0;
+    char *__restrict__ dst = op + i * extent;
     const char *__restrict__ src = ip + i * count1 * count0 * blockLength;
 
     for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
@@ -140,18 +155,19 @@ PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
   gd_ = (Dim3(blockLength_ / wordSize_, count_[0], count_[1]) + bd_ -
          Dim3(1, 1, 1)) /
         bd_;
+
+  // bd_ = Dim3(1, 1, 1);
+  // gd_ = Dim3(1, 1, 1);
 }
 
-void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
-                         const int incount) const {
+void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
+                               const int incount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride2::pack() on CUDA " << device);
-
-  assert(kernStream.size() > 0 && "no streams. Are GPUs enabled and was MPI_Init called?");
-  cudaStream_t stream = kernStream[device];
-
+  LaunchInfo info = pack_launch_info(inbuf);
+  LOG_SPEW("PackerStride2::pack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
 #if 0
   char *__restrict__ op = reinterpret_cast<char *>(outbuf);
@@ -178,19 +194,19 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    pack_bytes<4><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<4><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    pack_bytes<8><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<8><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    pack_bytes<1><<<gd_, bd_, 0, kernStream[device]>>>(
+    pack_bytes<1><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
   }
@@ -200,7 +216,8 @@ void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
   assert(position);
   (*position) += incount * count_[1] * count_[0] * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  LOG_SPEW("PackerStride2::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }
 
 void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
@@ -208,23 +225,25 @@ void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride2::unpack() on CUDA " << device);
+  LaunchInfo info = unpack_launch_info(outbuf);
+  LOG_SPEW("PackerStride2::unpack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    unpack_bytes<4><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<4><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    unpack_bytes<8><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<8><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    unpack_bytes<1><<<gd_, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<1><<<gd_, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
         count_[1], stride_[1]);
   }
@@ -233,6 +252,7 @@ void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
 
   (*position) += outcount * count_[1] * count_[0] * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
+  LOG_SPEW("PackerStride2::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }
-

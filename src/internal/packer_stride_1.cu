@@ -3,7 +3,6 @@
 #include "cuda_runtime.hpp"
 #include "dim3.hpp"
 #include "logging.hpp"
-#include "streams.hpp"
 
 /* pack blocks of bytes separated a stride
 
@@ -24,6 +23,8 @@ pack_bytes(void *__restrict__ outbuf,
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  const int extent = (count - 1) * stride + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -35,7 +36,7 @@ pack_bytes(void *__restrict__ outbuf,
     // each packed datatype will take count * blockLength bytes in outbuf
     // each datatype input has stride * count separating their starts
     char *__restrict__ dst = op + z * blockLength * count;
-    const char *__restrict__ src = ip + z * stride * count;
+    const char *__restrict__ src = ip + z * extent;
 
     // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
@@ -86,6 +87,8 @@ __global__ static void unpack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
+  const int extent = (count - 1) * stride + blockLength;
+
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
   const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -96,7 +99,7 @@ __global__ static void unpack_bytes(
   for (int z = tz; z < outcount; z += gridDim.z * blockDim.z) {
     // each datatype will have stride * count separating their starts in outbuf
     // each packed datatype has blockLength * count separating their starts
-    char *__restrict__ dst = op + z * stride * count;
+    char *__restrict__ dst = op + z * extent;
     const char *__restrict__ src = ip + z * blockLength * count;
 
     // x direction handle the blocks, y handles the block counts
@@ -145,12 +148,14 @@ PackerStride1::PackerStride1(unsigned blockLength, unsigned count,
   gd_ = (Dim3(blockLength_ / wordSize_, count_, 1) + bd_ - Dim3(1, 1, 1)) / bd_;
 }
 
-void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
-                         const int incount) const {
+void PackerStride1::pack_async(void *outbuf, int *position, const void *inbuf,
+                               const int incount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride1::pack on CUDA " << device);
+  LaunchInfo info = pack_launch_info(inbuf);
+  LOG_SPEW("PackerStride1::pack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
 #if 0
   char *__restrict__ op = reinterpret_cast<char *>(outbuf);
@@ -180,48 +185,49 @@ void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    pack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
+    pack_bytes<4><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_, stride_);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    pack_bytes<8><<<gd, bd_, 0, kernStream[device]>>>(
+    pack_bytes<8><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_, stride_);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    pack_bytes<1><<<gd, bd_, 0, kernStream[device]>>>(
+    pack_bytes<1><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, incount, blockLength_, count_, stride_);
   }
-
   CUDA_RUNTIME(cudaGetLastError());
-
   (*position) += incount * count_ * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  LOG_SPEW("PackerStride1::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }
 
 void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
                            const int outcount) const {
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
-  LOG_SPEW("PackerStride1::unpack on CUDA " << device);
+  LaunchInfo info = unpack_launch_info(outbuf);
+  LOG_SPEW("PackerStride1::unpack on CUDA " << info.device);
+  CUDA_RUNTIME(cudaSetDevice(info.device));
 
   Dim3 gd = gd_;
   gd.z = outcount;
 
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    unpack_bytes<4><<<gd, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<4><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_, stride_);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    unpack_bytes<8><<<gd, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<8><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_, stride_);
   } else {
     LOG_SPEW("wordSize == 1");
-    unpack_bytes<1><<<gd, bd_, 0, kernStream[device]>>>(
+    unpack_bytes<1><<<gd, bd_, 0, info.stream>>>(
         outbuf, *position, inbuf, outcount, blockLength_, count_, stride_);
   }
 
@@ -229,5 +235,7 @@ void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
 
   (*position) += outcount * count_ * blockLength_;
 
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream[device]));
+  CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
+  LOG_SPEW("PackerStride1::restore device " << device);
+  CUDA_RUNTIME(cudaSetDevice(device));
 }

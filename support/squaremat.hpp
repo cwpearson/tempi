@@ -26,18 +26,35 @@ public:
     return ret;
   }
 
+  int64_t popcount() const noexcept {
+    int64_t ret = 0;
+    for (int e : data_) {
+      if (0 != e) {
+        ret += 1;
+      }
+    }
+    return ret;
+  }
+
+  // set diagonal entries to zero
+  void zero_diagonal();
+
+  // make i,j and j,i = (i,j + j,i) / 2
+  void balance_symmetric();
+
   std::string str() const noexcept;
 
   /* create a `ranks` x `ranks` matrix
      each value will be in [`lb`, `ub`) * `scale`
    */
-  static SquareMat make_random(int ranks, int lb, int ub, int scale);
+  static SquareMat make_random(int ranks, int lb, int ub, int scale,
+                               int seed = 101);
 
   /* create a `ranks` x `ranks` matrix with `rowNz` in each row.
      each value will be in [`lb`, `ub`) * `scale`
    */
   static SquareMat make_random_sparse(int ranks, int rowNnz, int lb, int ub,
-                                      int scale);
+                                      int scale, int seed = 101);
 
   /* create a `ranks` x `ranks` matrix with blocks on the diagonal of size [bLb,
      bUb) each value will be in [`lb`, `ub`) * `scale`

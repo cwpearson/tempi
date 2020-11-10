@@ -45,12 +45,35 @@ find_package(MPI REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
 
+macro(tempi_add_output_level_defines target)
+  if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=5)
+  elseif (TEMPI_OUTPUT_LEVEL MATCHES DEBUG)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=4)
+  elseif (TEMPI_OUTPUT_LEVEL MATCHES INFO)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=3)
+  elseif (TEMPI_OUTPUT_LEVEL MATCHES WARN)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=2)
+  elseif (TEMPI_OUTPUT_LEVEL MATCHES ERROR)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=1)
+  elseif (TEMPI_OUTPUT_LEVEL MATCHES FATAL)
+    target_compile_definitions(${ARGV0} PUBLIC TEMPI_OUTPUT_LEVEL=0)
+  else()
+    message(FATAL_ERROR "unrecognized value of TEMPI_OUTPUT_LEVEL: "  ${STENCIL_OUTPUT_LEVEL}  ", must be one of SPEW DEBUG INFO WARN ERROR FATAL")
+  endif()
+endmacro()
+
 # only static libraries are suported by the device linker?
 # so I think we need STATIC with CUDA_SEPARABLE_COMPILATION
 add_subdirectory(src)
 add_library(tempi SHARED ${TEMPI_SOURCES})
 add_library(tempi::tempi ALIAS tempi)
 set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+tempi_add_output_level_defines(tempi)
+
+add_subdirectory(support)
+add_subdirectory(test)
+add_subdirectory(bin)
 
 include(ExternalProject)
 
@@ -112,32 +135,10 @@ if(TEMPI_ENABLE_METIS)
 endif(TEMPI_ENABLE_METIS)
 
 
-
-
-
-
-
-
-if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=5)
-elseif (TEMPI_OUTPUT_LEVEL MATCHES DEBUG)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=4)
-elseif (TEMPI_OUTPUT_LEVEL MATCHES INFO)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=3)
-elseif (TEMPI_OUTPUT_LEVEL MATCHES WARN)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=2)
-elseif (TEMPI_OUTPUT_LEVEL MATCHES ERROR)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=1)
-elseif (TEMPI_OUTPUT_LEVEL MATCHES FATAL)
-  target_compile_definitions(tempi PUBLIC TEMPI_OUTPUT_LEVEL=0)
-else()
-  message(FATAL_ERROR "unrecognized value of TEMPI_OUTPUT_LEVEL: "  ${STENCIL_OUTPUT_LEVEL}  ", must be one of SPEW DEBUG INFO WARN ERROR FATAL")
-endif()
-
-set_property(TARGET tempi PROPERTY CXX_STANDARD 11)
+set_property(TARGET tempi PROPERTY CXX_STANDARD 17)
 set_property(TARGET tempi PROPERTY CXX_EXTENSIONS OFF)
 set_property(TARGET tempi PROPERTY CXX_STANDARD_REQUIRED ON)
-set_property(TARGET tempi PROPERTY CUDA_STANDARD 11)
+set_property(TARGET tempi PROPERTY CUDA_STANDARD 14)
 set_property(TARGET tempi PROPERTY CUDA_STANDARD_REQUIRED ON)
 set_property(TARGET tempi PROPERTY ENABLE_EXPORTS ON)
 
@@ -273,5 +274,4 @@ target_include_directories(tempi PUBLIC
 # "this command should be in the source directory root for CTest to find the test file"
 enable_testing() 
 
-add_subdirectory(test)
-add_subdirectory(bin)
+

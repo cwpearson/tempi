@@ -105,6 +105,13 @@ typedef int (*Func_MPI_Comm_free)(PARAMS_MPI_Comm_free);
       destweights
 typedef int (*Func_MPI_Dist_graph_neighbors)(PARAMS_MPI_Dist_graph_neighbors);
 
+#define PARAMS_MPI_Unpack                                                      \
+  const void *inbuf, int insize, int *position, void *outbuf, int outcount,    \
+      MPI_Datatype datatype, MPI_Comm comm
+#define ARGS_MPI_Unpack                                                        \
+  inbuf, insize, position, outbuf, outcount, datatype, comm
+typedef int (*Func_MPI_Unpack)(PARAMS_MPI_Unpack);
+
 struct MpiFunc {
   Func_MPI_Alltoallv MPI_Alltoallv;
   Func_MPI_Dist_graph_create MPI_Dist_graph_create;
@@ -122,6 +129,7 @@ struct MpiFunc {
   Func_MPI_Comm_size MPI_Comm_size;
   Func_MPI_Allgather MPI_Allgather;
   Func_MPI_Comm_free MPI_Comm_free;
+  Func_MPI_Unpack MPI_Unpack;
 };
 
 extern MpiFunc libmpi;
