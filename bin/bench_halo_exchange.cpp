@@ -514,11 +514,11 @@ BenchResult bench(MPI_Comm comm, int nquants, int radius, int nIters) {
 
     // exchange
     {
-      nvtxRangePush("alltoallv");
+      nvtxRangePush("MPI_Neighbor_alltoallv");
       double start = MPI_Wtime();
       MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
-                             MPI_BYTE, recvbuf, recvcounts.data(),
-                             rdispls.data(), MPI_BYTE, graphComm);
+                             MPI_PACKED, recvbuf, recvcounts.data(),
+                             rdispls.data(), MPI_PACKED, graphComm);
       result.alltoallv.insert(MPI_Wtime() - start);
       nvtxRangePop();
     }
