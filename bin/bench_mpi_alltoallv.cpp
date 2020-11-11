@@ -24,20 +24,21 @@ struct BenchResult {
 
 BenchResult bench(int64_t scale, float density, const int nIters) {
 
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
   BenchResult result{};
 
   // all ranks have the same seed to make the same map
   srand(101);
 
-  int rank, size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
   // bytes send i->j
   int rowNnz = size * density + 0.5;
+  //LOG_INFO("size=" << size << " density=" << density << " rowNnz=" << rowNnz);
   SquareMat mat = SquareMat::make_random_sparse(size, rowNnz, 1, 10, scale);
 
-  size_t sendTotal;
+  size_t sendTotal = 0;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
       int val = mat[i][j];
