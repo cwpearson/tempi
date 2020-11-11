@@ -130,6 +130,7 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
     int order = MPI_ORDER_C;
     MPI_Datatype oldtype = MPI_BYTE;
 
+#if 0
     // clang-format off
     std::cerr << "[" << rank << "] "
               << "ndims=" << ndims 
@@ -141,6 +142,7 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
               << array_of_starts[0] << "," << array_of_starts[1] << "," << array_of_starts[2]  
               << "\n";
     // clang-format on
+#endif
 
     MPI_Type_create_subarray(ndims, array_of_sizes, array_of_subsizes,
                              array_of_starts, order, oldtype, &cubetype);
@@ -175,6 +177,7 @@ struct BenchResult {
   Statistics alltoallv;
   Statistics unpack;
   Statistics comm;
+  int lcr[3];
 };
 
 BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
@@ -187,27 +190,26 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   MPI_Comm_size(comm, &size);
 
   // distributed extent
-  // 768 is divisible by 3 and x | 2^x <= 256
-  cudaExtent distExt = make_cudaExtent(786, 786, 786);
+  cudaExtent distExt = make_cudaExtent(ext[0], ext[1], ext[2]);
 
   // do recursive bisection
   cudaExtent locExt = distExt;
   int dims[3]{1, 1, 1};
   for (int f : prime_factors(size)) {
     if (locExt.width >= locExt.height && locExt.width >= locExt.depth) {
-      if (locExt.width % f != 0) {
+      if (locExt.width < f) {
         FATAL("bad x size");
       }
       locExt.width /= f;
       dims[0] *= f;
     } else if (locExt.height >= locExt.depth) {
-      if (locExt.height % f != 0) {
+      if (locExt.height < f) {
         FATAL("bad y size");
       }
       locExt.height /= f;
       dims[1] *= f;
     } else {
-      if (locExt.depth % f != 0) {
+      if (locExt.depth < f) {
         FATAL("bad z size");
       }
       locExt.depth /= f;
@@ -220,10 +222,14 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 
   // local extent
   int lcr[3]{int(locExt.width), int(locExt.height), int(locExt.depth)};
+  result.lcr[0] = lcr[0];
+  result.lcr[1] = lcr[1];
+  result.lcr[2] = lcr[2];
 
-  if (0 == rank) {
-    std::cerr << "lcr: " << lcr[0] << "x" << lcr[1] << "x" << lcr[2] << "\n";
-  }
+
+  //if (0 == rank) {
+  //  std::cerr << "lcr: " << lcr[0] << "x" << lcr[1] << "x" << lcr[2] << "\n";
+  //}
 
   // allocation extent
   cudaPitchedPtr curr{};
@@ -244,10 +250,10 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     curr.ysize = e.height;
 #endif
   }
-  if (0 == rank) {
-    std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
-              << "\n";
-  }
+  //if (0 == rank) {
+  //  std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
+  //            << "\n";
+  //}
   MPI_Barrier(MPI_COMM_WORLD);
 
   /* have each rank take the role of a particular compute region to build the
@@ -320,6 +326,10 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 
     MPI_Info info = MPI_INFO_NULL;
     int reorder = 1;
+
+    // for timing
+    MPI_Barrier(MPI_COMM_WORLD);
+
     double start = MPI_Wtime();
     MPI_Dist_graph_create_adjacent(
         comm_old, indegree, sources.data(), sourceweights.data(), outdegree,
@@ -387,17 +397,19 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   }
 
   // print neighbors
+#if 0
   for (int r = 0; r < size; ++r) {
     MPI_Barrier(graphComm);
     if (rank == r) {
-      std::cout << "rank " << rank << " nbrs= ";
+      std::cerr << "rank " << rank << " nbrs= ";
       for (const auto &kv : nbrSendType) {
-        std::cout << kv.first << " ";
+        std::cerr << kv.first << " ";
       }
-      std::cout << "\n";
+      std::cerr << "\n";
     }
   }
   std::cout << std::flush;
+#endif
 
   std::vector<int> sources(nbrRecvType.size(), -1);
   std::vector<int> sourceweights(nbrRecvType.size(), -1);
@@ -408,6 +420,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
                            destinations.data(), destweights.data());
 
   // print volumes
+#if 0
   for (int r = 0; r < size; ++r) {
     MPI_Barrier(graphComm);
     if (rank == r) {
@@ -423,6 +436,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     }
   }
   std::cout << std::flush;
+#endif
 
   // print extents
 #if 0
@@ -470,7 +484,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 #endif
 
 // print buffer sizes
-#if 1
+#if 0
   std::cout << "rank " << rank << " sendbuf=" << sendBufSize << "\n";
   std::cout << "rank " << rank << " recvbuf=" << recvBufSize << "\n";
   std::cout << std::flush;
@@ -494,7 +508,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     sdispls[i] = sdispls[i - 1] + sendcounts[i - 1];
   }
 
-#if 1
+#if 0
   std::cerr << "rank " << rank << " sendcounts=";
   for (int e : sendcounts) {
     std::cerr << e << " ";
@@ -523,7 +537,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     rdispls[i] = rdispls[i - 1] + recvcounts[i - 1];
   }
 
-#if 1
+#if 0
   std::cerr << "rank " << rank << " recvcounts=";
   for (int e : recvcounts) {
     std::cerr << e << " ";
@@ -541,6 +555,8 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     if (0 == rank) {
       std::cerr << "iter " << i << std::endl;
     }
+    
+    MPI_Barrier(graphComm);
 
     // pack the send buf
     {
@@ -556,6 +572,8 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
       nvtxRangePop();
     }
 
+    MPI_Barrier(graphComm);
+
     // exchange
     {
       nvtxRangePush("MPI_Neighbor_alltoallv");
@@ -566,6 +584,8 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
       result.alltoallv.insert(MPI_Wtime() - start);
       nvtxRangePop();
     }
+    
+    MPI_Barrier(graphComm);
 
     // unpack recv buf
     {
@@ -646,7 +666,7 @@ int main(int argc, char **argv) {
   }
 
   if (0 == rank) {
-    std::cout << comm << "," << pack << "," << alltoallv << "," << unpack
+    std::cout << result.lcr[0] << "," << result.lcr[1] << "," << result.lcr[2] << "," << comm << "," << pack << "," << alltoallv << "," << unpack
               << "\n";
   }
 
