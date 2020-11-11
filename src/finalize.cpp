@@ -11,7 +11,6 @@
 #define ARGS // empty args
 
 extern "C" int MPI_Finalize() {
-  LOG_DEBUG("enter MPI_Finalize");
   typedef int (*Func_MPI_Finalize)();
   static Func_MPI_Finalize fn = nullptr;
   if (!fn) {
@@ -24,19 +23,19 @@ extern "C" int MPI_Finalize() {
 #if TEMPI_OUTPUT_LEVEL >= 4
   {
     auto stats = hostAllocator.stats();
-    LOG_DEBUG("Host Allocator Requests:        " << stats.numRequests);
-    LOG_DEBUG("Host Allocator Releases:        " << stats.numReleases);
-    LOG_DEBUG("Host Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
+    LOG_SPEW("Host Allocator Requests:        " << stats.numRequests);
+    LOG_SPEW("Host Allocator Releases:        " << stats.numReleases);
+    LOG_SPEW("Host Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
                                                         1024);
-    LOG_DEBUG("Host Allocator allocs:          " << stats.numAllocs);
+    LOG_SPEW("Host Allocator allocs:          " << stats.numAllocs);
   }
   {
     auto stats = deviceAllocator.stats();
-    LOG_DEBUG("Device Allocator Requests:        " << stats.numRequests);
-    LOG_DEBUG("Device Allocator Releases:        " << stats.numReleases);
-    LOG_DEBUG("Device Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
+    LOG_SPEW("Device Allocator Requests:        " << stats.numRequests);
+    LOG_SPEW("Device Allocator Releases:        " << stats.numReleases);
+    LOG_SPEW("Device Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
                                                           1024);
-    LOG_DEBUG("Device Allocator allocs:          " << stats.numAllocs);
+    LOG_SPEW("Device Allocator allocs:          " << stats.numAllocs);
   }
 #endif
 
@@ -44,7 +43,7 @@ extern "C" int MPI_Finalize() {
   streams_finalize();
   allocators::finalize();
 
-  LOG_DEBUG("library MPI_Finalize");
+  LOG_SPEW("library MPI_Finalize");
   int err = fn();
   return err;
 }

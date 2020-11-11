@@ -12,6 +12,7 @@ extern "C" int MPI_Alltoallv(PARAMS_MPI_Alltoallv) {
     return fn(ARGS_MPI_Alltoallv);
   }
   if (AlltoallvMethod::NONE == environment::alltoallv) {
+    LOG_SPEW("MPI_Alltoallv: use library (TEMPI_ALLTOALLV_NONE)");
     return fn(ARGS_MPI_Alltoallv);
   }
 
@@ -36,18 +37,23 @@ extern "C" int MPI_Alltoallv(PARAMS_MPI_Alltoallv) {
 
   switch (environment::alltoallv) {
   case AlltoallvMethod::AUTO: {
+    LOG_SPEW("MPI_Alltoallv: TEMPI_ALLTOALLV_AUTO");
     return alltoallv_staged(ARGS_MPI_Alltoallv);
   }
   case AlltoallvMethod::REMOTE_FIRST: {
+    LOG_SPEW("MPI_Alltoallv: TEMPI_ALLTOALLV_REMOTE_FIRST");
     return alltoallv_isir_remote_first(ARGS_MPI_Alltoallv);
   }
   case AlltoallvMethod::STAGED: {
+    LOG_SPEW("MPI_Alltoallv: TEMPI_ALLTOALLV_STAGED");
     return alltoallv_staged(ARGS_MPI_Alltoallv);
   }
   case AlltoallvMethod::ISIR_STAGED: {
+    LOG_SPEW("MPI_Alltoallv: TEMPI_ALLTOALLV_ISIR_STAGED");
     return alltoallv_isir_staged(ARGS_MPI_Alltoallv);
   }
   case AlltoallvMethod::ISIR_REMOTE_STAGED: {
+    LOG_SPEW("MPI_Alltoallv: TEMPI_ALLTOALLV_ISIR_REMOTE_STAGED");
     return alltoallv_isir_remote_staged(ARGS_MPI_Alltoallv);
   }
   case AlltoallvMethod::NONE:

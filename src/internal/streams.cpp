@@ -16,7 +16,7 @@ void streams_init() {
   int count;
   CUDA_RUNTIME(cudaGetDeviceCount(&count));
 
-  LOG_DEBUG("create " << count << " streams");
+  LOG_SPEW("create " << count << " streams");
   commStream = std::vector<cudaStream_t>(count, {});
   kernStream = std::vector<cudaStream_t>(count, {});
   for (int i = 0; i < count; ++i) {

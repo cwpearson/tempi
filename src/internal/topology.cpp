@@ -25,7 +25,7 @@ std::map<MPI_Comm, Topology> topos;
 
 namespace topology {
 
-// determine and store topology toposrmation for `comm`
+// determine and store topology information for `comm`
 void cache_communicator(MPI_Comm comm) {
   nvtxRangePush("cache_communicator");
   LOG_SPEW("cache_communicator(" << uintptr_t(comm));

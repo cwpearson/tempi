@@ -119,7 +119,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     return ret;
   } else if (MPI_COMBINER_NAMED == combiner) {
     // represent nameed types as a 1D subarray
-    LOG_DEBUG("named type");
+    LOG_SPEW("named type");
     Type ret;
     DenseData data;
 
@@ -152,7 +152,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     LOG_WARN("couldn't convert struct to structured type");
     return Type();
   } else if (MPI_COMBINER_SUBARRAY == combiner) {
-    LOG_DEBUG("subarray");
+    LOG_SPEW("subarray");
 
     MPI_Type_get_contents(datatype, integers.size(), addresses.size(),
                           datatypes.size(), integers.data(), addresses.data(),

@@ -22,18 +22,18 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
 
   int err = fn(ARGS_MPI_Init);
   // can use logging now that MPI_Init has been called
-  LOG_DEBUG("finished library MPI_Init");
+  LOG_SPEW("finished library MPI_Init");
 
   int provided;
   MPI_Query_thread(&provided);
   if (MPI_THREAD_SINGLE == provided) {
-    LOG_DEBUG("MPI_THREAD_SINGLE");
+    LOG_SPEW("MPI_THREAD_SINGLE");
   } else if (MPI_THREAD_FUNNELED == provided) {
-    LOG_DEBUG("MPI_THREAD_FUNNELED");
+    LOG_SPEW("MPI_THREAD_FUNNELED");
   } else if (MPI_THREAD_SERIALIZED == provided) {
-    LOG_DEBUG("MPI_THREAD_SERIALIZED");
+    LOG_SPEW("MPI_THREAD_SERIALIZED");
   } else if (MPI_THREAD_MULTIPLE == provided) {
-    LOG_DEBUG("MPI_THREAD_MULTIPLE");
+    LOG_SPEW("MPI_THREAD_MULTIPLE");
   }
 
   allocators::init();

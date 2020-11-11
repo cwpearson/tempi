@@ -37,16 +37,20 @@ void read_environment() {
     alltoallv = AlltoallvMethod::NONE;
   }
 
-#ifdef TEMPI_ENABLE_METIS
   if (nullptr != std::getenv("TEMPI_PLACEMENT_METIS")) {
+#ifdef TEMPI_ENABLE_METIS
     placement = PlacementMethod::METIS;
-  }
+#else
+    std::cerr << "ERROR: TEMPI_PLACEMENT_METIS in environment but TEMPI_ENABLE_METIS not defined\n";
 #endif
-#ifdef TEMPI_ENABLE_KAHIP
+  }
   if (nullptr != std::getenv("TEMPI_PLACEMENT_KAHIP")) {
+#ifdef TEMPI_ENABLE_KAHIP
     placement = PlacementMethod::KAHIP;
-  }
+#else
+    std::cerr << "ERROR: TEMPI_PLACEMENT_KAHIP in environment but TEMPI_ENABLE_KAHIP not defined\n";
 #endif
+  }
   if (nullptr != std::getenv("TEMPI_PLACEMENT_RANDOM")) {
     placement = PlacementMethod::RANDOM;
   }

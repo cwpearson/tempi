@@ -187,7 +187,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                  std::to_string(std::get<1>(e)) + "," +
                  std::to_string(std::get<2>(e)) + "] ";
           }
-          LOG_DEBUG("edges: " << s);
+          LOG_SPEW("edges: " << s);
         }
 
         // add missing back-edges.
@@ -264,7 +264,7 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
                  std::to_string(std::get<1>(e)) + "," +
                  std::to_string(std::get<2>(e)) + "] ";
           }
-          LOG_DEBUG("edges: " << s);
+          LOG_SPEW("edges: " << s);
         }
 
         // build CSR
@@ -296,9 +296,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
           for (int e : adjwgt) {
             u += std::to_string(e) + " ";
           }
-          LOG_DEBUG("adjwgt: (" << adjwgt.size() << ") " << s);
-          LOG_DEBUG("adjncy: (" << adjncy.size() << ") " << t);
-          LOG_DEBUG("xadj: (" << xadj.size() << ") " << u);
+          LOG_SPEW("adjwgt: (" << adjwgt.size() << ") " << s);
+          LOG_SPEW("adjncy: (" << adjncy.size() << ") " << t);
+          LOG_SPEW("xadj: (" << xadj.size() << ") " << u);
         }
 
         partition::Result result;
