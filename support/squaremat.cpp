@@ -54,7 +54,7 @@ SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
   srand(seed);
   std::default_random_engine dre(seed);
 
-  rowNnz = std::max(rowNnz, ranks);
+  rowNnz = std::min(rowNnz, ranks);
 
   SquareMat mat(ranks, 0);
 
@@ -65,13 +65,10 @@ SquareMat SquareMat::make_random_sparse(int ranks, int rowNnz, int lb, int ub,
     // selet this row's nonzeros
     std::vector<size_t> nzs;
     std::shuffle(rowInd.begin(), rowInd.end(), dre);
-    for (size_t i = 0; i < rowNnz; ++i) {
-      nzs.push_back(rowInd[i]);
-    }
 
-    for (auto c : nzs) {
+    for (size_t i = 0; i < rowNnz; ++i) {
       int val = (lb + rand() % (ub - lb)) * scale;
-      mat[r][c] = val;
+      mat[r][rowInd[i]] = val;
     }
   }
   return mat;
