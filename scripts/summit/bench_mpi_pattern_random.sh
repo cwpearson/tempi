@@ -30,7 +30,7 @@ export TEMPI_NO_ALLTOALLV=""
 
 echo "" > $OUT
 
-for nodes in 2 4 8 16 32; do
+for nodes in 32; do
   for rpn in 2 6; do
     let n=$rpn*$nodes
 
