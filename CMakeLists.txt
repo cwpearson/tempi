@@ -18,6 +18,12 @@ message(STATUS "TEMPI_OUTPUT_LEVEL not defined, setting to INFO")
 set(TEMPI_OUTPUT_LEVEL INFO CACHE STRING "one of SPEW DEBUG INFO WARN ERROR FATAL")
 endif()
 
+# Set a log level if none was specified
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+message(STATUS "CMAKE_CUDA_ARCHITECTURES not defined, setting to OFF")
+set(CMAKE_CUDA_ARCHITECTURES OFF CACHE STRING "")
+endif()
+
 # Set a default build type if none was specified
 set(default_build_type "Release")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -72,6 +78,8 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 tempi_add_output_level_defines(tempi)
 
 add_subdirectory(support)
+# "this command should be in the source directory root for CTest to find the test file"
+enable_testing() 
 add_subdirectory(test)
 add_subdirectory(bin)
 
@@ -83,7 +91,9 @@ if(TEMPI_ENABLE_KAHIP)
 
   ExternalProject_Add(kahip
     GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
-    GIT_TAG "b466cdf2ffb3c5c6124f0b212bf808cdcf5a1d7d"
+    GIT_TAG "20ff5e3c52c7f8ba9cf89fe2d14f0f5f1f125236" # tempi brach
+    #GIT_TAG "b466cdf2ffb3c5c6124f0b212bf808cdcf5a1d7d" # balanced kaffpa
+    #GIT_TAG "08c8a02296ba02e9932dc25ba8e76876e18516d2" # balanced process mapping
     GIT_SUBMODULES_RECURSE TRUE
     CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -271,7 +281,6 @@ target_include_directories(tempi PUBLIC
 )
 
 
-# "this command should be in the source directory root for CTest to find the test file"
-enable_testing() 
+
 
 
