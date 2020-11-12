@@ -165,6 +165,15 @@ int application_rank(MPI_Comm comm, int rank) {
   }
 }
 
+size_t node_of_rank(MPI_Comm comm, int rank) {
+  auto it = topos.find(comm);
+  if (it != topos.end()) {
+    return it->second.nodeOfRank[library_rank(comm, rank)];
+  } else {
+    LOG_FATAL("couldn't get node for rank " << rank);
+  }
+}
+
 } // namespace topology
 
 void topology_init() {
