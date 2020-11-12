@@ -4,6 +4,7 @@
 
 #include "kaHIP_interface.h"
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <vector>
@@ -15,38 +16,70 @@ partition::Result partition::kahip_process_mapping(
   partition::Result result;
   result.part = std::vector<int>(rowPtrs.size() - 1, -1);
 
-  /* normalize weights before partitioning
-   * KaHIP seems to be much slower for matrices that are identical but with
-   * larger values
-   */
-  std::vector<int> weight;
-  int minNonZero = 0;
+  /* process_mapping only works for unweighted graphs.
+     To convert the graph to unweighted, delete any edge less than 1/10th the
+     weight of the max
+  */
+
+  std::vector<int> unRowPtr = rowPtrs;
+  std::vector<int> unColInd = colInd;
+  std::vector<int> unColVal = colVal;
+
+  // zero all weights < 1/10 of max
+  int maxWeight = 0;
   for (int e : colVal) {
-    if (e != 0) {
-      if (0 == minNonZero) {
-        minNonZero = e;
-      }
-      if (e < minNonZero) {
-        minNonZero = e;
+    maxWeight = std::max(e, maxWeight);
+  }
+  for (int &e : unColVal) {
+    if (e < maxWeight / 10) {
+      e = 0;
+    }
+  }
+
+  // remove all zero values from CSR
+  bool changed = true;
+  while (changed) {
+    changed = false;
+
+    auto it = std::find(unColVal.begin(), unColVal.end(), 0);
+    if (unColVal.end() != it) {
+      changed = true;
+      int off = it - unColVal.begin();
+      unColVal.erase(it);
+      unColInd.erase(unColInd.begin() + off);
+
+      // reduce all rowPtr values pointing after the removed value
+      auto lb = std::lower_bound(unRowPtr.begin(), unRowPtr.end(), off);
+      if (lb != unRowPtr.end()) {
+        assert(*lb <= off);
+        ++lb;
+        assert(*lb > off);
+        for (; lb != unRowPtr.end(); ++lb) {
+          --(*lb);
+        }
       }
     }
   }
-  if (0 != minNonZero) {
-    LOG_SPEW("normalize weights by " << minNonZero);
-    for (int e : colVal) {
-      weight.push_back(e / minNonZero);
-    }
-  } else {
-    weight = colVal;
+
+  std::cerr << "rowPtr: ";
+  for (int e : unRowPtr) {
+    std::cerr << e << " ";
   }
+  std::cerr << "\n";
+
+  std::cerr << "colInd: ";
+  for (int e : unColInd) {
+    std::cerr << e << " ";
+  }
+  std::cerr << "\n";
 
   int n = rowPtrs.size() - 1;
   int *vwgt = nullptr; // unweighted vertices
 
-  // kaffpa won't modify these
-  int *xadj = const_cast<int *>(rowPtrs.data());
-  int *adjcwgt = const_cast<int *>(weight.data());
-  int *adjncy = const_cast<int *>(colInd.data());
+  // process_mapping won't modify these
+  int *xadj = const_cast<int *>(unRowPtr.data());
+  int *adjcwgt = nullptr; // unweighted
+  int *adjncy = const_cast<int *>(unColInd.data());
 
   int mode_partitioning = FAST;
   int mode_mapping = MAPMODE_MULTISECTION;
@@ -54,15 +87,14 @@ partition::Result partition::kahip_process_mapping(
   int qap;
   int *part = result.part.data();
 
-  // 6 GPUs per node, nParts nodes
-  int nGpus = (rowPtrs.size() - 1) / nParts;
-  std::cerr << "nParts=" << nParts << " nGpus=" << nGpus << "\n";
+  int nRanks = (unRowPtr.size() - 1) / nParts;
+  LOG_SPEW("nParts=" << nParts << " nRanks=" << nRanks);
 
-  std::vector<int> hierarchy_parameter(nGpus, nParts);
-  std::vector<int> distance_parameter(1, 5);
+  std::vector<int> hierarchy_parameter{nRanks, nParts};
+  std::vector<int> distance_parameter{1, 5};
   int hierarchy_depth = distance_parameter.size();
 
-  double imbalance = 1;
+  double imbalance = 0.00;
   bool suppress_output = false;
 
   assert(n >= 0);
