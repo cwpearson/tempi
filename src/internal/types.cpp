@@ -242,17 +242,6 @@ Type traverse(MPI_Datatype datatype) {
   }
 };
 
-/* try to convert all nodes to subarray type
- */
-void convert_nodes_to_subarray(Type &type) {
-
-  // convert all child nodes into subarrays
-  for (Type &child : type.children()) {
-    convert_nodes_to_subarray(child);
-  }
-  // NO-OP for now
-}
-
 /* try to fuse parent/child subarrays into a single higher-dimension subarray
 
 only works if a parent has a single child and both are subarrays
@@ -424,8 +413,6 @@ Type simplify(const Type &type) {
   LOG_SPEW("simplify type. height=" << type.height());
 
   Type simp = type;
-  LOG_SPEW("simplify pass: convert_nodes_to_subarray");
-  convert_nodes_to_subarray(simp);
   LOG_SPEW("simplify pass: fuse_subarrays");
   fuse_subarrays(simp);
   LOG_SPEW("simplify pass: subarrays_merge_subsize_one_dims");
