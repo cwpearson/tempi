@@ -28,12 +28,7 @@ add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp)
 
 add_tempi_executable(bench-alltoallv-random-sparse bench_alltoallv_random_sparse.cpp)
-
-add_tempi_executable(bench-mpi-alltoallv bench_mpi_alltoallv.cpp)
-add_tempi_executable(bench-mpi-random-alltoallv bench_mpi_random_alltoallv.cpp)
-add_tempi_executable(bench-mpi-random-isend-irecv bench_mpi_random_isend_irecv.cpp)
-add_tempi_executable(bench-mpi-random-sparse-isend-irecv bench_mpi_random_sparse_isend_irecv.cpp)
-add_tempi_executable(bench-mpi-random-neighbor-alltoallv bench_mpi_random_neighbor_alltoallv.cpp)
+add_tempi_executable(bench-nbr-alltoallv-random-sparse bench_nbr_alltoallv_random_sparse.cpp)
 
 #add_tempi_executable(bench-mpi-pattern-blockdiagonal 
 #  bench_mpi_pattern_blockdiagonal.cpp 
