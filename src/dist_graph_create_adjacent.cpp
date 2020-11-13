@@ -55,8 +55,12 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
   }
 
   if (PlacementMethod::NONE == environment::placement) {
-    return libmpi.MPI_Dist_graph_create_adjacent(
+    /* if TEMPI is enabled but we are not doing placement,
+    a new communicator is still created*/
+    int err = libmpi.MPI_Dist_graph_create_adjacent(
         ARGS_MPI_Dist_graph_create_adjacent);
+    topology::cache_communicator(*comm_dist_graph);
+    return err;
   }
 
   /* Two options:
@@ -452,6 +456,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
     return err;
   }
 
-  return libmpi.MPI_Dist_graph_create_adjacent(
+  // cache new communicator when it's created
+  int err = libmpi.MPI_Dist_graph_create_adjacent(
       ARGS_MPI_Dist_graph_create_adjacent);
+  topology::cache_communicator(*comm_dist_graph);
+  return err;
 }
