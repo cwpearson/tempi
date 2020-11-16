@@ -24,13 +24,13 @@ int main(int argc, char **argv) {
   }
 
   {
-    std::cerr << "TEST: v hv\n";
+    std::cerr << "TEST: make_byte_v_hv\n";
     MPI_Datatype ty = make_byte_v_hv(copyExt, allocExt);
     MPI_Type_commit(&ty);
   }
 
   {
-    std::cerr << "TEST: v hv\n";
+    std::cerr << "TEST: make_float_v_hv\n";
     MPI_Datatype ty = make_float_v_hv(copyExt, allocExt);
     MPI_Type_commit(&ty);
   }

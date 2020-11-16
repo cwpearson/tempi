@@ -9,6 +9,8 @@
 
 #include "packer.hpp"
 
+#include "logging.hpp"
+
 #include <mpi.h>
 
 #include <cstdint>
@@ -29,13 +31,32 @@ struct DenseData {
   }
 };
 
+struct StreamData {
+  int64_t stride; // stride (B) between element starts in the stream
+  int64_t count;  // number of elements in the stream
+
+  bool operator==(const StreamData &rhs) const noexcept {
+    return stride == rhs.stride && count == rhs.count && count;
+  }
+
+  std::string str() const noexcept {
+
+    std::string s("StreamData{");
+    s += "count:" + std::to_string(count);
+    s += ",stride:" + std::to_string(stride);
+    s += "}";
+    return s;
+  }
+};
+
 struct VectorData {
   int64_t size;
   int64_t extent;
 
-  int64_t count; // number of blocks
+  int64_t count;       // number of blocks
   int64_t blockLength; // children in each block
-  int64_t stride; // stride in bytes (hvector in MPI, not like vector) between blocks
+  int64_t stride; // stride in bytes (hvector in MPI, not like vector) between
+                  // blocks
 
   bool operator==(const VectorData &rhs) const noexcept {
     return size == rhs.size && extent == rhs.extent && count == rhs.count &&
@@ -93,7 +114,7 @@ struct SubarrayData {
   }
 };
 
-typedef std::variant<std::monostate, DenseData, VectorData, SubarrayData>
+typedef std::variant<std::monostate, DenseData, StreamData>
     TypeData;
 
 /* a tree representing an MPI datatype
@@ -126,6 +147,38 @@ public:
   bool operator!() const noexcept { return *this == Type(); }
 
   static Type from_mpi_datatype(MPI_Datatype datatype);
+
+  void str_helper(std::string &s, int indent) const {
+
+    for (int i = 0; i < indent; ++i) {
+      s += " ";
+    }
+
+    std::visit(
+        [&](auto arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, std::monostate>) {
+            s += "monostate";
+          } else {
+
+            s += arg.str();
+          }
+        },
+        data);
+    s += "\n";
+
+    for (const Type &child : children_) {
+      child.str_helper(s, indent + 1);
+    }
+  }
+  std::string str() const {
+    std::string s;
+    str_helper(s, 0);
+    if (s.back() == '\n') {
+      s.erase(s.size() - 1);
+    }
+    return s;
+  }
 };
 
 /*

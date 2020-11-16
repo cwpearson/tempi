@@ -46,8 +46,11 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
   std::vector<MPI_Datatype> datatypes(numDatatypes);
 
   if (MPI_COMBINER_VECTOR == combiner) {
+    /* a vector is two streams, the child representing the repeated elements in
+       a block and the parent representing the repeated blocks
+    */
 
-    Type ret;
+    Type parent, child;
 
     MPI_Type_get_contents(datatype, integers.size(), addresses.size(),
                           datatypes.size(), integers.data(), addresses.data(),
@@ -59,66 +62,97 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     */
     assert(integers.size() == 3);
     assert(datatypes.size() == 1);
+    int count = integers[0];
+    int blocklength = integers[1];
+    int stride = integers[2];
+    MPI_Datatype old_type = datatypes[0];
 
-    MPI_Aint lb, extent;
+    MPI_Aint lb, extent, oldLb, oldExtent;
+    int size, oldSize;
     MPI_Type_get_extent(datatype, &lb, &extent);
-    int size;
     MPI_Type_size(datatype, &size);
+    MPI_Type_get_extent(old_type, &oldLb, &oldExtent);
+    MPI_Type_size(datatype, &oldSize);
 
-    // can't tell length of array element from this alone
-    VectorData data;
-    data.size = size;
-    data.extent = extent;
-    data.count = integers[0];
-    data.blockLength = integers[1];
-    data.stride = integers[2];
+    StreamData cData;
+    cData.count = blocklength;
+    cData.stride = oldExtent;
 
-    // stride is given in elements, so convert to bytes
-    {
-      MPI_Aint ext, _;
-      MPI_Type_get_extent(datatypes[0], &_, &ext);
-      data.stride *= ext;
-    }
+    StreamData pData;
+    pData.count = count;
+    pData.stride = oldExtent * stride; // size of elements * stride in elements
 
-    LOG_SPEW("vector ->" << data.str());
-    ret.data = data;
-    Type child = Type::from_mpi_datatype(datatypes[0]);
-    ret.children_.push_back(child);
-    return ret;
+    parent.data = pData;
+    child.data = cData;
+    LOG_SPEW("vector pData ->" << pData.str());
+    LOG_SPEW("vector cData ->" << cData.str());
+
+    // build the type from old_type
+    Type gchild = Type::from_mpi_datatype(datatypes[0]);
+    LOG_SPEW("before vector, height=" << gchild.height());
+
+    child.children_.push_back(gchild);
+
+    // add child to parent
+    parent.children_.push_back(child);
+
+    LOG_SPEW("after vector, height=" << parent.height());
+
+    return parent;
 
   } else if (MPI_COMBINER_HVECTOR == combiner) {
-    Type ret;
+    /* a vector is two streams, the child representing the repeated elements in
+      a block and the parent representing the repeated blocks
+   */
+
+    Type parent, child;
+
     MPI_Type_get_contents(datatype, integers.size(), addresses.size(),
                           datatypes.size(), integers.data(), addresses.data(),
                           datatypes.data());
 
     /*
-    MPI_Type_create_hvector(count, blocklength, stride, oldtype, &newtype);
+    MPI_Type_vector(int count, int blocklength, MPI_Aint stride, MPI_Datatype
+    oldtype,MPI_Datatype *newtype)
     */
     assert(integers.size() == 2);
     assert(addresses.size() == 1);
     assert(datatypes.size() == 1);
+    int count = integers[0];
+    int blocklength = integers[1];
+    int stride = addresses[0];
+    MPI_Datatype oldtype = datatypes[0];
 
-    MPI_Aint lb, extent;
+    MPI_Aint lb, extent, oldLb, oldExtent;
+    int size, oldSize;
     MPI_Type_get_extent(datatype, &lb, &extent);
-    int size;
     MPI_Type_size(datatype, &size);
+    MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
+    MPI_Type_size(datatype, &oldSize);
 
-    // can't tell length of array element from this alone
-    VectorData data;
-    data.size = size;
-    data.extent = extent;
-    data.blockLength = integers[1];
-    data.stride = addresses[0];
-    data.count = integers[0];
+    StreamData pData;
+    pData.count = count;
+    pData.stride =
+        stride; // give in bytes instead of child elements (as in vector)
 
-    LOG_SPEW("hvector -> " << data.str());
-    ret.data = data;
-    Type child = Type::from_mpi_datatype(datatypes[0]);
-    ret.children_.push_back(child);
-    return ret;
+    StreamData cData;
+    cData.count = blocklength;
+    cData.stride = oldExtent;
+
+    parent.data = pData;
+    child.data = cData;
+    LOG_SPEW("hvector pData ->" << pData.str());
+    LOG_SPEW("hvector cData ->" << cData.str());
+
+    // build the type from oldtype
+    Type gchild = Type::from_mpi_datatype(datatypes[0]);
+    child.children_.push_back(gchild);
+
+    // add child to parent
+    parent.children_.push_back(child);
+
+    return parent;
   } else if (MPI_COMBINER_NAMED == combiner) {
-    // represent nameed types as a 1D subarray
     LOG_SPEW("named type");
     Type ret;
     DenseData data;
@@ -153,21 +187,18 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Type_contiguous(count, oldtype, &newtype);
     */
     assert(integers.size() == 1);
-    assert(addresses.size() == 0);
     assert(datatypes.size() == 1);
+    int count = integers[0];
+    MPI_Datatype oldtype = datatypes[0];
 
-    MPI_Aint lb, extent;
-    MPI_Type_get_extent(datatype, &lb, &extent);
-    int size;
-    MPI_Type_size(datatype, &size);
+    MPI_Aint oldLb, oldExtent;
+    int oldSize;
+    MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
+    MPI_Type_size(oldtype, &oldSize);
 
-    // can't tell length of array element from this alone
-    VectorData data;
-    data.size = size;
-    data.extent = extent;
-    data.blockLength = 1;
-    data.stride = 1;
-    data.count = integers[0];
+    StreamData data;
+    data.count = count;
+    data.stride = oldExtent;
 
     LOG_SPEW("contiguous -> " << data.str());
     ret.data = data;
@@ -176,16 +207,18 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     return Type();
   } else if (MPI_COMBINER_STRUCT == combiner) {
     LOG_DEBUG("struct");
-    LOG_WARN("couldn't convert struct to structured type");
+    LOG_WARN("couldn't convert struct to a Type");
     return Type();
   } else if (MPI_COMBINER_SUBARRAY == combiner) {
+    /* ndim subarray is ndim streams
+     */
     LOG_SPEW("subarray");
 
     MPI_Type_get_contents(datatype, integers.size(), addresses.size(),
                           datatypes.size(), integers.data(), addresses.data(),
                           datatypes.data());
 
-    Type ret;
+    std::vector<StreamData> datas;
 
     /*
     MPI_Type_create_subarray(int ndims, const int array_of_sizes[], const
@@ -201,24 +234,52 @@ oldtype, MPI_Datatype *newtype)
     const int order = integers[numIntegers - 1];
     if (order != MPI_ORDER_C) {
       LOG_ERROR("unhandled order in subarray type");
-      return ret;
+      return Type();
     }
+    MPI_Datatype oldtype = datatypes[0];
 
-    SubarrayData data;
+    MPI_Aint oldLb, oldExtent;
+    int oldSize;
+    MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
+    MPI_Type_size(oldtype, &oldSize);
+
     for (int i = 0; i < ndims; ++i) {
-      data.elemSizes.push_back(integers[1 + ndims * 0 + i]);
-      data.elemSubsizes.push_back(integers[1 + ndims * 1 + i]);
-      data.elemStarts.push_back(integers[1 + ndims * 2 + i]);
+      // int size = integers[1 + ndims * 0 + i];
+      int subsize = integers[1 + ndims * 1 + i]; // subsize[i]
+      int start = integers[1 + ndims * 2 + i];
+
+      if (0 != start) {
+        LOG_ERROR("subarray offsets unsupported");
+        return Type();
+      }
+
+      StreamData data{};
+      data.stride = oldExtent;
+      for (int j = 0; j < i; ++j) {
+        data.stride *= integers[1 + ndims * 0 + j]; // size[j]
+      }
+      data.count = subsize;
+      datas.push_back(data);
     }
 
-    LOG_SPEW("subarray -> " << data.str());
+    for (int i = 0; i < ndims; ++i) {
+      LOG_SPEW("subarray " << i << " -> " << datas[i].str());
+    }
 
-    ret.data = data;
+    /* build the tree from the bottom up
+     */
 
-    Type child = Type::from_mpi_datatype(datatypes[0]);
-    ret.children_.push_back(child);
+    Type child = Type::from_mpi_datatype(oldtype);
+    LOG_SPEW("below subarray, height=" << child.height());
+    for (int i = 0; i < ndims; ++i) {
+      Type parent;
+      parent.data = datas[i];
+      parent.children_.push_back(child);
+      child = parent;
+    }
 
-    return ret;
+    LOG_SPEW("after subarray, height=" << child.height());
+    return child;
   }
 
   // http://mpi.deino.net/mpi_functions/MPI_Type_get_envelope.html
@@ -269,189 +330,110 @@ Type traverse(MPI_Datatype datatype) {
   }
 };
 
-/* try to fuse parent/child subarrays into a single higher-dimension subarray
+/* if a stream has a dense child, and that stream's stride is the same as the
+   child's extent, then the stream is also dense
+*/
+bool stream_dense_fold(Type &type) {
 
-only works if a parent has a single child and both are subarrays
- */
-void fuse_subarrays(Type &type) {
+  bool changed = false;
 
-  // try to fuse all children (start at the bottom of the tree)
+  // try to fold all children into their parents first
   for (Type &child : type.children()) {
-    fuse_subarrays(child);
+    changed |= stream_dense_fold(child);
   }
 
-  // I'm not a subarray so I can't fuse with my children
-  if (!std::holds_alternative<SubarrayData>(type.data)) {
-    // LOG_SPEW("no fuse: not subarray");
-    return;
+  // only works if I'm a stream and my child is dense
+  if (!std::holds_alternative<StreamData>(type.data)) {
+    return false;
   }
-
-  // if more than one child, can't fuse
-  if (type.children().size() != 1) {
-    // LOG_SPEW("no fuse: need 1 child (have " << type.children().size() <<
-    // ")");
-    return;
-  }
-
+  assert(1 == type.children().size());
   Type &child = type.children()[0];
-
-  // my child is not a subarray so I can't fuse with it
-  if (!std::holds_alternative<SubarrayData>(child.data)) {
-    // LOG_SPEW("no fuse: child not subarray");
-    return;
+  if (!std::holds_alternative<DenseData>(child.data)) {
+    return false;
   }
 
-  // at this point, both me and my single child are subarrays
-  // nest the child subarray inside the parent subarray
-  SubarrayData fused;
-  // first dimensions are child data, then parent data
-  const SubarrayData &pData = std::get<SubarrayData>(type.data);
-  const SubarrayData &cData = std::get<SubarrayData>(child.data);
+  assert(type.data.index() != std::variant_npos);
+  assert(child.data.index() != std::variant_npos);
 
-  // LOG_SPEW("fuse: " << cData.str() << " + " << pData.str());
+  const StreamData &pData = std::get<StreamData>(type.data);
+  DenseData &cData = std::get<DenseData>(child.data);
 
-  for (size_t dim = 0; dim < cData.ndims(); ++dim) {
-    fused.elemStarts.push_back(cData.elemStarts[dim]);
-    fused.elemSubsizes.push_back(cData.elemSubsizes[dim]);
-    fused.elemSizes.push_back(cData.elemSizes[dim]);
+  if (cData.extent == pData.stride) {
+    changed = true;
+
+    // replace this type with it's own child
+    Type newType = child;
+    DenseData newData = cData;
+    newData.extent = pData.count * pData.stride;
+    LOG_SPEW("stream_dense_fold: -> " << newData.str());
+    newType.data = newData;
+    type = newType;
+    assert(type.data.index() != std::variant_npos);
   }
-  for (size_t dim = 0; dim < pData.ndims(); ++dim) {
-    fused.elemStarts.push_back(pData.elemStarts[dim]);
-    fused.elemSubsizes.push_back(pData.elemSubsizes[dim]);
-    fused.elemSizes.push_back(pData.elemSizes[dim]);
-  }
 
-  // we're going to delete the child, so we'll need to make it's children our
-  // own
-  std::vector<Type> grandchildren = child.children();
-
-  // delete the child (only 1 child) and replace with granchildren
-  type.children() = grandchildren;
-  type.data = fused;
-
-  LOG_SPEW("fused into Subarray ndims=" << fused.ndims());
-
-  LOG_SPEW(fused.str());
+  return changed;
 }
 
-/* Fold two vectors together into the parent
-
-   if the child vector is contiguous, then each parent block is actually just
-   multiple child blocks
-
-   the child is contiguous if
-   count == 1
-
-   or child stride == grandchild's extent * child's blockLength
-
-   We can't generally detect this because not all children have an extent field.
-
-   one case where they will definitely be contiguous is if the child extent ==
-   child size, meaning the child is completely dense
-
-   TODO:
-   all types should carry extent and size data from MPI
-
-   Right now, we detect a version of this case where the size=extent
-   TODO: we either need to store the element-stride so we can see if the
-   block length matches the element stride, or we need to store the
-   child type extent so we can see if the stride matches the child extent.
-   Alternatively, we may be able to make a pass where we try to expand a dense
-   type upwards into whatever is above it.
-
+/* if nested streams, if the child count is 1, the parent's
+elements are just the child's element
  */
-void fold_vectors_contiguous_children(Type &type) {
+bool stream_fold_child_count_one(Type &type) {
 
-  // try to fold all children into their parents
+  bool changed = false;
+
+  // try to fold all children into their parents first
   for (Type &child : type.children()) {
-    fold_vectors_contiguous_children(child);
+    changed |= stream_fold_child_count_one(child);
   }
 
-  // no fuse if I'm not a vector
-  if (!std::holds_alternative<VectorData>(type.data)) {
-    return;
+  // type and child must be StreamData
+  if (!std::holds_alternative<StreamData>(type.data)) {
+    return false;
   }
-
-  assert(type.children().size() == 1);
+  assert(1 == type.children().size());
   Type &child = type.children()[0];
-
-  if (!std::holds_alternative<VectorData>(child.data)) {
-    return;
+  if (!std::holds_alternative<StreamData>(child.data)) {
+    return false;
   }
 
-  VectorData &pData = std::get<VectorData>(type.data);
-  const VectorData &cData = std::get<VectorData>(child.data);
+  const StreamData &cData = std::get<StreamData>(child.data);
 
-  bool oneBlock = (cData.count == 1);
-  oneBlock |= (cData.size == cData.extent);
-
-  if (oneBlock) {
-    LOG_SPEW("folding " << cData.str() << " into " << pData.str());
-
-    assert(cData.stride <= pData.stride * pData.blockLength);
-    // blockLength * count is the number of contiguous elements
-    pData.blockLength *= cData.blockLength * cData.count;
-
+  if (1 == cData.count) {
+    changed = true;
+    // erase child and replace with gchild
     // delete the child (only 1 child) and replace with granchildren
     std::vector<Type> gchildren = child.children();
     type.children() = gchildren;
-
-    LOG_SPEW("folded into " << pData.str());
-  }
-}
-
-void subarrays_merge_subsize_one_dims(Type &type) {
-  // try to merge all children (start at the bottom of the tree)
-  for (Type &child : type.children()) {
-    subarrays_merge_subsize_one_dims(child);
   }
 
-  // I'm not a subarray so I can't merge
-  if (!std::holds_alternative<SubarrayData>(type.data)) {
-    return;
-  }
-
-  SubarrayData &data = std::get<SubarrayData>(type.data);
-
-  /* if a dimension has subSize = 1, that means that it represents only a
-     single instance of the lower dimension.
-     However, it still spaces out instances of the lower dimension
-
-     if we know the elemSize of the degenerate dimension, we say the lower
-     dimension's elemSize is just that much larger
-  */
-
-  bool changed = true;
-  while (changed) {
-    changed = false;
-    for (size_t i = 0; i < data.ndims(); ++i) {
-      if (1 == data.elemSubsizes[i]) {
-        LOG_SPEW("remove degenerate dim " << i);
-        data.elemSizes[i - 1] *= data.elemSizes[i];
-        data.erase_dim(i);
-        LOG_SPEW(data.str());
-        changed = true;
-        break;
-      }
-    }
-  }
-  LOG_SPEW("type.height=" << type.height());
+  return changed;
 }
 
 /* tries to convert as much of the type to subarrays as possible
  */
 Type simplify(const Type &type) {
+  LOG_SPEW("simplify()");
 
-  LOG_SPEW("simplify type. height=" << type.height());
-
+  int iter = 0;
   Type simp = type;
-  LOG_SPEW("simplify pass: fuse_subarrays");
-  fuse_subarrays(simp);
-  LOG_SPEW("simplify pass: subarrays_merge_subsize_one_dims");
-  subarrays_merge_subsize_one_dims(simp);
-  LOG_SPEW("simplify pass: fold_vectors_contiguous_children");
-  fold_vectors_contiguous_children(simp);
-  LOG_SPEW("simplify done");
+
+  LOG_SPEW("before passes");
+  LOG_SPEW("\n" + simp.str());
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    ++iter;
+    LOG_SPEW("optimization iter " << iter);
+    changed |= stream_dense_fold(simp);
+    LOG_SPEW("after stream_dense_fold");
+    LOG_SPEW("\n" + simp.str());
+    changed |= stream_fold_child_count_one(simp);
+    LOG_SPEW("after stream_fold_child_count_one");
+    LOG_SPEW("\n" + simp.str());
+  }
+
+  LOG_SPEW("simplify done. " << iter << " iterations");
   LOG_SPEW("type.height=" << simp.height());
   return simp;
 }
@@ -488,135 +470,29 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
     }
   }
 
-// old optimization code
-#if 0
-  // propagate stride through the upper levels
-  // block length is only relevant at the lowest level
-  for (int64_t i = type.num_levels() - 2; i >= 0; --i) {
-    Vector &vec = type.levels()[i];
-    Vector &child = type.levels()[i + 1];
-    if (vec.blockStride < 0) {
-      assert(child.blockStride >= 0);
-      vec.blockStride = vec.elemStride * child.count * child.blockStride;
-      vec.elemStride = -1; // clear now that we have stride in bytes
-      LOG_SPEW("assigned level " << i << " blockStride=" << vec.blockStride);
-    }
-  }
-
-
-  /* A vector may describe a contiguous sequence of blocks
-  if so, we can describe the parent vector in terms of those blocks natively
-
-  */
-  {
-    bool changed = true;
-    while (changed) {
-      int levelToErase = -1;
-      // look for a level matching the criteria
-      for (int64_t i = type.num_levels() - 1; i >= 1; --i) {
-        Vector &vec = type.levels()[i];
-        Vector &parent = type.levels()[i - 1];
-        if (vec.is_contiguous()) {
-          assert(parent.blockLength < 0);
-          parent.blockLength = vec.count * vec.blockLength * parent.elemLength;
-          // clear this since we have the length in bytes now
-          parent.elemLength = -1;
-          levelToErase = i;
-          LOG_DEBUG("merge contiguous " << i << " into " << i - 1);
-          break;
-        }
-      }
-      if (levelToErase >= 0) {
-        LOG_DEBUG("erase contiguous " << levelToErase);
-        type.levels().erase(type.levels().begin() + levelToErase);
-        changed = true;
-      } else {
-        changed = false;
-      }
-    }
-  }
-
-
-  /* A vector may have the same stride as its parent.
-     If the vector is only one block, the parent can natively express the size
-     in terms of bytes instead of child elements
-  */
-  {
-    bool changed = true;
-    while (changed) {
-      int levelToErase = -1;
-      for (int64_t i = type.num_levels() - 1; i >= 1; --i) {
-        Vector &vec = type.levels()[i];
-        Vector &parent = type.levels()[i - 1];
-        if (vec.blockStride == parent.blockStride && 1 == vec.count) {
-          assert(parent.blockLength < 0);
-          assert(parent.elemLength >= 0);
-          parent.blockLength = vec.blockLength;
-          parent.elemLength = -1;
-          levelToErase = i;
-          LOG_DEBUG("merge contiguous " << i << " into " << i - 1);
-          break;
-        }
-      }
-      if (levelToErase >= 0) {
-        LOG_DEBUG("erase contiguous " << levelToErase);
-        type.levels().erase(type.levels().begin() + levelToErase);
-        changed = true;
-      } else {
-        changed = false;
-      }
-    }
-  }
-
-
-  if (type.num_levels() == 2) {
-    /* tree is reversed, level 1 is inner and level 2 is outer
-     */
-    std::shared_ptr<Packer> pPacker = std::make_shared<PackerStride2>(
-        type.levels()[1].blockLength, type.levels()[1].count,
-        type.levels()[1].blockStride, type.levels()[0].count,
-        type.levels()[0].blockStride);
-    LOG_DEBUG("selected PackerStride2");
-    return pPacker;
-  } else if (type.num_levels() == 1) {
-    std::shared_ptr<Packer> pPacker = std::make_shared<PackerStride1>(
-        type.levels()[0].blockLength, type.levels()[0].count,
-        type.levels()[0].blockStride);
-    LOG_DEBUG("selected PackerStride1");
-    return pPacker;
-  } else {
-    LOG_WARN("no optimization for type");
-    return nullptr;
-  }
-#endif
-
   return nullptr;
 }
 
 /* try to convert a type into a strided block
 
-  this only works if each type has only one child, and the type looks two ways:
-
-  1) the tree is a vector of subarray
-  2) the tree is a
+  this only works if each type is a stream, except the bottom type, which is
+  dense
 
 */
 StridedBlock to_strided_block(const Type &type) {
 
-  StridedBlock ret;
-
   std::vector<TypeData> data;
 
   if (Type() == type) {
-    LOG_SPEW("empty type");
-    return ret;
+    LOG_SPEW("can't convert empty type to strided block");
+    return StridedBlock();
   }
 
   LOG_SPEW("height = " << type.height());
 
   const Type *cur = &type;
   while (true) {
-    LOG_SPEW("add type " << cur->data.index());
+    LOG_SPEW("add variant id " << cur->data.index());
     data.push_back(cur->data);
     if (cur->children().size() == 1) {
       cur = &(cur->children()[0]);
@@ -632,50 +508,28 @@ StridedBlock to_strided_block(const Type &type) {
   }
 
   if (data.empty()) {
-    LOG_SPEW("no children");
-    return ret;
+    LOG_SPEW("empty type");
+    return StridedBlock();
   }
+
+  StridedBlock ret;
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {
     ret.blockLength = dd->extent;
-    LOG_SPEW("filled blockLength from DenseData: " << ret.str());
+    LOG_SPEW("filled blockLength from DenseData -> " << ret.str());
   } else {
     LOG_SPEW("type is not built on dense");
-    return ret;
+    return StridedBlock();
   }
 
   // start from the second-deepest child
   for (int64_t i = data.size() - 2; i >= 0; --i) {
-    if (std::holds_alternative<SubarrayData>(data[i])) {
-      SubarrayData td = std::get<SubarrayData>(data[i]);
-      LOG_SPEW(td.str());
+    if (std::holds_alternative<StreamData>(data[i])) {
+      StreamData sd = std::get<StreamData>(data[i]);
+      LOG_SPEW(sd.str());
 
-      for (size_t d = 0; d < td.ndims() - 1; ++d) {
-        if (0 == ret.ndims()) {
-          ret.blockLength *= td.elemSubsizes[d];
-          ret.add_dim(td.elemStarts[d], td.elemSubsizes[d + 1],
-                      td.elemSizes[d]);
-        } else {
-          ret.add_dim(td.elemStarts[d], td.elemSubsizes[d + 1],
-                      ret.strides[ret.ndims() - 1] * td.elemSizes[d]);
-        }
-      }
-
-      LOG_SPEW(ret.str());
-
-    } else if (std::holds_alternative<VectorData>(data[i])) {
-      VectorData td = std::get<VectorData>(data[i]);
-      LOG_SPEW(td.str());
-
-      if (0 == ret.ndims()) {
-        ret.blockLength *= td.blockLength;
-        ret.add_dim(0 /*no vec offset*/, td.count, td.stride);
-      } else if (td.blockLength == 1) {
-        ret.add_dim(0 /*no vec offset*/, td.count, td.stride);
-      } else {
-        LOG_FATAL("how to handle this case?");
-      }
+      ret.add_dim(0 /*stream has no offset*/, sd.count, sd.stride);
 
       LOG_SPEW(ret.str());
 
