@@ -144,8 +144,35 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     LOG_WARN("couldn't convert hindexed to structured type");
     return Type();
   } else if (MPI_COMBINER_CONTIGUOUS == combiner) {
-    LOG_DEBUG("contiguous");
-    LOG_WARN("couldn't convert contiguous to structured type");
+    Type ret;
+    MPI_Type_get_contents(datatype, integers.size(), addresses.size(),
+                          datatypes.size(), integers.data(), addresses.data(),
+                          datatypes.data());
+
+    /*
+    MPI_Type_contiguous(count, oldtype, &newtype);
+    */
+    assert(integers.size() == 1);
+    assert(addresses.size() == 0);
+    assert(datatypes.size() == 1);
+
+    MPI_Aint lb, extent;
+    MPI_Type_get_extent(datatype, &lb, &extent);
+    int size;
+    MPI_Type_size(datatype, &size);
+
+    // can't tell length of array element from this alone
+    VectorData data;
+    data.size = size;
+    data.extent = extent;
+    data.blockLength = 1;
+    data.stride = 1;
+    data.count = integers[0];
+
+    LOG_SPEW("contiguous -> " << data.str());
+    ret.data = data;
+    Type child = Type::from_mpi_datatype(datatypes[0]);
+    ret.children_.push_back(child);
     return Type();
   } else if (MPI_COMBINER_STRUCT == combiner) {
     LOG_DEBUG("struct");
@@ -307,16 +334,24 @@ void fuse_subarrays(Type &type) {
   LOG_SPEW(fused.str());
 }
 
-/* Fold two vectors into the parent
+/* Fold two vectors together into the parent
 
-   if the child is only one block of data, each parent block actually is a
-   child block. the parent may have more than one block (with a correspondingly
-   larger stride) so multiply the child blocklength into the parent's
+   if the child vector is contiguous, then each parent block is actually just
+   multiple child blocks
 
-   If the count=1, the nthe vector is one block
+   the child is contiguous if
+   count == 1
 
-   The vector may also be made up of contiguous child types.
-   We can't generally detect this because the stride is expressed in bytes
+   or child stride == grandchild's extent * child's blockLength
+
+   We can't generally detect this because not all children have an extent field.
+
+   one case where they will definitely be contiguous is if the child extent ==
+   child size, meaning the child is completely dense
+
+   TODO:
+   all types should carry extent and size data from MPI
+
    Right now, we detect a version of this case where the size=extent
    TODO: we either need to store the element-stride so we can see if the
    block length matches the element stride, or we need to store the
@@ -325,11 +360,11 @@ void fuse_subarrays(Type &type) {
    type upwards into whatever is above it.
 
  */
-void fold_vectors(Type &type) {
+void fold_vectors_contiguous_children(Type &type) {
 
   // try to fold all children into their parents
   for (Type &child : type.children()) {
-    fold_vectors(child);
+    fold_vectors_contiguous_children(child);
   }
 
   // no fuse if I'm not a vector
@@ -337,12 +372,9 @@ void fold_vectors(Type &type) {
     return;
   }
 
-  if (type.children().size() != 1) {
-    return;
-  }
+  assert(type.children().size() == 1);
   Type &child = type.children()[0];
 
-  // my child is not a subarray so I can't fuse with it
   if (!std::holds_alternative<VectorData>(child.data)) {
     return;
   }
@@ -417,8 +449,8 @@ Type simplify(const Type &type) {
   fuse_subarrays(simp);
   LOG_SPEW("simplify pass: subarrays_merge_subsize_one_dims");
   subarrays_merge_subsize_one_dims(simp);
-  LOG_SPEW("simplify pass: fold_vectors");
-  fold_vectors(simp);
+  LOG_SPEW("simplify pass: fold_vectors_contiguous_children");
+  fold_vectors_contiguous_children(simp);
   LOG_SPEW("simplify done");
   LOG_SPEW("type.height=" << simp.height());
   return simp;
@@ -563,9 +595,10 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
 /* try to convert a type into a strided block
 
-  this only works if each node has one child, and each node
-  is either a vector or subarray, with the node furthest from the root a dense
-  type
+  this only works if each type has only one child, and the type looks two ways:
+
+  1) the tree is a vector of subarray
+  2) the tree is a
 
 */
 StridedBlock to_strided_block(const Type &type) {
@@ -602,12 +635,6 @@ StridedBlock to_strided_block(const Type &type) {
     LOG_SPEW("no children");
     return ret;
   }
-
-#if TEMPI_OUTPUT_LEVEL >= 4
-  for (auto &d : data) {
-    LOG_SPEW(d.index());
-  }
-#endif
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {

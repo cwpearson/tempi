@@ -8,16 +8,16 @@
 
 vector is n blocks of size 1
  */
-MPI_Datatype make_vn_hv_hv(const Dim3 copyExt, // bytes
-                           const Dim3 allocExt // bytes
+MPI_Datatype make_byte_vn_hv_hv(const Dim3 copyExt, // bytes
+                                const Dim3 allocExt // bytes
 );
 
 /* use vector + hvector + hvector
 
    vector is 1 block of size n
  */
-MPI_Datatype make_v1_hv_hv(const Dim3 copyExt, // bytes
-                           const Dim3 allocExt // bytes
+MPI_Datatype make_byte_v1_hv_hv(const Dim3 copyExt, // bytes
+                                const Dim3 allocExt // bytes
 );
 
 /* use byte + vector + hvector
@@ -42,3 +42,13 @@ MPI_Datatype make_hib(const Dim3 copyExt, const Dim3 allocExt);
 
 // make a 3D cube with MPI_Type_create_subarray
 MPI_Datatype make_subarray(const Dim3 copyExt, const Dim3 allocExt);
+
+
+// make a 3D cube with a vector of subarray
+MPI_Datatype make_subarray_v(const Dim3 copyExt, const Dim3 allocExt);
+
+// n contiguous bytes
+MPI_Datatype make_contiguous_byte_v1(int n);
+MPI_Datatype make_contiguous_byte_vn(int n);
+MPI_Datatype make_contiguous_subarray(int n);
+MPI_Datatype make_contiguous_contiguous(int n);

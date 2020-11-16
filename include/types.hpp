@@ -33,9 +33,9 @@ struct VectorData {
   int64_t size;
   int64_t extent;
 
-  int64_t count;
-  int64_t blockLength;
-  int64_t stride; // stride in bytes (hvector in MPI, not like vector)
+  int64_t count; // number of blocks
+  int64_t blockLength; // children in each block
+  int64_t stride; // stride in bytes (hvector in MPI, not like vector) between blocks
 
   bool operator==(const VectorData &rhs) const noexcept {
     return size == rhs.size && extent == rhs.extent && count == rhs.count &&

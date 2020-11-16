@@ -19,8 +19,9 @@ macro(pmpi_test_exe exe)
 endmacro()
 
 
-pmpi_test_exe(type_size type_size.cpp)
-add_test(NAME type_size COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_size)
+pmpi_test_exe(type_equivalence type_equivalence.cpp)
+add_test(NAME type_equivalence COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_equivalence)
+
 
 pmpi_test_exe(init_finalize init_finalize.cpp)
 add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 init_finalize)
