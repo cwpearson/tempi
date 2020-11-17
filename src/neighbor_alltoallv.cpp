@@ -13,6 +13,7 @@ extern "C" int MPI_Neighbor_alltoallv(PARAMS_MPI_Neighbor_alltoallv) {
     return libmpi.MPI_Neighbor_alltoallv(ARGS_MPI_Alltoallv);
   }
 
+#if TEMPI_OUTPUT_LEVEL >= 4
   {
     auto it = degrees.find(comm);
     if (it != degrees.end()) {
@@ -40,6 +41,7 @@ extern "C" int MPI_Neighbor_alltoallv(PARAMS_MPI_Neighbor_alltoallv) {
       }
     }
   }
+#endif
 
   /* wait for any GPU packing operation to finish if all are true
    1) packed datatype
