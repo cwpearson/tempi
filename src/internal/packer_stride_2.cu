@@ -139,6 +139,7 @@ __global__ static void unpack_bytes(
 PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
                              unsigned stride0, unsigned count1,
                              unsigned stride1) {
+  assert(blockLength_ > 0);
   blockLength_ = blockLength;
   count_[0] = count0;
   count_[1] = count1;

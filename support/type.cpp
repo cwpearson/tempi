@@ -3,9 +3,7 @@
 MPI_Datatype make_byte_vn_hv_hv(const Dim3 copyExt, // bytes
                                 const Dim3 allocExt // bytes
 ) {
-  MPI_Datatype rowType = {};
-  MPI_Datatype planeType = {};
-  MPI_Datatype fullType = {};
+  MPI_Datatype row{}, plane{}, cube{};
   {
     {
       {
@@ -15,22 +13,22 @@ MPI_Datatype make_byte_vn_hv_hv(const Dim3 copyExt, // bytes
         int blocklength = 1;
         // number of elements between the start of each block
         const int stride = 1;
-        MPI_Type_vector(count, blocklength, stride, MPI_BYTE, &rowType);
+        MPI_Type_vector(count, blocklength, stride, MPI_BYTE, &row);
       }
       int count = copyExt.y;
       int blocklength = 1;
       // bytes between start of each block
       const int stride = allocExt.x;
-      MPI_Type_create_hvector(count, blocklength, stride, rowType, &planeType);
+      MPI_Type_create_hvector(count, blocklength, stride, row, &plane);
     }
     int count = copyExt.z;
     int blocklength = 1;
     // bytes between start of each block
     const int stride = allocExt.x * allocExt.y;
-    MPI_Type_create_hvector(count, blocklength, stride, planeType, &fullType);
+    MPI_Type_create_hvector(count, blocklength, stride, plane, &cube);
   }
 
-  return fullType;
+  return cube;
 }
 
 MPI_Datatype make_byte_v1_hv_hv(const Dim3 copyExt, // bytes
