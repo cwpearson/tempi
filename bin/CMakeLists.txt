@@ -27,6 +27,7 @@ add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp)
 
+add_tempi_executable(bench-type-commit bench_type_commit.cpp)
 add_tempi_executable(bench-alltoallv-random-sparse bench_alltoallv_random_sparse.cpp)
 add_tempi_executable(bench-nbr-alltoallv-random-sparse bench_nbr_alltoallv_random_sparse.cpp)
 
