@@ -196,24 +196,24 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   cudaExtent locExt = distExt;
   int dims[3]{1, 1, 1};
   for (int f : prime_factors(size)) {
-    if (locExt.width >= locExt.height && locExt.width >= locExt.depth) {
-      if (locExt.width < f) {
-        FATAL("bad x size");
+    if (locExt.depth >= locExt.height && locExt.depth >= locExt.width) {
+      if (locExt.depth < f) {
+        FATAL("bad z size");
       }
-      locExt.width /= f;
-      dims[0] *= f;
-    } else if (locExt.height >= locExt.depth) {
+      locExt.depth /= f;
+      dims[2] *= f;
+    } else if (locExt.height >= locExt.width) {
       if (locExt.height < f) {
         FATAL("bad y size");
       }
       locExt.height /= f;
       dims[1] *= f;
     } else {
-      if (locExt.depth < f) {
-        FATAL("bad z size");
+      if (locExt.width < f) {
+        FATAL("bad x size");
       }
-      locExt.depth /= f;
-      dims[2] *= f;
+      locExt.width /= f;
+      dims[0] *= f;
     }
   }
   if (dims[0] * dims[1] * dims[2] != size) {
@@ -552,10 +552,6 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 
   for (int i = 0; i < nIters; ++i) {
 
-    if (0 == rank) {
-      std::cerr << "iter " << i << std::endl;
-    }
-    
     MPI_Barrier(graphComm);
 
     // pack the send buf
@@ -624,26 +620,29 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
+  int nIters = 0;
+  int nQuants = 2;
+  int radius = 2;
+
   int ext[3]{};
-  if (argc == 2) {
-    ext[0] = std::atoi(argv[1]);
-    ext[1] = std::atoi(argv[1]);
-    ext[2] = std::atoi(argv[1]);
-  } else if (4 == argc) {
-    ext[0] = std::atoi(argv[1]);
+  if (argc == 3) {
+    nIters = std::atoi(argv[1]);
+    ext[0] = std::atoi(argv[2]);
     ext[1] = std::atoi(argv[2]);
-    ext[2] = std::atoi(argv[3]);
+    ext[2] = std::atoi(argv[2]);
+  } else if (4 == argc) {
+    nIters = std::atoi(argv[1]);
+    ext[0] = std::atoi(argv[2]);
+    ext[1] = std::atoi(argv[3]);
+    ext[2] = std::atoi(argv[4]);
   } else {
-    FATAL(argv[0] << "X Y Z");
+    FATAL(argv[0] << "ITERS X Y Z");
   }
 
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  int nIters = 3;
-  int nQuants = 2;
-  int radius = 2;
 
   if (0 == rank) {
     std::cout << "comm(s),pack (s),alltoallv (s),unpack (s)\n";

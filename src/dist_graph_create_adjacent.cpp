@@ -88,8 +88,9 @@ MPI_Dist_graph_create_adjacent(PARAMS_MPI_Dist_graph_create_adjacent) {
   int oldSize, oldRank;
   libmpi.MPI_Comm_rank(comm_old, &oldRank);
   libmpi.MPI_Comm_size(comm_old, &oldSize);
+  const size_t ranksPerNode = oldSize / numNodes;
 
-  if (numNodes > 1) {
+  if (numNodes > 1 && ranksPerNode > 1) {
 
     // the partition the rank should belong to
     std::vector<int> part(oldSize, -1);
