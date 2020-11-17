@@ -56,11 +56,10 @@ void fill_comm_stats(MPI_Comm comm, Result &result, const SquareMat &mat) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
-  // max pairwise
   result.maxPairwise = 0;
   for (int i = 0; i < size; ++i) {
     for (int j = 0; j < size; ++j) {
-      int64_t v = mat[rank][j];
+      int64_t v = mat[i][j];
       if (v > result.maxPairwise) {
         result.maxPairwise = v;
       }
@@ -70,8 +69,8 @@ void fill_comm_stats(MPI_Comm comm, Result &result, const SquareMat &mat) {
   SquareMat nodeMat = get_node_mat(comm, mat);
 
   if (0 == rank) {
-    LOG_DEBUG("\n" << mat.str());
-    LOG_DEBUG("\n" << nodeMat.str());
+    LOG_DEBUG("\nrank matrix\n" << mat.str()<<"\n");
+    LOG_DEBUG("\nnode matrix\n" << nodeMat.str()<<"\n");
   }
 
   result.maxOnNode = 0;
@@ -79,16 +78,18 @@ void fill_comm_stats(MPI_Comm comm, Result &result, const SquareMat &mat) {
   result.maxOffNode = 0;
   result.totalOffNode = 0;
   for (int i = 0; i < nodeMat.size(); ++i) {
+    int64_t offNode = 0; // num bytes sent offnode
     for (int j = 0; j < nodeMat.size(); ++j) {
       int64_t v = nodeMat[i][j];
       if (i == j) {
         result.totalOnNode += v;
-        result.maxOnNode = std::max(result.totalOnNode, v);
+        result.maxOnNode = std::max(result.maxOnNode, v);
       } else {
-        result.totalOffNode += v;
-        result.maxOffNode = std::max(result.totalOffNode, v);
+        offNode += v;
       }
     }
+    result.totalOffNode += offNode;
+    result.maxOffNode = std::max(result.maxOffNode, offNode);
   }
 }
 
@@ -361,6 +362,7 @@ int main(int argc, char **argv) {
       SquareMat mat = SquareMat::make_random_sparse(size, rowNnz, 1, 10, scale);
       Result result = bench(mat, nIters);
 
+      if (0 == rank) {
       std::cout << numNodes << "," << size / numNodes;
       std::cout << "," << scale << "," << density;
       std::cout << "," << result.maxPairwise;
@@ -372,7 +374,8 @@ int main(int argc, char **argv) {
       std::cout << "," << result.iters.min();
       std::cout << "," << result.teardown;
 
-      std::cout << "\n";
+      std::cout << "\n" << std::flush;
+      }
     }
   }
 

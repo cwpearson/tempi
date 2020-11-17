@@ -54,8 +54,8 @@ BM::Result BM::Method_alltoallv::operator()(const SquareMat &mat,
   // benchmark loop
   Statistics stats;
   for (int i = 0; i < nIters; ++i) {
-    MPI_Barrier(MPI_COMM_WORLD);
     nvtxRangePush("alltoallv");
+    MPI_Barrier(MPI_COMM_WORLD);
     auto start = Clock::now();
     MPI_Alltoallv(srcBuf, sendcounts.data(), sdispls.data(), MPI_BYTE, dstBuf,
                   recvcounts.data(), rdispls.data(), MPI_BYTE, MPI_COMM_WORLD);
@@ -133,8 +133,8 @@ BM::Result BM::Method_isend_irecv::operator()(const SquareMat &mat,
   // benchmark loop
   Statistics stats;
   for (int i = 0; i < nIters; ++i) {
-    MPI_Barrier(MPI_COMM_WORLD);
     nvtxRangePush(name());
+    MPI_Barrier(MPI_COMM_WORLD);
     auto start = Clock::now();
 
     for (size_t dst = 0; dst < size; ++dst) {
@@ -237,8 +237,8 @@ BM::Result BM::Method_sparse_isend_irecv::operator()(const SquareMat &mat,
   // benchmark loop
   Statistics stats;
   for (int i = 0; i < nIters; ++i) {
-    MPI_Barrier(MPI_COMM_WORLD);
     nvtxRangePush("alltoallv");
+    MPI_Barrier(MPI_COMM_WORLD);
     auto start = Clock::now();
 
     for (size_t dst = 0; dst < size; ++dst) {
@@ -493,8 +493,8 @@ BM::Result BM::Method_neighbor_alltoallv::operator()(const SquareMat &mat,
   // benchmark loop
   Statistics stats;
   for (int i = 0; i < nIters; ++i) {
-    MPI_Barrier(MPI_COMM_WORLD);
     nvtxRangePush("alltoallv");
+    MPI_Barrier(MPI_COMM_WORLD);
     auto start = Clock::now();
 
     // it's possible that we will not send or recv data,
