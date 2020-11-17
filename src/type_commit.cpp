@@ -1,48 +1,34 @@
 #include "env.hpp"
 #include "logging.hpp"
 #include "packer.hpp"
+#include "symbols.hpp"
 #include "types.hpp"
 
-#include <cuda_runtime.h>
 #include <mpi.h>
 
-#include <dlfcn.h>
+extern "C" int MPI_Type_commit(PARAMS_MPI_Type_commit) {
+  int result = libmpi.MPI_Type_commit(ARGS_MPI_Type_commit);
 
-#include <cassert>
-
-#define PARAMS MPI_Datatype *datatype
-
-#define ARGS datatype
-
-extern "C" int MPI_Type_commit(PARAMS) {
-  typedef int (*Func_MPI_Type_commit)(PARAMS);
-  static Func_MPI_Type_commit fn = nullptr;
-  if (!fn) {
-    fn = reinterpret_cast<Func_MPI_Type_commit>(
-        dlsym(RTLD_NEXT, "MPI_Type_commit"));
-  }
-  TEMPI_DISABLE_GUARD;
-
-  int result = fn(ARGS);
-
-  bool enabled = true;
-  enabled &= (!environment::noTypeCommit);
-
-  if (enabled) {
-    Type type = traverse(*datatype);
-    if (packerCache.count(*datatype)) {
-      return result;
-    } else {
-      std::shared_ptr<Packer> pPacker = plan_pack(type);
-      if (pPacker) {
-        packerCache[*datatype] = plan_pack(type);
-      }
-    }
+  if (environment::noTempi) {
+    return result;
+  } else if (environment::noTypeCommit) {
+    return result;
   }
 
   if (MPI_SUCCESS != result) {
     LOG_ERROR("error in system MPI_Pack call");
     return result;
   }
+
+  Type type = traverse(*datatype);
+  if (packerCache.count(*datatype)) {
+    return result;
+  } else {
+    std::shared_ptr<Packer> pPacker = plan_pack(type);
+    if (pPacker) {
+      packerCache[*datatype] = plan_pack(type);
+    }
+  }
+
   return result;
 }

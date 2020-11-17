@@ -26,5 +26,6 @@ void init_symbols() {
   DLSYM(MPI_Neighbor_alltoallv);
   DLSYM(MPI_Recv);
   DLSYM(MPI_Send);
+  DLSYM(MPI_Type_commit);
   DLSYM(MPI_Unpack);
 }
