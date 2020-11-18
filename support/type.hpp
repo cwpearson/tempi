@@ -47,6 +47,9 @@ MPI_Datatype make_subarray(const Dim3 copyExt, const Dim3 allocExt);
 // make a 3D cube with a vector of subarray
 MPI_Datatype make_subarray_v(const Dim3 copyExt, const Dim3 allocExt);
 
+// make a 3D cube with MPI_Type_create_subarray and offset
+MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt, const Dim3 &off);
+
 // n contiguous bytes
 MPI_Datatype make_contiguous_byte_v1(int n);
 MPI_Datatype make_contiguous_byte_vn(int n);

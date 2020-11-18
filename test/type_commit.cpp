@@ -18,6 +18,12 @@ int main(int argc, char **argv) {
   }
 
   {
+    std::cerr << "TEST: MPI_Type_create_subarray\n";
+    MPI_Datatype ty = make_off_subarray(copyExt, allocExt, Dim3(4,4,4));
+    MPI_Type_commit(&ty);
+  }
+
+  {
     std::cerr << "TEST: make_subarray_v\n";
     MPI_Datatype ty = make_subarray_v(copyExt, allocExt);
     MPI_Type_commit(&ty);
@@ -42,7 +48,7 @@ int main(int argc, char **argv) {
   }
 
   {
-    std::cerr << "TEST: vn hv hv\n";
+    std::cerr << "TEST: make_byte_vn_hv_hv\n";
     MPI_Datatype ty = make_byte_vn_hv_hv(copyExt, allocExt);
     MPI_Type_commit(&ty);
   }

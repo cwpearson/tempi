@@ -20,6 +20,7 @@
 #include <vector>
 
 struct DenseData {
+  int64_t off;
   int64_t extent;
 
   bool operator==(const DenseData &rhs) const noexcept {
@@ -27,95 +28,36 @@ struct DenseData {
   }
 
   std::string str() const noexcept {
-    return std::string("DenseData{extent: ") + std::to_string(extent) + "}";
-  }
-};
-
-struct StreamData {
-  int64_t stride; // stride (B) between element starts in the stream
-  int64_t count;  // number of elements in the stream
-
-  bool operator==(const StreamData &rhs) const noexcept {
-    return stride == rhs.stride && count == rhs.count && count;
-  }
-
-  std::string str() const noexcept {
-
-    std::string s("StreamData{");
-    s += "count:" + std::to_string(count);
-    s += ",stride:" + std::to_string(stride);
-    s += "}";
-    return s;
-  }
-};
-
-struct VectorData {
-  int64_t size;
-  int64_t extent;
-
-  int64_t count;       // number of blocks
-  int64_t blockLength; // children in each block
-  int64_t stride; // stride in bytes (hvector in MPI, not like vector) between
-                  // blocks
-
-  bool operator==(const VectorData &rhs) const noexcept {
-    return size == rhs.size && extent == rhs.extent && count == rhs.count &&
-           blockLength == rhs.blockLength && stride == rhs.stride;
-  }
-
-  std::string str() const noexcept {
-
-    std::string s("VectorData{");
-    s += "count:" + std::to_string(count);
-    s += ",blockLength:" + std::to_string(blockLength);
-    s += ",stride:" + std::to_string(stride);
-    s += ",size:" + std::to_string(size);
+    std::string s("DenseData{");
+    s += "off:" + std::to_string(off);
     s += ",extent:" + std::to_string(extent);
     s += "}";
     return s;
   }
 };
 
-struct SubarrayData {
-  std::vector<int64_t> elemSubsizes; // size of subarray in elements
-  std::vector<int64_t> elemStarts;   // offset fo subarray in elements
-  std::vector<int64_t> elemSizes;
+struct StreamData {
+  int64_t off;    // offset (B) of the first element
+  int64_t stride; // stride (B) between element starts in the stream
+  int64_t count;  // number of elements in the stream
 
-  size_t ndims() const noexcept { return elemSubsizes.size(); }
-
-  bool operator==(const SubarrayData &rhs) const noexcept {
-    return elemSubsizes == rhs.elemSubsizes && elemStarts == rhs.elemStarts &&
-           elemSizes == rhs.elemSizes;
-  }
-
-  void erase_dim(size_t i) {
-    elemSubsizes.erase(elemSubsizes.begin() + i);
-    elemStarts.erase(elemStarts.begin() + i);
-    elemSizes.erase(elemSizes.begin() + i);
+  bool operator==(const StreamData &rhs) const noexcept {
+    return off == rhs.off && stride == rhs.stride && count == rhs.count &&
+           count;
   }
 
   std::string str() const noexcept {
 
-    auto as_string = [](const std::vector<int64_t> &v) -> std::string {
-      std::string s("[");
-      for (int i : v) {
-        s += std::to_string(i) + " ";
-      }
-      s += "]";
-      return s;
-    };
-
-    std::string s("SubarrayData{");
-    s += "elemSubsizes:" + as_string(elemSubsizes);
-    s += ",elemStarts:" + as_string(elemStarts);
-    s += ",elemSizes:" + as_string(elemSizes);
+    std::string s("StreamData{");
+    s += "off:" + std::to_string(off);
+    s += ",count:" + std::to_string(count);
+    s += ",stride:" + std::to_string(stride);
     s += "}";
     return s;
   }
 };
 
-typedef std::variant<std::monostate, DenseData, StreamData>
-    TypeData;
+typedef std::variant<std::monostate, DenseData, StreamData> TypeData;
 
 /* a tree representing an MPI datatype
  */
@@ -184,24 +126,36 @@ public:
 /*
  */
 struct StridedBlock {
-  StridedBlock() : blockLength(-1) {}
-  int64_t blockLength;
+  StridedBlock() : start_(0) {}
 
-  std::vector<int64_t> starts;
+  /* each dimension is described by a start/count/stride
+
+     start: byte offset before elements in that dimension start
+     count: number of elements in the dimension
+     stride: (B) between start of each element
+
+     so, the first byte is at the sum of the start of the dimensions:
+     start[i-1] before elems dimension i-1 begins, then start [i-2]
+     before the first element of i-2, etc
+
+     so, instead of tracking start for each dimension, we track the
+     total offset that the first byte starts at
+  */
+  int64_t start_;
   std::vector<int64_t> counts;
   std::vector<int64_t> strides;
 
-  size_t ndims() const noexcept { return starts.size(); }
+  size_t ndims() const noexcept { return counts.size(); }
 
   void add_dim(int64_t start, int64_t count, int64_t stride) {
-    starts.push_back(start);
+    start_ += start;
     counts.push_back(count);
     strides.push_back(stride);
   }
 
   bool operator==(const StridedBlock &rhs) const noexcept {
-    return blockLength == rhs.blockLength && starts == rhs.starts &&
-           counts == rhs.counts && strides == rhs.strides;
+    return start_ == rhs.start_ && counts == rhs.counts &&
+           strides == rhs.strides;
   }
 
   bool operator!=(const StridedBlock &rhs) const noexcept {
@@ -220,8 +174,7 @@ struct StridedBlock {
     };
 
     std::string s("StridedBlock{");
-    s += "blockLength:" + std::to_string(blockLength);
-    s += ",starts:" + as_string(starts);
+    s += "start:" + std::to_string(start_);
     s += ",counts:" + as_string(counts);
     s += ",strides:" + as_string(strides);
     s += "}";

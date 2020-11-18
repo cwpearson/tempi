@@ -74,11 +74,13 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Type_get_extent(old_type, &oldLb, &oldExtent);
     MPI_Type_size(datatype, &oldSize);
 
-    StreamData cData;
+    StreamData cData{};
+    cData.off = 0;
     cData.count = blocklength;
     cData.stride = oldExtent;
 
-    StreamData pData;
+    StreamData pData{};
+    pData.off = 0;
     pData.count = count;
     pData.stride = oldExtent * stride; // size of elements * stride in elements
 
@@ -90,7 +92,6 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     // build the type from old_type
     Type gchild = Type::from_mpi_datatype(datatypes[0]);
     LOG_SPEW("before vector, height=" << gchild.height());
-
     child.children_.push_back(gchild);
 
     // add child to parent
@@ -130,12 +131,14 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
     MPI_Type_size(datatype, &oldSize);
 
-    StreamData pData;
+    StreamData pData{};
+    pData.off = 0; // vector has no offset
     pData.count = count;
     pData.stride =
         stride; // give in bytes instead of child elements (as in vector)
 
-    StreamData cData;
+    StreamData cData{};
+    cData.off = 0; // vector has no offset
     cData.count = blocklength;
     cData.stride = oldExtent;
 
@@ -155,7 +158,8 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
   } else if (MPI_COMBINER_NAMED == combiner) {
     LOG_SPEW("named type");
     Type ret;
-    DenseData data;
+    DenseData data{};
+    data.off = 0;
 
     MPI_Aint lb, extent;
     MPI_Type_get_extent(datatype, &lb, &extent);
@@ -196,7 +200,8 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
     MPI_Type_size(oldtype, &oldSize);
 
-    StreamData data;
+    StreamData data{};
+    data.off = 0;
     data.count = count;
     data.stride = oldExtent;
 
@@ -248,15 +253,12 @@ oldtype, MPI_Datatype *newtype)
       int subsize = integers[1 + ndims * 1 + i]; // subsize[i]
       int start = integers[1 + ndims * 2 + i];
 
-      if (0 != start) {
-        LOG_ERROR("subarray offsets unsupported");
-        return Type();
-      }
-
       StreamData data{};
+      data.off = start * oldExtent;
       data.stride = oldExtent;
       for (int j = 0; j < i; ++j) {
         data.stride *= integers[1 + ndims * 0 + j]; // size[j]
+        data.off *= integers[1 + ndims * 0 + j];    // size[j]
       }
       data.count = subsize;
       datas.push_back(data);
@@ -365,6 +367,7 @@ bool stream_dense_fold(Type &type) {
     Type newType = child;
     DenseData newData = cData;
     newData.extent = pData.count * pData.stride;
+    newData.off += pData.off;
     LOG_SPEW("stream_dense_fold: -> " << newData.str());
     newType.data = newData;
     type = newType;
@@ -453,16 +456,14 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
   StridedBlock strided = to_strided_block(simp);
 
   if (strided != StridedBlock()) {
-    assert(strided.starts.size() == strided.counts.size());
-    assert(strided.starts.size() == strided.strides.size());
-    if (1 == strided.starts.size()) {
+    if (2 == strided.ndims()) {
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride1>(
-          strided.blockLength, strided.counts[0], strided.strides[0]);
+          strided.counts[0], strided.counts[1], strided.strides[1]);
       return packer;
-    } else if (2 == strided.starts.size()) {
+    } else if (3 == strided.ndims()) {
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride2>(
-          strided.blockLength, strided.counts[0], strided.strides[0],
-          strided.counts[1], strided.strides[1]);
+          strided.counts[0], strided.counts[1], strided.strides[1],
+          strided.counts[2], strided.strides[2]);
       return packer;
     } else {
       // generic subarray packer unimplemented
@@ -516,8 +517,8 @@ StridedBlock to_strided_block(const Type &type) {
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {
-    ret.blockLength = dd->extent;
-    LOG_SPEW("filled blockLength from DenseData -> " << ret.str());
+    ret.add_dim(dd->off, dd->extent, 1 /*1B between each element of dd*/);
+    LOG_SPEW("StridedBlock from DenseData -> " << ret.str());
   } else {
     LOG_SPEW("type is not built on dense");
     return StridedBlock();
@@ -529,9 +530,9 @@ StridedBlock to_strided_block(const Type &type) {
       StreamData sd = std::get<StreamData>(data[i]);
       LOG_SPEW(sd.str());
 
-      ret.add_dim(0 /*stream has no offset*/, sd.count, sd.stride);
+      ret.add_dim(sd.off, sd.count, sd.stride);
 
-      LOG_SPEW(ret.str());
+      LOG_SPEW("StridedBlock from StreamData -> " << ret.str());
 
     } else {
       LOG_SPEW("incompatible type");
