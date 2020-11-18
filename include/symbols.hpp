@@ -109,6 +109,10 @@ typedef int (*Func_MPI_Dist_graph_neighbors)(PARAMS_MPI_Dist_graph_neighbors);
 #define ARGS_MPI_Type_commit datatype
 typedef int (*Func_MPI_Type_commit)(PARAMS_MPI_Type_commit);
 
+#define PARAMS_MPI_Type_free MPI_Datatype *datatype
+#define ARGS_MPI_Type_free datatype
+typedef int (*Func_MPI_Type_free)(PARAMS_MPI_Type_free);
+
 #define PARAMS_MPI_Pack                                                        \
   const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf,         \
       int outsize, int *position, MPI_Comm comm
@@ -141,6 +145,7 @@ struct MpiFunc {
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;
   Func_MPI_Type_commit MPI_Type_commit;
+  Func_MPI_Type_free MPI_Type_free;
   Func_MPI_Unpack MPI_Unpack;
 };
 

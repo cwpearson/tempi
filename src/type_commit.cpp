@@ -22,6 +22,7 @@ extern "C" int MPI_Type_commit(PARAMS_MPI_Type_commit) {
 
   Type type = traverse(*datatype);
   if (packerCache.count(*datatype)) {
+    LOG_SPEW("found MPI_Datatype " << uintptr_t(datatype) << " in packerCache");
     return result;
   } else {
     std::shared_ptr<Packer> pPacker = plan_pack(type);

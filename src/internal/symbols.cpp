@@ -28,5 +28,6 @@ void init_symbols() {
   DLSYM(MPI_Recv);
   DLSYM(MPI_Send);
   DLSYM(MPI_Type_commit);
+  DLSYM(MPI_Type_free);
   DLSYM(MPI_Unpack);
 }

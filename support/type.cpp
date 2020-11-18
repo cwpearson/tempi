@@ -202,11 +202,10 @@ MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt, const Di
   int array_of_sizes[3]{int(allocExt[0]), int(allocExt[1]), int(allocExt[2])};
   int array_of_subsizes[3]{int(copyExt[0]), int(copyExt[1]), int(copyExt[2])};
   int array_of_starts[3]{int(off[0]), int(off[1]), int(off[2])};
-  int order = MPI_ORDER_C;
 
   MPI_Datatype cube{};
   MPI_Type_create_subarray(ndims, array_of_sizes, array_of_subsizes,
-                           array_of_starts, order, MPI_BYTE, &cube);
+                           array_of_starts, MPI_ORDER_C, MPI_BYTE, &cube);
   return cube;
 }
 

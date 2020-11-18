@@ -136,9 +136,10 @@ __global__ static void unpack_bytes(
   }
 }
 
-PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
-                             unsigned stride0, unsigned count1,
+PackerStride2::PackerStride2(unsigned off, unsigned blockLength,
+                             unsigned count0, unsigned stride0, unsigned count1,
                              unsigned stride1) {
+  offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);
   count_[0] = count0;
@@ -156,28 +157,34 @@ PackerStride2::PackerStride2(unsigned blockLength, unsigned count0,
   gd_ = (Dim3(blockLength_ / wordSize_, count_[0], count_[1]) + bd_ -
          Dim3(1, 1, 1)) /
         bd_;
+
+  // bd_ = Dim3(1, 1, 1);
+  // gd_ = Dim3(1, 1, 1);
 }
 
 void PackerStride2::launch_pack(void *outbuf, int *position, const void *inbuf,
                                 const int incount, cudaStream_t stream) const {
 
+  LOG_SPEW("launch_pack offset=" << offset_);
+  inbuf = static_cast<const char *>(inbuf) + offset_;
+
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    pack_bytes<4><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    pack_bytes<4><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
+                                           blockLength_, count_[0], stride_[0],
+                                           count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    pack_bytes<8><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    pack_bytes<8><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
+                                           blockLength_, count_[0], stride_[0],
+                                           count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    pack_bytes<1><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, incount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    pack_bytes<1><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
+                                           blockLength_, count_[0], stride_[0],
+                                           count_[1], stride_[1]);
   }
 
   CUDA_RUNTIME(cudaGetLastError());
@@ -188,23 +195,26 @@ void PackerStride2::launch_pack(void *outbuf, int *position, const void *inbuf,
 void PackerStride2::launch_unpack(const void *inbuf, int *position,
                                   void *outbuf, const int outcount,
                                   cudaStream_t stream) const {
+
+  outbuf = static_cast<char *>(outbuf) + offset_;
+
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
-    unpack_bytes<4><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    unpack_bytes<4><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
+                                             blockLength_, count_[0],
+                                             stride_[0], count_[1], stride_[1]);
 
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
-    unpack_bytes<8><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    unpack_bytes<8><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
+                                             blockLength_, count_[0],
+                                             stride_[0], count_[1], stride_[1]);
 
   } else {
     LOG_SPEW("wordSize == 1");
-    unpack_bytes<1><<<gd_, bd_, 0, stream>>>(
-        outbuf, *position, inbuf, outcount, blockLength_, count_[0], stride_[0],
-        count_[1], stride_[1]);
+    unpack_bytes<1><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
+                                             blockLength_, count_[0],
+                                             stride_[0], count_[1], stride_[1]);
   }
 
   CUDA_RUNTIME(cudaGetLastError());
@@ -229,7 +239,7 @@ void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
 #endif
 
 void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
-                               const int incount) const {
+                         const int incount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));

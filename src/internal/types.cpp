@@ -4,6 +4,7 @@
 #include "packer_stride_1.hpp"
 #include "packer_stride_2.hpp"
 
+#include <algorithm>
 #include <cassert>
 
 /* generally a vector is the same as a 2D subarray starting at offset 0,
@@ -215,7 +216,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     LOG_WARN("couldn't convert struct to a Type");
     return Type();
   } else if (MPI_COMBINER_SUBARRAY == combiner) {
-    /* ndim subarray is ndim streams
+    /* ndim subarray is ndim streams. the first dim is the outer dim
      */
     LOG_SPEW("subarray");
 
@@ -256,13 +257,14 @@ oldtype, MPI_Datatype *newtype)
       StreamData data{};
       data.off = start * oldExtent;
       data.stride = oldExtent;
-      for (int j = 0; j < i; ++j) {
+      for (int j = i + 1; j < ndims; ++j) {
         data.stride *= integers[1 + ndims * 0 + j]; // size[j]
         data.off *= integers[1 + ndims * 0 + j];    // size[j]
       }
       data.count = subsize;
       datas.push_back(data);
     }
+    std::reverse(datas.begin(), datas.end());
 
     for (int i = 0; i < ndims; ++i) {
       LOG_SPEW("subarray " << i << " -> " << datas[i].str());
@@ -321,11 +323,15 @@ oldtype, MPI_Datatype *newtype)
 
 Type traverse(MPI_Datatype datatype) {
   if (0 != traverseCache.count(datatype)) {
+    LOG_SPEW("found MPI_Datatype " << uintptr_t(datatype)
+                                   << " in traverse cache");
     return traverseCache[datatype];
   } else {
     LOG_SPEW("miss " << uintptr_t(datatype) << " in traverse cache");
     Type result = Type::from_mpi_datatype(datatype);
     if (Type() != result) {
+      LOG_SPEW("insert MPI_Datatype " << uintptr_t(datatype)
+                                      << " into traverse cache");
       traverseCache[datatype] = result;
     }
     return result;
@@ -458,12 +464,13 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
   if (strided != StridedBlock()) {
     if (2 == strided.ndims()) {
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride1>(
-          strided.counts[0], strided.counts[1], strided.strides[1]);
+          strided.start_, strided.counts[0], strided.counts[1],
+          strided.strides[1]);
       return packer;
     } else if (3 == strided.ndims()) {
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride2>(
-          strided.counts[0], strided.counts[1], strided.strides[1],
-          strided.counts[2], strided.strides[2]);
+          strided.start_, strided.counts[0], strided.counts[1],
+          strided.strides[1], strided.counts[2], strided.strides[2]);
       return packer;
     } else {
       // generic subarray packer unimplemented
@@ -540,4 +547,10 @@ StridedBlock to_strided_block(const Type &type) {
     }
   }
   return ret;
+}
+
+void release(MPI_Datatype ty) {
+  LOG_SPEW("release MPI_Datatype " << uintptr_t(ty));
+  traverseCache.erase(ty);
+  packerCache.erase(ty);
 }

@@ -11,21 +11,23 @@
 #include <cstring> // memcmp
 #include <sstream>
 
-template <typename CubeFactoryFn>
-void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
-               const int count) {
+void test_pack(MPI_Datatype ty, const int count) {
 
   CUDA_RUNTIME(cudaSetDevice(0));
 
-  MPI_Datatype cube = factory(packExt, allocExt);
-  MPI_Type_commit(&cube);
+  MPI_Type_commit(&ty);
+  MPI_Aint extent;
+  {
+    MPI_Aint _;
+    MPI_Type_get_extent(ty, &_, &extent);
+  }
 
   // size of the buffer for the data to be packed
-  size_t srcSize = allocExt.flatten() * count;
+  size_t srcSize = extent * count;
 
   // size of the data when packed
   int packedSize;
-  MPI_Pack_size(count, cube, MPI_COMM_WORLD, &packedSize);
+  MPI_Pack_size(count, ty, MPI_COMM_WORLD, &packedSize);
   LOG_DEBUG("packedSize=" << packedSize);
 
   char *src{}, *packTest{}, *packExp{}, *unpackTest{};
@@ -57,8 +59,7 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
     LOG_DEBUG("system MPI_Pack...");
     environment::noPack = true;
     positionExp = 0;
-    MPI_Pack(src, count, cube, packExp, packedSize, &positionExp,
-             MPI_COMM_WORLD);
+    MPI_Pack(src, count, ty, packExp, packedSize, &positionExp, MPI_COMM_WORLD);
   }
 
   // test
@@ -69,7 +70,7 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
     CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, 0, kernStream[0]));
     environment::noPack = false;
     positionTest = 0;
-    MPI_Pack(src, count, cube, packTest, packedSize, &positionTest,
+    MPI_Pack(src, count, ty, packTest, packedSize, &positionTest,
              MPI_COMM_WORLD);
     CUDA_RUNTIME(cudaDeviceSynchronize());
   }
@@ -99,7 +100,7 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
     environment::noPack = false;
     positionTest = 0;
     positionExp = 0;
-    MPI_Unpack(packTest, packedSize, &positionTest, unpackTest, count, cube,
+    MPI_Unpack(packTest, packedSize, &positionTest, unpackTest, count, ty,
                MPI_COMM_WORLD);
   }
 
@@ -113,6 +114,8 @@ void test_pack(CubeFactoryFn factory, const Dim3 &packExt, const Dim3 &allocExt,
   CUDA_RUNTIME(cudaFree(packTest));
   CUDA_RUNTIME(cudaFree(unpackTest));
   delete[](char *) packExp;
+
+  MPI_Type_free(&ty);
 }
 
 int main(int argc, char **argv) {
@@ -122,6 +125,18 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   {
+    Dim3 pe(2, 3, 4), ae(16, 16, 16), off(1, 1, 4);
+    int count = 1;
+    std::stringstream ss;
+    ss << "TEST: "
+       << "make_off_subarray" << pe << " " << ae << " " << off << " " << count;
+    LOG_INFO(ss.str());
+    nvtxRangePush(ss.str().c_str());
+    test_pack(make_off_subarray(pe, ae, off), count);
+    nvtxRangePop();
+  }
+
+  {
     Dim3 pe(2, 3, 4), ae(10, 10, 10);
     int count = 1;
     std::stringstream ss;
@@ -129,7 +144,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 
@@ -141,7 +156,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 
@@ -153,7 +168,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 
@@ -165,7 +180,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 
@@ -177,7 +192,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 
@@ -189,7 +204,7 @@ int main(int argc, char **argv) {
        << "make_byte_v_hv" << pe << " " << ae << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
-    test_pack(make_byte_v_hv, pe, ae, count);
+    test_pack(make_byte_v_hv(pe, ae), count);
     nvtxRangePop();
   }
 

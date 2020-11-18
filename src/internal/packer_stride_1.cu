@@ -132,8 +132,9 @@ __global__ static void unpack_bytes(
   }
 }
 
-PackerStride1::PackerStride1(unsigned blockLength, unsigned count,
+PackerStride1::PackerStride1(unsigned off, unsigned blockLength, unsigned count,
                              unsigned stride) {
+  offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);
   count_ = count;
@@ -152,7 +153,7 @@ PackerStride1::PackerStride1(unsigned blockLength, unsigned count,
 
 void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
                                 const int incount, cudaStream_t stream) const {
-
+  inbuf = static_cast<const char *>(inbuf) + offset_;
   Dim3 gd = gd_;
   gd.z = incount;
 
@@ -178,6 +179,8 @@ void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
 void PackerStride1::launch_unpack(const void *inbuf, int *position,
                                   void *outbuf, const int outcount,
                                   cudaStream_t stream) const {
+  outbuf = static_cast<char *>(outbuf) + offset_;
+
   Dim3 gd = gd_;
   gd.z = outcount;
 

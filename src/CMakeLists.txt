@@ -12,6 +12,7 @@ ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/recv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/send.cpp
 ${CMAKE_CURRENT_LIST_DIR}/type_commit.cpp
+${CMAKE_CURRENT_LIST_DIR}/type_free.cpp
 ${CMAKE_CURRENT_LIST_DIR}/unpack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/wait.cpp
 

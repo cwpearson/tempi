@@ -189,3 +189,6 @@ Type traverse(MPI_Datatype datatype);
 std::shared_ptr<Packer> plan_pack(Type &type);
 
 StridedBlock to_strided_block(const Type &type);
+
+// release any resources associated with a datatype
+void release(MPI_Datatype ty);
