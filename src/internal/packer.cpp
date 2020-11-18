@@ -28,6 +28,7 @@ Packer::LaunchInfo Packer::unpack_launch_info(const void *outbuf) {
   return ret;
 }
 
+#if 0
 void Packer::sync(const void *inbuf) {
   Packer::LaunchInfo info = pack_launch_info(inbuf);
   if (!info.stream) {
@@ -38,3 +39,4 @@ void Packer::sync(const void *inbuf) {
     CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
   }
 }
+#endif

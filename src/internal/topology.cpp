@@ -93,7 +93,7 @@ Placement make_placement(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
   LOG_SPEW("make_placement(comm=" << uintptr_t(comm) << ", ...)");
   int size;
   libmpi.MPI_Comm_size(comm, &size);
-  assert(nodeOfRank.size() == size);
+  assert(size >= 0 && nodeOfRank.size() == size_t(size));
 
   // next free rank on each node
   std::vector<int> nextIdx(num_nodes(comm), 0);
@@ -106,7 +106,7 @@ Placement make_placement(MPI_Comm comm, const std::vector<int> &nodeOfRank) {
 
   for (int ar = 0; ar < int(nodeOfRank.size()); ++ar) {
     int node = nodeOfRank[ar];
-    assert(node < nextIdx.size());
+    assert(node >= 0 && size_t(node) < nextIdx.size());
     int idx = nextIdx[node];
     assert(node < ranksOfNode.size());
     assert(idx < ranksOfNode[node].size());

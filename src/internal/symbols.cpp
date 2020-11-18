@@ -24,6 +24,7 @@ void init_symbols() {
   DLSYM(MPI_Init_thread);
   DLSYM(MPI_Isend);
   DLSYM(MPI_Neighbor_alltoallv);
+  DLSYM(MPI_Pack);
   DLSYM(MPI_Recv);
   DLSYM(MPI_Send);
   DLSYM(MPI_Type_commit);

@@ -30,8 +30,7 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
 
   // pack into device buffer
   int pos = 0;
-  packer->pack_async(packBuf, &pos, buf, count);
-  packer->sync(buf);
+  packer->pack(packBuf, &pos, buf, count);
 
   // send to other device
   int err = libmpi.MPI_Send(packBuf, packedBytes, MPI_BYTE, dest, tag, comm);

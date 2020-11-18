@@ -109,6 +109,12 @@ typedef int (*Func_MPI_Dist_graph_neighbors)(PARAMS_MPI_Dist_graph_neighbors);
 #define ARGS_MPI_Type_commit datatype
 typedef int (*Func_MPI_Type_commit)(PARAMS_MPI_Type_commit);
 
+#define PARAMS_MPI_Pack                                                        \
+  const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf,         \
+      int outsize, int *position, MPI_Comm comm
+#define ARGS_MPI_Pack inbuf, incount, datatype, outbuf, outsize, position, comm
+typedef int (*Func_MPI_Pack)(PARAMS_MPI_Pack);
+
 #define PARAMS_MPI_Unpack                                                      \
   const void *inbuf, int insize, int *position, void *outbuf, int outcount,    \
       MPI_Datatype datatype, MPI_Comm comm
@@ -117,23 +123,24 @@ typedef int (*Func_MPI_Type_commit)(PARAMS_MPI_Type_commit);
 typedef int (*Func_MPI_Unpack)(PARAMS_MPI_Unpack);
 
 struct MpiFunc {
+  Func_MPI_Allgather MPI_Allgather;
   Func_MPI_Alltoallv MPI_Alltoallv;
+  Func_MPI_Comm_free MPI_Comm_free;
+  Func_MPI_Comm_rank MPI_Comm_rank;
+  Func_MPI_Comm_size MPI_Comm_size;
+  Func_MPI_Comm_split_type MPI_Comm_split_type;
   Func_MPI_Dist_graph_create MPI_Dist_graph_create;
   Func_MPI_Dist_graph_create_adjacent MPI_Dist_graph_create_adjacent;
   Func_MPI_Dist_graph_neighbors MPI_Dist_graph_neighbors;
+  Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
   Func_MPI_Isend MPI_Isend;
-  Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
+  Func_MPI_Pack MPI_Pack;
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;
   Func_MPI_Type_commit MPI_Type_commit;
-  Func_MPI_Comm_split_type MPI_Comm_split_type;
-  Func_MPI_Comm_rank MPI_Comm_rank;
-  Func_MPI_Comm_size MPI_Comm_size;
-  Func_MPI_Allgather MPI_Allgather;
-  Func_MPI_Comm_free MPI_Comm_free;
   Func_MPI_Unpack MPI_Unpack;
 };
 

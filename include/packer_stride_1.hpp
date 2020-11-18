@@ -12,8 +12,14 @@ class PackerStride1 : public Packer {
 
 public:
   PackerStride1(unsigned blockLength, unsigned count, unsigned stride);
-  void pack_async(void *outbuf, int *position, const void *inbuf,
+  void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;
+
+private:
+  void launch_pack(void *outbuf, int *position, const void *inbuf,
+            const int incount, cudaStream_t stream) const;
+  void launch_unpack(const void *inbuf, int *position, void *outbuf,
+              const int outcount, cudaStream_t stream) const;
 };

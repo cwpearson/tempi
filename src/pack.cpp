@@ -8,43 +8,26 @@
  removes the synch overhead at each call
 */
 
-#include "logging.hpp"
-
 #include "cuda_runtime.hpp"
 #include "env.hpp"
+#include "logging.hpp"
+#include "symbols.hpp"
 #include "types.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
 #include <nvToolsExt.h>
 
-#include <dlfcn.h>
-
-// #include <vector>
-
-#define PARAMS                                                                 \
-  const void *inbuf, int incount, MPI_Datatype datatype, void *outbuf,         \
-      int outsize, int *position, MPI_Comm comm
-
-#define ARGS inbuf, incount, datatype, outbuf, outsize, position, comm
-
-extern "C" int MPI_Pack(PARAMS) {
-
-  // find the underlying MPI call
-  typedef int (*Func_MPI_Pack)(PARAMS);
-  static Func_MPI_Pack fn = nullptr;
-  if (!fn) {
-    fn = reinterpret_cast<Func_MPI_Pack>(dlsym(RTLD_NEXT, "MPI_Pack"));
+extern "C" int MPI_Pack(PARAMS_MPI_Pack) {
+  if (environment::noTempi) {
+    return libmpi.MPI_Pack(ARGS_MPI_Pack);
   }
-  TEMPI_DISABLE_GUARD;
   nvtxRangePush("MPI_Pack");
   int err = MPI_ERR_UNKNOWN;
 
-  bool enabled = true;
-  enabled &= !environment::noPack;
-  if (!enabled) {
+  if (environment::noPack) {
     LOG_SPEW("library MPI_Pack: disabled by env");
-    err = fn(ARGS);
+    err = libmpi.MPI_Pack(ARGS_MPI_Pack);
     goto cleanup_and_exit;
   }
 
@@ -60,17 +43,17 @@ extern "C" int MPI_Pack(PARAMS) {
 
     if (!isOutDev || !isInDev) {
       LOG_SPEW("library MPI_Pack: not device-device");
-      err = fn(ARGS);
+      err = libmpi.MPI_Pack(ARGS_MPI_Pack);
       goto cleanup_and_exit;
     }
     std::shared_ptr<Packer> packer = packerCache[datatype];
     CUDA_RUNTIME(cudaSetDevice(inAttrs.device));
-    packer->pack_async(outbuf, position, inbuf, incount);
+    packer->pack(outbuf, position, inbuf, incount);
     err = MPI_SUCCESS;
     goto cleanup_and_exit;
   } else {
     LOG_SPEW("library MPI_Pack: no packer");
-    err = fn(ARGS);
+    err = libmpi.MPI_Pack(ARGS_MPI_Pack);
     goto cleanup_and_exit;
   }
 
