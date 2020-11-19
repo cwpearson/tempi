@@ -262,10 +262,7 @@ void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
   LaunchInfo info = unpack_launch_info(outbuf);
   LOG_SPEW("PackerStride1::unpack on CUDA " << info.device);
   CUDA_RUNTIME(cudaSetDevice(info.device));
-
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
-  CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
-
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
   LOG_SPEW("PackerStride1::restore device " << device);
   CUDA_RUNTIME(cudaSetDevice(device));
