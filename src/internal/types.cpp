@@ -463,17 +463,19 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
 
   if (strided != StridedBlock()) {
     if (2 == strided.ndims()) {
+      LOG_SPEW("select PackerStride1 for " << strided.str());
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride1>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1]);
       return packer;
     } else if (3 == strided.ndims()) {
+      LOG_SPEW("select PackerStride2 for " << strided.str());
       std::shared_ptr<Packer> packer = std::make_shared<PackerStride2>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1], strided.counts[2], strided.strides[2]);
       return packer;
     } else {
-      // generic subarray packer unimplemented
+      LOG_SPEW("no packer for " << strided.str());
       return nullptr;
     }
   }
