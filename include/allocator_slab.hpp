@@ -170,12 +170,10 @@ public:
     Pool &pool = get_pool_for_size(n);
 
     // find the pointer and mark it as available
-    if (!pool.empty()) {
-      for (size_t i = 0; i < pool.size(); ++i) {
-        if (pool.ptrs[i] == p) {
-          pool.avail[i] = true;
-          return;
-        }
+    for (size_t i = 0; i < pool.size(); ++i) {
+      if (pool.ptrs[i] == p) {
+        pool.avail[i] = true;
+        return;
       }
     }
     LOG_FATAL("Tried to free memory not from this allocator");
