@@ -196,7 +196,8 @@ MPI_Datatype make_subarray_v(const Dim3 copyExt, const Dim3 allocExt) {
   return cube;
 }
 
-MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt, const Dim3 &off) {
+MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt,
+                               const Dim3 &off) {
 
   int ndims = 3;
   int array_of_sizes[3]{int(allocExt[0]), int(allocExt[1]), int(allocExt[2])};
@@ -209,7 +210,40 @@ MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt, const Di
   return cube;
 }
 
-// n contiguous bytes
+/* 2D layouts
+ */
+
+MPI_Datatype make_2d_byte_vector(const int64_t numBlocks,
+                                 const int64_t blockLength,
+                                 const int64_t stride) {
+  MPI_Datatype ty{};
+  MPI_Type_vector(numBlocks, blockLength, stride, MPI_BYTE, &ty);
+  return ty;
+}
+
+MPI_Datatype make_2d_byte_hvector(const int64_t numBlocks,
+                                  const int64_t blockLength,
+                                  const int64_t stride) {
+  MPI_Datatype ty{};
+  MPI_Type_create_hvector(numBlocks, blockLength, stride, MPI_BYTE, &ty);
+  return ty;
+}
+
+MPI_Datatype make_2d_byte_subarray(const int64_t numBlocks,
+                                   const int64_t blockLength,
+                                   const int64_t stride) {
+  MPI_Datatype ty{};
+  int array_of_sizes[2]{int(numBlocks), int(stride)};
+  int array_of_subsizes[2]{int(numBlocks), int(blockLength)};
+  int array_of_starts[2]{0, 0};
+  MPI_Type_create_subarray(2, array_of_sizes, array_of_subsizes,
+                           array_of_starts, MPI_ORDER_C, MPI_BYTE, &ty);
+  return ty;
+}
+
+/*1D layouts
+ */
+
 MPI_Datatype make_contiguous_byte_v1(int n) {
   MPI_Datatype ty{};
   int count = n;

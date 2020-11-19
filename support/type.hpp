@@ -4,6 +4,10 @@
 
 #include <mpi.h>
 
+// 3D types
+typedef MPI_Datatype (*TypeFactory3D)(const Dim3 copyExt, // bytes
+                                      const Dim3 allocExt);
+
 /* use vector + hvector + hvector
 
 vector is n blocks of size 1
@@ -43,14 +47,29 @@ MPI_Datatype make_hib(const Dim3 copyExt, const Dim3 allocExt);
 // make a 3D cube with MPI_Type_create_subarray
 MPI_Datatype make_subarray(const Dim3 copyExt, const Dim3 allocExt);
 
-
 // make a 3D cube with a vector of subarray
 MPI_Datatype make_subarray_v(const Dim3 copyExt, const Dim3 allocExt);
 
 // make a 3D cube with MPI_Type_create_subarray and offset
-MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt, const Dim3 &off);
+MPI_Datatype make_off_subarray(const Dim3 copyExt, const Dim3 allocExt,
+                               const Dim3 &off);
+
+// 2d types
+typedef MPI_Datatype (*TypeFactory2D)(const int64_t numBlocks,
+                                      const int64_t blockLength,
+                                      const int64_t stride);
+MPI_Datatype make_2d_byte_vector(const int64_t numBlocks,
+                                 const int64_t blockLength,
+                                 const int64_t stride);
+MPI_Datatype make_2d_byte_hvector(const int64_t numBlocks,
+                                  const int64_t blockLength,
+                                  const int64_t stride);
+MPI_Datatype make_2d_byte_subarray(const int64_t numBlocks,
+                                   const int64_t blockLength,
+                                   const int64_t stride);
 
 // n contiguous bytes
+typedef MPI_Datatype (*TypeFactory1D)(int n);
 MPI_Datatype make_contiguous_byte_v1(int n);
 MPI_Datatype make_contiguous_byte_vn(int n);
 MPI_Datatype make_contiguous_subarray(int n);
