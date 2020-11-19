@@ -48,6 +48,7 @@ message(STATUS GIT_HASH=${GIT_HASH})
 message(STATUS GIT_LOCAL_CHANGES=${GIT_LOCAL_CHANGES})
 
 find_package(MPI REQUIRED)
+message(STATUS "MPI include dir: ${MPI_CXX_INCLUDE_DIRS}")
 find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
 
