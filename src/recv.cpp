@@ -26,8 +26,8 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
   packBuf = deviceAllocator.allocate(packedBytes);
   LOG_SPEW("allocate " << packedBytes << "B device recv buffer");
 
-  // send to other device
-  int err = libmpi.MPI_Recv(ARGS_MPI_Recv);
+  // recv into temporary buffer
+  int err = libmpi.MPI_Recv(packBuf, packedBytes, MPI_PACKED, source, tag, comm, status);
 
   // unpack from temporary buffer
   int pos = 0;
@@ -35,7 +35,7 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
 
   // release temporary buffer
   LOG_SPEW("free intermediate recv buffer");
-  deviceAllocator.deallocate(packBuf, 0);
+  deviceAllocator.deallocate(packBuf, packedBytes);
   return err;
 }
 
@@ -62,6 +62,7 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   if (environment::noTempi) {
     return libmpi.MPI_Recv(ARGS_MPI_Recv);
   }
+  source = topology::library_rank(comm, source);
 
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
