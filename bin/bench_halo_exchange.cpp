@@ -58,8 +58,8 @@ void to_1d(int *d1, const int d3[3], const int dim[3]) {
   assert(*d1 < dim[0] * dim[1] * dim[2]);
 }
 
-/* return the halo size in bytes for a region of size `lcr`, with `radius`, for
- * a send in direction `dir`
+/* return the halo size in elements for a region of size `lcr`, with `radius`,
+ * for a send in direction `dir`
  */
 size_t halo_size(const int radius,
                  const int lcr[3], // size of the local compute region
@@ -76,7 +76,9 @@ size_t halo_size(const int radius,
  */
 MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
                        const int lcr[3], // size of the local compute region
-                       const int dir[3], bool exterior) {
+                       const int dir[3],
+                       const int quantSize, // size of each element
+                       bool exterior) {
 
   assert(dir[0] >= -1 && dir[0] <= 1);
   assert(dir[1] >= -1 && dir[1] <= 1);
@@ -117,18 +119,23 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
   ext[2] = (0 == dir[2]) ? lcr[2] : radius;
 
   {
+    /* subarray outer dim is the largest one
+     */
+
     int ndims = 3;
     // elems in each dimension of the full array
     int array_of_sizes[3]{
-        int(curr.pitch), int(curr.ysize),
-        pos[2] + ext[2] // array should be at least this big...
+        pos[2] + ext[2], // dim should be at least this big...
+        int(curr.ysize),
+        int(curr.pitch),
+
     };
     // elems of oldtype in each dimension of the subarray
-    int array_of_subsizes[3]{ext[0], ext[1], ext[2]};
-    int array_of_starts[3]{pos[0], pos[1],
-                           pos[2]}; // starting coordinates of subarray
+    int array_of_subsizes[3]{ext[2], ext[1], ext[0] * quantSize};
+    // starting coordinates of subarray
+    int array_of_starts[3]{pos[2], pos[1], pos[0] * quantSize};
     int order = MPI_ORDER_C;
-    MPI_Datatype oldtype = MPI_BYTE;
+    MPI_Datatype oldtype = MPI_BYTE; // have element size in subsizes
 
 #if 0
     // clang-format off
@@ -183,6 +190,8 @@ struct BenchResult {
 BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
                   int nIters) {
 
+  const int quantSize = 4;
+
   BenchResult result;
 
   int rank, size;
@@ -220,24 +229,25 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     FATAL("dims product != size");
   }
 
-  // local extent
+  // local extent in elements
   int lcr[3]{int(locExt.width), int(locExt.height), int(locExt.depth)};
+
   result.lcr[0] = lcr[0];
   result.lcr[1] = lcr[1];
   result.lcr[2] = lcr[2];
 
-
-  //if (0 == rank) {
+  // if (0 == rank) {
   //  std::cerr << "lcr: " << lcr[0] << "x" << lcr[1] << "x" << lcr[2] << "\n";
   //}
 
-  // allocation extent
+  // allocation extent (in bytes, not elements)
   cudaPitchedPtr curr{};
   {
     cudaExtent e = locExt;
-    e.width += 2 * radius;
+    e.width += 2 * radius; // extra space in x for quantity
     e.height += 2 * radius;
     e.depth += 2 * radius;
+    e.width *= quantSize; // convert width to bytes
 
 #ifdef USE_CUDA
     CUDA_RUNTIME(cudaMalloc3D(&curr, e));
@@ -250,7 +260,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
     curr.ysize = e.height;
 #endif
   }
-  //if (0 == rank) {
+  // if (0 == rank) {
   //  std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
   //            << "\n";
   //}
@@ -377,9 +387,11 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
         int nbrRank;
         to_1d(&nbrRank, nbrcoord, dims);
 
-        MPI_Datatype interior = halo_type(radius, curr, lcr, dir, false);
+        MPI_Datatype interior =
+            halo_type(radius, curr, lcr, dir, quantSize, false);
         MPI_Type_commit(&interior);
-        MPI_Datatype exterior = halo_type(radius, curr, lcr, dir, true);
+        MPI_Datatype exterior =
+            halo_type(radius, curr, lcr, dir, quantSize, true);
         MPI_Type_commit(&exterior);
 
         // for periodic, send should always be the same as recv
@@ -580,7 +592,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
       result.alltoallv.insert(MPI_Wtime() - start);
       nvtxRangePop();
     }
-    
+
     MPI_Barrier(graphComm);
 
     // unpack recv buf
@@ -609,7 +621,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   CUDA_RUNTIME(cudaFree(sendbuf));
   CUDA_RUNTIME(cudaFree(recvbuf));
 #else
-  delete[] (char*)curr.ptr;
+  delete[](char *) curr.ptr;
   delete[] sendbuf;
   delete[] recvbuf;
 #endif
@@ -630,19 +642,18 @@ int main(int argc, char **argv) {
     ext[0] = std::atoi(argv[2]);
     ext[1] = std::atoi(argv[2]);
     ext[2] = std::atoi(argv[2]);
-  } else if (4 == argc) {
+  } else if (5 == argc) {
     nIters = std::atoi(argv[1]);
     ext[0] = std::atoi(argv[2]);
     ext[1] = std::atoi(argv[3]);
     ext[2] = std::atoi(argv[4]);
   } else {
-    FATAL(argv[0] << "ITERS X Y Z");
+    FATAL(argv[0] << " ITERS X Y Z");
   }
 
   int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
 
   if (0 == rank) {
     std::cout << "comm(s),pack (s),alltoallv (s),unpack (s)\n";
@@ -665,7 +676,8 @@ int main(int argc, char **argv) {
   }
 
   if (0 == rank) {
-    std::cout << result.lcr[0] << "," << result.lcr[1] << "," << result.lcr[2] << "," << comm << "," << pack << "," << alltoallv << "," << unpack
+    std::cout << result.lcr[0] << "," << result.lcr[1] << "," << result.lcr[2]
+              << "," << comm << "," << pack << "," << alltoallv << "," << unpack
               << "\n";
   }
 

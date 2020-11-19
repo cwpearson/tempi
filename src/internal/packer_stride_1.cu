@@ -140,9 +140,12 @@ PackerStride1::PackerStride1(unsigned off, unsigned blockLength, unsigned count,
   count_ = count;
   stride_ = stride;
 
-  // select the biggest power of two word that divides evenly into blockLength_
+  // blocklength is a multiple of wordsize
+  // offset is a multiple of wordsize
+  // wordsize is at most 8
   wordSize_ = 1;
-  while (0 == blockLength_ % (wordSize_ * 2) && (wordSize_ * 2 <= 4)) {
+  while (0 == blockLength % (wordSize_ * 2) && 0 == offset_ % (wordSize_ * 2) &&
+         (wordSize_ * 2 <= 8)) {
     wordSize_ *= 2;
   }
 
@@ -154,6 +157,11 @@ PackerStride1::PackerStride1(unsigned off, unsigned blockLength, unsigned count,
 void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
                                 const int incount, cudaStream_t stream) const {
   inbuf = static_cast<const char *>(inbuf) + offset_;
+
+  if (uintptr_t(inbuf) % wordSize_) {
+    LOG_WARN("pack kernel may be unaligned.");
+  }
+
   Dim3 gd = gd_;
   gd.z = incount;
 

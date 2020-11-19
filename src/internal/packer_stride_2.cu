@@ -1,3 +1,7 @@
+/* TODO: alignment is not really handled in this case.
+   we expect all access to be aligned
+*/
+
 #include "packer_stride_2.hpp"
 
 #include "cuda_runtime.hpp"
@@ -147,8 +151,12 @@ PackerStride2::PackerStride2(unsigned off, unsigned blockLength,
   stride_[0] = stride0;
   stride_[1] = stride1;
 
+  // blocklength is a multiple of wordsize
+  // offset is a multiple of wordsize
+  // wordsize is at most 8
   wordSize_ = 1;
-  while (0 == blockLength % (wordSize_ * 2) && (wordSize_ * 2 <= 4)) {
+  while (0 == blockLength % (wordSize_ * 2) && 0 == offset_ % (wordSize_ * 2) &&
+         (wordSize_ * 2 <= 8)) {
     wordSize_ *= 2;
   }
 
@@ -168,8 +176,13 @@ void PackerStride2::launch_pack(void *outbuf, int *position, const void *inbuf,
   LOG_SPEW("launch_pack offset=" << offset_);
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
+  if (uintptr_t(inbuf) % wordSize_) {
+    LOG_WARN("pack kernel may be unaligned.");
+  }
+
   if (4 == wordSize_) {
     LOG_SPEW("wordSize_ = 4");
+
     pack_bytes<4><<<gd_, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                            blockLength_, count_[0], stride_[0],
                                            count_[1], stride_[1]);
