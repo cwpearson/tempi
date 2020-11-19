@@ -14,73 +14,145 @@ typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
 struct BenchResult {
+  int64_t size;
   double packTime;
+  double unpackTime;
 };
 
-BenchResult bench(MPI_Datatype ty, const Dim3 ext,
-                  bool tempi, // use tempi or not
-                  const int nIters) {
+BenchResult bench(MPI_Datatype ty,  // message datatype
+                  int count,        // number of datatypes
+                  const int nIters, // iterations to measure
+                  const char *name = "<unnamed>") {
 
-  // configure TEMPI
-  environment::noTempi = !tempi;
+  MPI_Type_commit(&ty);
 
-  // allocation extent (B)
-  cudaExtent allocExt = {};
-  allocExt.width = 1024;
-  allocExt.height = 1024;
-  allocExt.depth = 1024;
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Aint lb, typeExtent;
+  MPI_Type_get_extent(ty, &lb, &typeExtent);
+  int typeSize;
+  MPI_Type_size(ty, &typeSize);
+  int packedSize;
+  MPI_Pack_size(count, ty, MPI_COMM_WORLD, &packedSize);
 
-  // create device allocations
-  cudaPitchedPtr src = {};
+  char *src = {}, *dst = {};
   CUDA_RUNTIME(cudaSetDevice(0));
-  CUDA_RUNTIME(cudaMalloc3D(&src, allocExt));
-  allocExt.width = src.pitch; // cudaMalloc3D may adjust pitch
+  CUDA_RUNTIME(cudaMalloc(&src, typeExtent * count));
+  CUDA_RUNTIME(cudaMalloc(&dst, packedSize));
 
-  // copy extent (B)
-  cudaExtent copyExt = {};
-  copyExt.width = ext.x;
-  copyExt.height = ext.y;
-  copyExt.depth = ext.z;
-
-  // create flat destination allocation
-  char *dst = nullptr;
-  const int dstSize = copyExt.width * copyExt.height * copyExt.depth;
-  CUDA_RUNTIME(cudaMalloc(&dst, dstSize));
-
-  Statistics stats;
-  nvtxRangePush("loop");
+  Statistics packStats, unpackStats;
+  nvtxRangePush(name);
   for (int n = 0; n < nIters; ++n) {
     int position = 0;
-    auto start = Clock::now();
-    MPI_Pack(src.ptr, 1, ty, dst, dstSize, &position, MPI_COMM_WORLD);
-    auto stop = Clock::now();
-    Duration dur = stop - start;
-    stats.insert(dur.count());
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
+    MPI_Pack(src, count, ty, dst, packedSize, &position, MPI_COMM_WORLD);
+    double stop = MPI_Wtime();
+    packStats.insert(stop - start);
+
+    position = 0;
+    start = MPI_Wtime();
+    MPI_Unpack(dst, packedSize, &position, src, count, ty, MPI_COMM_WORLD);
+    stop = MPI_Wtime();
+    unpackStats.insert(stop - start);
   }
   nvtxRangePop();
 
-  CUDA_RUNTIME(cudaFree(src.ptr));
+  CUDA_RUNTIME(cudaFree(src));
   CUDA_RUNTIME(cudaFree(dst));
 
-  return BenchResult{.packTime = stats.trimean()};
+  MPI_Type_free(&ty);
+
+  return BenchResult{.size = typeSize * count,
+                     .packTime = packStats.trimean(),
+                     .unpackTime = unpackStats.trimean()};
 }
+
+struct Factory3D {
+  TypeFactory3D fn;
+  const char *name;
+};
+
+struct Factory2D {
+  TypeFactory2D fn;
+  const char *name;
+};
+
+struct Factory1D {
+  TypeFactory1D fn;
+  const char *name;
+};
 
 int main(int argc, char **argv) {
 
   MPI_Init(&argc, &argv);
 
-  // only need to run on rank 0
-  int rank;
+  // only 1 rank
+  int rank, size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (0 != rank) {
-    goto finalize;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (1 != size) {
+    std::cerr << "only 1 rank plz\n";
+    exit(-1);
   }
 
-  { // prevent init bypass
-    int nIters = 10;
+  int nIters = 10;
+  int count = 1;
+  BenchResult result;
 
-    Dim3 allocExt(1024, 1024, 1024);
-    BenchResult result;
+  /* 2D packing
+   */
+
+  int numBlocks = 1000;
+  count = 1;
+  std::vector<Factory2D> factories2d{
+      Factory2D{make_2d_byte_vector, "2d_byte_vector"},
+      Factory2D{make_2d_byte_hvector, "2d_byte_hvector"},
+      Factory2D{make_2d_byte_subarray, "2d_byte_subarray"}};
+
+  std::cout << "s,numblocks,blocklengths,stride";
+  for (Factory2D factory : factories2d) {
+    std::cout << "," << factory.name << " (MiB/s)";
+  }
+  std::cout << std::endl << std::flush;
+
+  std::vector<int> blockLengths{1, 2, 4, 8, 128};
+
+  for (int blockLength : blockLengths) {
+
+    std::vector<int> strides;
+    for (int i = blockLength; i < 512; i *= 2) {
+      strides.push_back(i);
+    }
+
+    for (int stride : strides) {
+      std::string s;
+      s += "|" + std::to_string(numBlocks);
+      s += "|" + std::to_string(blockLength);
+      s += "|" + std::to_string(stride);
+
+      std::cout << s;
+      std::cout << "," << numBlocks;
+      std::cout << "," << blockLength;
+      std::cout << "," << stride;
+      std::cout << std::flush;
+      for (Factory2D factory : factories2d) {
+
+        MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
+
+        result = bench(ty, 1, nIters, s.c_str());
+
+        std::cout << "," << result.size / 1024.0 / 1024.0 / result.packTime;
+        std::cout << std::flush;
+      }
+      std::cout << std::endl << std::flush;
+    }
+  }
+
+  /* 3D packing
+   */
+  Dim3 allocExt(1024, 1024, 1024);
 
   std::vector<Dim3> dims = {
       Dim3(1, 1024, 1024), Dim3(2, 1024, 512),  Dim3(4, 1024, 256),
@@ -91,65 +163,40 @@ int main(int argc, char **argv) {
       Dim3(16, 1024, 1),   Dim3(32, 1024, 1),   Dim3(64, 1024, 1),
       Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
       Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
-  std::vector<bool> tempis = {true, false};
 
-    std::cout << "s,x,y,z,tempi,v1_hv_hv (MiB/s),v_hv (MiB/s)\n";
+  std::vector<Factory3D> factories3d{
+      Factory3D{make_byte_v1_hv_hv, "byte_v1_hv_hv"},
+      Factory3D{make_byte_v_hv, "byte_v_hv"}};
 
-  for (bool tempi : tempis) {
-    for (Dim3 ext : dims) {
-
-        std::string s;
-        s = std::to_string(ext.x) + "/" + std::to_string(ext.y) + "/" +
-            std::to_string(ext.z) + "/" + std::to_string(tempi);
-
-        std::cout << s;
-        std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
-        std::cout << "," << tempi;
-        std::cout << std::flush;
-
-        MPI_Datatype ty;
-
-#if 0
-    ty = make_hi(ext, allocExt);
-    MPI_Type_commit(&ty);
-    result = bench(ty, ext, tempi, nIters);
-    std::cout << "," << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-    std::cout << std::flush;
-#endif
-
-#if 0
-    ty = make_hib(ext, allocExt);
-    MPI_Type_commit(&ty);
-    result = bench(ty, ext, tempi, nIters);
-    std::cout << "," << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-    std::cout << std::flush;
-#endif
-
-#if 1
-        ty = make_byte_v1_hv_hv(ext, allocExt);
-        MPI_Type_commit(&ty);
-        result = bench(ty, ext, tempi, nIters);
-        std::cout << ","
-                  << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-        std::cout << std::flush;
-#endif
-
-#if 1
-        ty = make_byte_v_hv(ext, allocExt);
-        MPI_Type_commit(&ty);
-        result = bench(ty, ext, tempi, nIters);
-        std::cout << ","
-                  << double(ext.flatten()) / 1024 / 1024 / result.packTime;
-        std::cout << std::flush;
-#endif
-
-        std::cout << "\n";
-        std::cout << std::flush;
-        nvtxRangePop();
-      }
-    }
+  std::cout << "s,x,y,z";
+  for (Factory3D factory : factories3d) {
+    std::cout << "," << factory.name << " (MiB/s)";
   }
-finalize:
+  std::cout << std::endl << std::flush;
+
+  for (Dim3 ext : dims) {
+
+    std::string s;
+    s += std::to_string(ext.x) + "|" + std::to_string(ext.y) + "|" +
+         std::to_string(ext.z);
+
+    std::cout << s;
+    std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
+    std::cout << std::flush;
+
+    for (Factory3D factory : factories3d) {
+
+      MPI_Datatype ty = factory.fn(ext, allocExt);
+      result = bench(ty, count, nIters, s.c_str());
+
+      std::cout << "," << result.size / 1024.0 / 1024.0 / result.packTime;
+      std::cout << std::flush;
+
+      nvtxRangePop();
+    }
+    std::cout << std::endl << std::flush;
+  }
+
   MPI_Finalize();
   return 0;
 }
