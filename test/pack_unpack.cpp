@@ -24,6 +24,7 @@ void test_pack(MPI_Datatype ty, const int count) {
 
   // size of the buffer for the data to be packed
   size_t srcSize = extent * count;
+  LOG_DEBUG("srcSize=" << srcSize);
 
   // size of the data when packed
   int packedSize;
@@ -78,7 +79,7 @@ void test_pack(MPI_Datatype ty, const int count) {
   // prefetch to host to accelerate comparison
   CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, -1, kernStream[0]));
 
-  LOG_DEBUG(positionTest << " " << positionExp);
+  LOG_DEBUG("positions: " << positionTest << " " << positionExp);
   REQUIRE(positionTest == positionExp); // output position is identical
 
   // compare with system MPI pack results
@@ -97,6 +98,7 @@ void test_pack(MPI_Datatype ty, const int count) {
 
   // unpack
   {
+    LOG_DEBUG("TEMPI MPI_Unpack...");
     environment::noPack = false;
     positionTest = 0;
     positionExp = 0;
@@ -124,12 +126,46 @@ int main(int argc, char **argv) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+#if 0
+// good to test input extent > 2^32
+  {
+    int blockLength = 1;
+    int stride = 512;
+    int count = 8;
+    int numBlocks = 1024*1024;
+    std::stringstream ss;
+    ss << "TEST: "
+       << "make_2d_byte_vector " << numBlocks << " " << blockLength << " " << stride << " " << count;
+    LOG_INFO(ss.str());
+    nvtxRangePush(ss.str().c_str());
+    test_pack(make_2d_byte_vector(numBlocks, blockLength, stride), count);
+    nvtxRangePop();
+  }
+#endif
+
+  /*1D test
+  */
+
+  {
+    int extent = 10;
+    int count = 30;
+    std::stringstream ss;
+    ss << "TEST: "
+       << "make_contiguous_contiguous " << extent << " " << count;
+    LOG_INFO(ss.str());
+    nvtxRangePush(ss.str().c_str());
+    test_pack(make_contiguous_contiguous(extent), count);
+    nvtxRangePop();
+  }
+
+  exit(0);
+
   {
     Dim3 pe(2, 3, 4), ae(16, 16, 16), off(1, 1, 4);
     int count = 1;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_off_subarray" << pe << " " << ae << " " << off << " " << count;
+       << "make_off_subarray " << pe << " " << ae << " " << off << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
     test_pack(make_off_subarray(pe, ae, off), count);

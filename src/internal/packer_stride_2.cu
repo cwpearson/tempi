@@ -31,7 +31,7 @@ __global__ static void pack_bytes(
          stride0, stride1);
 #endif
   // n-1 counts of the stride, plus the extent of the last count
-  const int extent =
+  const uint64_t extent=
       (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
@@ -94,7 +94,7 @@ __global__ static void unpack_bytes(
   assert(blockLength % N == 0); // N should evenly divide block length
 
   // n-1 counts of the stride, plus the extent of the last count
-  const int extent =
+  const uint64_t extent =
       (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;

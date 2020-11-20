@@ -104,53 +104,57 @@ int main(int argc, char **argv) {
   /* 2D packing
    */
 
-  int numBlocks = 1000;
-  std::vector<int> counts{1, 2};
+  int64_t target = 1 * 1024 * 1024;
+
+  std::vector<int> counts{8};
 
   std::vector<Factory2D> factories2d{
       Factory2D{make_2d_byte_vector, "2d_byte_vector"},
       Factory2D{make_2d_byte_hvector, "2d_byte_hvector"},
       Factory2D{make_2d_byte_subarray, "2d_byte_subarray"}};
 
-  std::cout << "s,count,numblocks,blocklengths,stride";
+  std::cout << "s,count,numblocks,stride,blocklengths";
   for (Factory2D factory : factories2d) {
     std::cout << "," << factory.name << " (MiB/s)";
   }
   std::cout << std::endl << std::flush;
 
-  std::vector<int> blockLengths{1, 2, 4, 8, 16, 32, 64, 128};
+  std::vector<int> blockLengths{1};
+  std::vector<int> strides{512};
 
   for (int count : counts) {
-    for (int blockLength : blockLengths) {
-      std::vector<int> strides;
-      for (int i = blockLength; i <= 512; i *= 2) {
-        strides.push_back(i);
-      }
+    for (int stride : strides) {
+      for (int blockLength : blockLengths) {
 
-      for (int stride : strides) {
-        std::string s;
-        s += "|" + std::to_string(count);
-        s += "|" + std::to_string(numBlocks);
-        s += "|" + std::to_string(blockLength);
-        s += "|" + std::to_string(stride);
+        int numBlocks = target / blockLength;
 
-        std::cout << s;
-        std::cout << "," << count;
-        std::cout << "," << numBlocks;
-        std::cout << "," << blockLength;
-        std::cout << "," << stride;
-        std::cout << std::flush;
-        for (Factory2D factory : factories2d) {
+        if (numBlocks > 0 && stride >= blockLength) {
 
-          MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
+          std::string s;
+          s += "|" + std::to_string(count);
+          s += "|" + std::to_string(target);
+          s += "|" + std::to_string(stride);
+          s += "|" + std::to_string(blockLength);
 
-          result = bench(ty, count, nIters, s.c_str());
-
-          std::cout << ","
-                    << double(result.size) / 1024.0 / 1024.0 / result.packTime;
+          std::cout << s;
+          std::cout << "," << count;
+          std::cout << "," << target;
+          std::cout << "," << stride;
+          std::cout << "," << blockLength;
           std::cout << std::flush;
+          for (Factory2D factory : factories2d) {
+
+            MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
+
+            result = bench(ty, count, nIters, s.c_str());
+
+            std::cout << ","
+                      << double(result.size) / 1024.0 / 1024.0 /
+                             result.packTime;
+            std::cout << std::flush;
+          }
+          std::cout << std::endl << std::flush;
         }
-        std::cout << std::endl << std::flush;
       }
     }
   }

@@ -1,6 +1,7 @@
 #include "types.hpp"
 
 #include "logging.hpp"
+#include "packer_1d.hpp"
 #include "packer_stride_1.hpp"
 #include "packer_stride_2.hpp"
 
@@ -208,9 +209,9 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
 
     LOG_SPEW("contiguous -> " << data.str());
     ret.data = data;
-    Type child = Type::from_mpi_datatype(datatypes[0]);
+    Type child = Type::from_mpi_datatype(oldtype);
     ret.children_.push_back(child);
-    return Type();
+    return ret;
   } else if (MPI_COMBINER_STRUCT == combiner) {
     LOG_DEBUG("struct");
     LOG_WARN("couldn't convert struct to a Type");
@@ -329,6 +330,8 @@ Type traverse(MPI_Datatype datatype) {
   } else {
     LOG_SPEW("miss " << uintptr_t(datatype) << " in traverse cache");
     Type result = Type::from_mpi_datatype(datatype);
+    LOG_SPEW(result.str());
+
     if (Type() != result) {
       LOG_SPEW("insert MPI_Datatype " << uintptr_t(datatype)
                                       << " into traverse cache");
@@ -462,7 +465,12 @@ std::unique_ptr<Packer> plan_pack(Type &type) {
   StridedBlock strided = to_strided_block(simp);
 
   if (strided != StridedBlock()) {
-    if (2 == strided.ndims()) {
+    if (1 == strided.ndims()) {
+      LOG_SPEW("select Packer1D for " << strided.str());
+      std::unique_ptr<Packer> packer =
+          std::make_unique<Packer1D>(strided.start_, strided.counts[0]);
+      return packer;
+    } else if (2 == strided.ndims()) {
       LOG_SPEW("select PackerStride1 for " << strided.str());
       std::unique_ptr<Packer> packer = std::make_unique<PackerStride1>(
           strided.start_, strided.counts[0], strided.counts[1],

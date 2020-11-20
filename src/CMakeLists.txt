@@ -20,6 +20,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/packer_1d.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_1.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_stride_2.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/partition.cpp

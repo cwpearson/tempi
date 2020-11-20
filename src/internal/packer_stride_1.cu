@@ -22,8 +22,10 @@ pack_bytes(void *__restrict__ outbuf,
 ) {
 
   assert(blockLength % N == 0); // N should evenly divide block length
+  assert(count >= 1);
 
-  const int extent = (count - 1) * stride + blockLength;
+  // as the input space may be large, incount * extent may be over 2G
+  const uint64_t extent = (count - 1) * stride + blockLength;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -34,9 +36,13 @@ pack_bytes(void *__restrict__ outbuf,
 
   for (int z = tz; z < incount; z += gridDim.z * blockDim.z) {
     // each packed datatype will take count * blockLength bytes in outbuf
-    // each datatype input has stride * count separating their starts
     char *__restrict__ dst = op + z * blockLength * count;
+    // each datatype input has extent separating their starts
     const char *__restrict__ src = ip + z * extent;
+
+    if (tz == 0 && ty == 0 && tx == 0) {
+      printf("src offset =%d\n", z * extent);
+    }
 
     // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
@@ -44,6 +50,19 @@ pack_bytes(void *__restrict__ outbuf,
         unsigned bo = y * blockLength + x * N;
         unsigned bi = y * stride + x * N;
         // printf("%u -> %u\n", bi, bo);
+
+#if 0
+        {
+          uintptr_t ioff = uintptr_t(src + bi) - uintptr_t(inbuf);
+          uintptr_t ooff = uintptr_t(dst + bo) - uintptr_t(outbuf);
+          if (ioff >= 4294963208ull) {
+            printf("ioff=%lu bi=%u, z=%d, z*ext=%lu\n", ioff, bi, z, z*extent);
+          }
+          if (ooff >= 8388608) {
+            printf("ooff=%lu bo=%u, z=%d, z*bl*cnt=%d\n", ooff, bo, z, z * blockLength * count);
+          }
+        }
+#endif
 
         if (N == 1) {
           dst[bo] = src[bi];
@@ -87,7 +106,7 @@ __global__ static void unpack_bytes(
 
   assert(blockLength % N == 0); // N should evenly divide block length
 
-  const int extent = (count - 1) * stride + blockLength;
+  const uint64_t extent = (count - 1) * stride + blockLength;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
