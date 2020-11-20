@@ -5,26 +5,14 @@
 #include "streams.hpp"
 
 Packer::LaunchInfo Packer::pack_launch_info(const void *inbuf) {
-  cudaPointerAttributes attr;
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, inbuf));
-  Packer::LaunchInfo ret{.stream = nullptr, .device = -1};
-
-  if (0 >= attr.device) {
-    ret.stream = kernStream[attr.device];
-    ret.device = attr.device;
-  }
+  (void) inbuf;
+  Packer::LaunchInfo ret{.stream = kernStream[0]};
   return ret;
 }
 
 Packer::LaunchInfo Packer::unpack_launch_info(const void *outbuf) {
-  cudaPointerAttributes attr;
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, outbuf));
-  Packer::LaunchInfo ret{.stream = nullptr, .device = -1};
-
-  if (0 >= attr.device) {
-    ret.stream = kernStream[attr.device];
-    ret.device = attr.device;
-  }
+  (void) outbuf;
+  Packer::LaunchInfo ret{.stream = kernStream[0]};
   return ret;
 }
 

@@ -11,7 +11,7 @@
 
 #include <vector>
 
-static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
+static int pack_gpu_gpu_unpack(int device, Packer &packer,
                                PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
@@ -31,7 +31,7 @@ static int pack_gpu_gpu_unpack(int device, std::shared_ptr<Packer> packer,
 
   // unpack from temporary buffer
   int pos = 0;
-  packer->unpack(packBuf, &pos, buf, count);
+  packer.unpack(packBuf, &pos, buf, count);
 
   // release temporary buffer
   LOG_SPEW("free intermediate recv buffer");
@@ -73,10 +73,10 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   }
 
   // optimize packer
-  if (packerCache.count(datatype)) {
+  auto pi = packerCache.find(datatype);
+  if (packerCache.end() != pi) {
     LOG_SPEW("MPI_Recv: fast packer");
-    std::shared_ptr<Packer> packer = packerCache[datatype];
-    return pack_gpu_gpu_unpack(attr.device, packer, ARGS_MPI_Recv);
+    return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
   }
 
   // message size

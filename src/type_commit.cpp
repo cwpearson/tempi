@@ -26,9 +26,9 @@ extern "C" int MPI_Type_commit(PARAMS_MPI_Type_commit) {
                                    << " in packerCache");
     return result;
   } else {
-    std::shared_ptr<Packer> pPacker = plan_pack(type);
+    std::unique_ptr<Packer> pPacker = plan_pack(type);
     if (pPacker) {
-      packerCache[*datatype] = pPacker;
+      packerCache[*datatype] = std::move(pPacker);
       LOG_SPEW("cache " << uintptr_t(*datatype) << " in packerCache");
     }
   }

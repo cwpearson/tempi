@@ -182,11 +182,11 @@ struct StridedBlock {
   }
 };
 
-extern std::map<MPI_Datatype, std::shared_ptr<Packer>> packerCache;
+extern std::map<MPI_Datatype, std::unique_ptr<Packer>> packerCache;
 
 Type traverse(MPI_Datatype datatype);
 
-std::shared_ptr<Packer> plan_pack(Type &type);
+std::unique_ptr<Packer> plan_pack(Type &type);
 
 StridedBlock to_strided_block(const Type &type);
 

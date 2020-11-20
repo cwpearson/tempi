@@ -26,9 +26,9 @@
 */
 
 std::map<MPI_Datatype, Type> traverseCache;
-/*extern*/ std::map<MPI_Datatype, std::shared_ptr<Packer>> packerCache;
+/*extern*/ std::map<MPI_Datatype, std::unique_ptr<Packer>> packerCache;
 
-// decode an MPI datatyp
+// decode an MPI datatype
 // https://www.mpi-forum.org/docs/mpi-2.0/mpi-20-html/node161.htm
 // MPI_Type_get_envelope()
 // MPI_Type_get_contents()
@@ -450,7 +450,7 @@ Type simplify(const Type &type) {
 /* tries to create an optimal packer for a Type
   returns falsy if unable to
 */
-std::shared_ptr<Packer> plan_pack(Type &type) {
+std::unique_ptr<Packer> plan_pack(Type &type) {
 
   if (!type) {
     LOG_WARN("couldn't plan_pack strategy for unknown type");
@@ -464,13 +464,13 @@ std::shared_ptr<Packer> plan_pack(Type &type) {
   if (strided != StridedBlock()) {
     if (2 == strided.ndims()) {
       LOG_SPEW("select PackerStride1 for " << strided.str());
-      std::shared_ptr<Packer> packer = std::make_shared<PackerStride1>(
+      std::unique_ptr<Packer> packer = std::make_unique<PackerStride1>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1]);
       return packer;
     } else if (3 == strided.ndims()) {
       LOG_SPEW("select PackerStride2 for " << strided.str());
-      std::shared_ptr<Packer> packer = std::make_shared<PackerStride2>(
+      std::unique_ptr<Packer> packer = std::make_unique<PackerStride2>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1], strided.counts[2], strided.strides[2]);
       return packer;

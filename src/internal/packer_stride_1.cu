@@ -227,15 +227,9 @@ void PackerStride1::pack_async(void *outbuf, int *position, const void *inbuf,
 // same as async but synchronize after launch
 void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
                          const int incount) const {
-  int device;
-  CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = pack_launch_info(inbuf);
-  LOG_SPEW("PackerStride1::pack on CUDA " << info.device);
-  CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
-  LOG_SPEW("PackerStride1::restore device " << device);
-  CUDA_RUNTIME(cudaSetDevice(device));
 }
 
 #if 0
@@ -257,13 +251,7 @@ void PackerStride1::unpack_async(const void *inbuf, int *position, void *outbuf,
 
 void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
                            const int outcount) const {
-  int device;
-  CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = unpack_launch_info(outbuf);
-  LOG_SPEW("PackerStride1::unpack on CUDA " << info.device);
-  CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
-  LOG_SPEW("PackerStride1::restore device " << device);
-  CUDA_RUNTIME(cudaSetDevice(device));
 }

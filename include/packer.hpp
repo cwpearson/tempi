@@ -38,7 +38,6 @@ protected:
   // get the stream and device info for an operation
   struct LaunchInfo {
     cudaStream_t stream;
-    int device;
   };
 
   static LaunchInfo pack_launch_info(const void *inbuf);

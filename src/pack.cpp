@@ -22,16 +22,16 @@ extern "C" int MPI_Pack(PARAMS_MPI_Pack) {
   if (environment::noTempi) {
     return libmpi.MPI_Pack(ARGS_MPI_Pack);
   }
+  if (environment::noPack) {
+    LOG_SPEW("library MPI_Pack: disabled by env");
+    return libmpi.MPI_Pack(ARGS_MPI_Pack);
+  }
+
   nvtxRangePush("MPI_Pack");
   int err = MPI_ERR_UNKNOWN;
 
-  if (environment::noPack) {
-    LOG_SPEW("library MPI_Pack: disabled by env");
-    err = libmpi.MPI_Pack(ARGS_MPI_Pack);
-    goto cleanup_and_exit;
-  }
-
-  if (packerCache.count(datatype)) {
+  auto pi = packerCache.find(datatype);
+  if (packerCache.end() != pi) {
     // only optimize device-to-device pack
     cudaPointerAttributes outAttrs{}, inAttrs{};
     CUDA_RUNTIME(cudaPointerGetAttributes(&outAttrs, outbuf));
@@ -46,9 +46,7 @@ extern "C" int MPI_Pack(PARAMS_MPI_Pack) {
       err = libmpi.MPI_Pack(ARGS_MPI_Pack);
       goto cleanup_and_exit;
     }
-    std::shared_ptr<Packer> packer = packerCache[datatype];
-    CUDA_RUNTIME(cudaSetDevice(inAttrs.device));
-    packer->pack(outbuf, position, inbuf, incount);
+    pi->second->pack(outbuf, position, inbuf, incount);
     err = MPI_SUCCESS;
     goto cleanup_and_exit;
   } else {
