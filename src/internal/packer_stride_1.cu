@@ -40,9 +40,9 @@ pack_bytes(void *__restrict__ outbuf,
     // each datatype input has extent separating their starts
     const char *__restrict__ src = ip + z * extent;
 
-    if (tz == 0 && ty == 0 && tx == 0) {
-      printf("src offset =%d\n", z * extent);
-    }
+    // if (tz == 0 && ty == 0 && tx == 0) {
+    //   printf("src offset =%d\n", z * extent);
+    // }
 
     // x direction handle the blocks, y handles the block counts
     for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
@@ -188,12 +188,14 @@ void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
     LOG_SPEW("wordSize_ = 4");
     pack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
-
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
     pack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
-
+  } else if (2 == wordSize_) {
+    LOG_SPEW("wordSize_ = 2");
+    pack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
+                                          blockLength_, count_, stride_);
   } else {
     LOG_SPEW("wordSize == 1");
     pack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
@@ -219,6 +221,10 @@ void PackerStride1::launch_unpack(const void *inbuf, int *position,
   } else if (8 == wordSize_) {
     LOG_SPEW("wordSize_ = 8");
     unpack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
+                                            blockLength_, count_, stride_);
+  } else if (2 == wordSize_) {
+    LOG_SPEW("wordSize_ = 2");
+    unpack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
   } else {
     LOG_SPEW("wordSize == 1");
