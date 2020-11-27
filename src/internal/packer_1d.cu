@@ -18,7 +18,9 @@ void Packer1D::launch_pack(void *outbuf, int *position, const void *inbuf,
   inbuf = static_cast<const char *>(inbuf) + offset_;
   outbuf = static_cast<char *>(outbuf) + *position;
   const uint64_t nBytes = incount * extent_;
-  CUDA_RUNTIME(cudaMemcpy(outbuf, inbuf, nBytes, cudaMemcpyDefault));
+  //cudaMemcpy is not synchronous for d2d
+  CUDA_RUNTIME(cudaMemcpyAsync(outbuf, inbuf, nBytes, cudaMemcpyDefault, stream));
+  CUDA_RUNTIME(cudaStreamSynchronize(stream));
   (*position) += incount * extent_;
 }
 
@@ -30,7 +32,9 @@ void Packer1D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   outbuf = static_cast<char *>(outbuf) + offset_;
   inbuf = static_cast<const char *>(inbuf) + *position;
   const uint64_t nBytes = outcount * extent_;
-  CUDA_RUNTIME(cudaMemcpy(outbuf, inbuf, nBytes, cudaMemcpyDefault));
+  //cudaMemcpy is not synchronous for d2d
+  CUDA_RUNTIME(cudaMemcpyAsync(outbuf, inbuf, nBytes, cudaMemcpyDefault, stream));
+  CUDA_RUNTIME(cudaStreamSynchronize(stream));
   (*position) += outcount * extent_;
 }
 
