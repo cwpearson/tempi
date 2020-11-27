@@ -97,16 +97,21 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  int nIters = 100;
-  int count = 1;
+  int nIters;
+  if (environment::noTempi) {
+    nIters = 10;
+  } else {
+    nIters = 200;
+  }
+
   BenchResult result;
 
   /* 2D packing
    */
 
-  int64_t target = 1 * 1024 * 1024;
+  std::vector<int> targets{1024, 1024 * 1024};
 
-  std::vector<int> counts{8};
+  std::vector<int> counts{1, 2};
 
   std::vector<Factory2D> factories2d{
       Factory2D{make_2d_byte_vector, "2d_byte_vector"},
@@ -119,64 +124,68 @@ int main(int argc, char **argv) {
   }
   std::cout << std::endl << std::flush;
 
-  std::vector<int> blockLengths{1};
-  std::vector<int> strides{512};
+  std::vector<int> blockLengths{1, 2, 4, 8, 32, 64, 128, 256};
+  std::vector<int> strides{16, 256};
 
-  for (int count : counts) {
-    for (int stride : strides) {
-      for (int blockLength : blockLengths) {
+  for (int target : targets) {
+    for (int count : counts) {
+      for (int stride : strides) {
+        for (int blockLength : blockLengths) {
 
-        int numBlocks = target / blockLength;
+          int numBlocks = target / blockLength;
 
-        if (numBlocks > 0 && stride >= blockLength) {
+          if (numBlocks > 0 && stride >= blockLength) {
 
-          std::string s;
-          s += "|" + std::to_string(count);
-          s += "|" + std::to_string(target);
-          s += "|" + std::to_string(stride);
-          s += "|" + std::to_string(blockLength);
+            std::string s;
+            s += std::to_string(count);
+            s += "|" + std::to_string(target);
+            s += "|" + std::to_string(stride);
+            s += "|" + std::to_string(blockLength);
 
-          std::cout << s;
-          std::cout << "," << count;
-          std::cout << "," << target;
-          std::cout << "," << stride;
-          std::cout << "," << blockLength;
-          std::cout << std::flush;
-          for (Factory2D factory : factories2d) {
-
-            MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
-
-            result = bench(ty, count, nIters, s.c_str());
-
-            std::cout << ","
-                      << double(result.size) / 1024.0 / 1024.0 /
-                             result.packTime;
+            std::cout << s;
+            std::cout << "," << count;
+            std::cout << "," << target;
+            std::cout << "," << stride;
+            std::cout << "," << blockLength;
             std::cout << std::flush;
+            for (Factory2D factory : factories2d) {
+
+              MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
+
+              result = bench(ty, count, nIters, s.c_str());
+
+              std::cout << ","
+                        << double(result.size) / 1024.0 / 1024.0 /
+                               result.packTime;
+              std::cout << std::flush;
+            }
+            std::cout << std::endl << std::flush;
           }
-          std::cout << std::endl << std::flush;
         }
       }
     }
   }
 
-  MPI_Finalize();
-  exit(1);
-
   /* 3D packing
    */
   Dim3 allocExt(1024, 1024, 1024);
 
-  std::vector<Dim3> dims = {
-      Dim3(1, 1024, 1024), Dim3(2, 1024, 512),  Dim3(4, 1024, 256),
-      Dim3(8, 1024, 128),  Dim3(16, 1024, 64),  Dim3(32, 1024, 32),
-      Dim3(64, 1024, 16),  Dim3(128, 1024, 8),  Dim3(256, 1024, 4),
-      Dim3(512, 1024, 2),  Dim3(1024, 1024, 1), Dim3(1, 1024, 1),
-      Dim3(2, 1024, 1),    Dim3(4, 1024, 1),    Dim3(8, 1024, 1),
-      Dim3(16, 1024, 1),   Dim3(32, 1024, 1),   Dim3(64, 1024, 1),
-      Dim3(128, 1024, 1),  Dim3(256, 1024, 1),  Dim3(512, 1024, 1),
-      Dim3(12, 512, 512),  Dim3(512, 3, 512),   Dim3(512, 512, 3)};
+  std::vector<Dim3> dims{
+      /*fixed size 1M*/
+      Dim3(1, 1024, 1024), Dim3(2, 1024, 512), Dim3(4, 1024, 256),
+      Dim3(8, 1024, 128), Dim3(16, 1024, 64), Dim3(32, 1024, 32),
+      Dim3(64, 1024, 16), Dim3(128, 1024, 8), Dim3(256, 1024, 4),
+      Dim3(512, 1024, 2), Dim3(1024, 1024, 1),
+      /*sweep 1k->512K*/
+      Dim3(1, 1024, 1), Dim3(2, 1024, 1), Dim3(4, 1024, 1), Dim3(8, 1024, 1),
+      Dim3(16, 1024, 1), Dim3(32, 1024, 1), Dim3(64, 1024, 1),
+      Dim3(128, 1024, 1), Dim3(256, 1024, 1), Dim3(512, 1024, 1),
+      /*stencil halos*/
+      Dim3(12, 512, 512), Dim3(512, 3, 512), Dim3(512, 512, 3)};
 
   std::vector<Factory3D> factories3d{
+      Factory3D{make_subarray, "subarray"},
+      Factory3D{make_subarray_v, "subarray_v"},
       Factory3D{make_byte_v1_hv_hv, "byte_v1_hv_hv"},
       Factory3D{make_byte_v_hv, "byte_v_hv"}};
 
@@ -186,27 +195,34 @@ int main(int argc, char **argv) {
   }
   std::cout << std::endl << std::flush;
 
-  for (Dim3 ext : dims) {
+  counts = {1, 2};
 
-    std::string s;
-    s += std::to_string(ext.x) + "|" + std::to_string(ext.y) + "|" +
-         std::to_string(ext.z);
+  for (int count : counts) {
+    for (Dim3 ext : dims) {
 
-    std::cout << s;
-    std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
-    std::cout << std::flush;
+      std::string s;
+      s += std::to_string(count);
+      s += "|" + std::to_string(ext.x);
+      s += "|" + std::to_string(ext.y);
+      s += "|" + std::to_string(ext.z);
 
-    for (Factory3D factory : factories3d) {
-
-      MPI_Datatype ty = factory.fn(ext, allocExt);
-      result = bench(ty, count, nIters, s.c_str());
-
-      std::cout << "," << result.size / 1024.0 / 1024.0 / result.packTime;
+      std::cout << s;
+      std::cout << "," << count;
+      std::cout << "," << ext.x << "," << ext.y << "," << ext.z;
       std::cout << std::flush;
 
-      nvtxRangePop();
+      for (Factory3D factory : factories3d) {
+
+        MPI_Datatype ty = factory.fn(ext, allocExt);
+        result = bench(ty, count, nIters, s.c_str());
+
+        std::cout << "," << result.size / 1024.0 / 1024.0 / result.packTime;
+        std::cout << std::flush;
+
+        nvtxRangePop();
+      }
+      std::cout << std::endl << std::flush;
     }
-    std::cout << std::endl << std::flush;
   }
 
   MPI_Finalize();
