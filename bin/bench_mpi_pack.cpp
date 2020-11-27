@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
 
   int nIters;
   if (environment::noTempi) {
-    nIters = 10;
+    nIters = 5;
   } else {
     nIters = 200;
   }
