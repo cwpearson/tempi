@@ -3,7 +3,7 @@
 #BSUB -J bench_mpi_pack 
 #BSUB -o bench_mpi_pack.o%J
 #BSUB -e bench_mpi_pack.e%J
-#BSUB -W 01:00
+#BSUB -W 02:00
 #BSUB -nnodes 1
 #BSUB -alloc_flags gpudefault
 
