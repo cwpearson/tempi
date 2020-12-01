@@ -2,7 +2,7 @@
    we expect all access to be aligned
 */
 
-#include "packer_stride_2.hpp"
+#include "packer_3d.hpp"
 
 #include "cuda_runtime.hpp"
 #include "dim3.hpp"
@@ -17,22 +17,22 @@ template <unsigned N>
 __global__ static void pack_bytes(
     void *__restrict__ outbuf, int position, // position in output buffer
     const void *__restrict__ inbuf, const int incount,
-    unsigned blockLength, // block length (B)
-    unsigned count0,      // count of inner blocks in a group
-    unsigned stride0,     // stride (B) between start of inner blocks in group
-    unsigned count1,      // number of block groups
-    unsigned stride1      // stride (B) between start of block groups
+    unsigned count0,  // block length (B)
+    unsigned count1,  // count of inner blocks in a group
+    unsigned stride1, // stride (B) between start of inner blocks in group
+    unsigned count2,  // number of block groups
+    unsigned stride2  // stride (B) between start of block groups
 ) {
 
-  assert(blockLength % N == 0); // N should evenly divide block length
+  assert(count0 % N == 0); // N should evenly divide block length
 
 #if 0
-  printf("count0=%u count1=%u, stride0=%u stride1=%u\n", count0, count1,
-         stride0, stride1);
+  printf("count1=%u count2=%u, stride1=%u stride2=%u\n", count1, count2,
+         stride1, stride2);
 #endif
   // n-1 counts of the stride, plus the extent of the last count
-  const uint64_t extent=
-      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+  const uint64_t extent =
+      (count2 - 1) * stride2 + (count1 - 1) * stride1 + count0;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -42,15 +42,14 @@ __global__ static void pack_bytes(
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
   for (int i = 0; i < incount; ++i) {
-    char *__restrict__ dst = op + i * count1 * count0 * blockLength;
+    char *__restrict__ dst = op + i * count2 * count1 * count0;
     const char *__restrict__ src = ip + i * extent;
 
-    for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
-      for (unsigned y = ty; y < count0; y += gridDim.y * blockDim.y) {
-        for (unsigned x = tx; x < blockLength / N;
-             x += gridDim.x * blockDim.x) {
-          unsigned bo = z * count0 * blockLength + y * blockLength + x * N;
-          unsigned bi = z * stride1 + y * stride0 + x * N;
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+        for (unsigned x = tx; x < count0 / N; x += gridDim.x * blockDim.x) {
+          unsigned bo = z * count1 * count0 + y * count0 + x * N;
+          unsigned bi = z * stride2 + y * stride1 + x * N;
 #if 0
           printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
                  uintptr_t(dst) + bo - uintptr_t(outbuf));
@@ -84,18 +83,18 @@ template <unsigned N>
 __global__ static void unpack_bytes(
     void *__restrict__ outbuf, int position, const void *__restrict__ inbuf,
     const int incount,
-    const unsigned blockLength, // block length (B)
-    const unsigned count0,      // count of inner blocks in a group
-    const unsigned stride0, // stride (B) between start of inner blocks in group
-    const unsigned count1,  // number of block groups
-    const unsigned stride1  // stride (B) between start of block groups
+    const unsigned count0,  // block length (B)
+    const unsigned count1,  // count of inner blocks in a group
+    const unsigned stride1, // stride (B) between start of inner blocks in group
+    const unsigned count2,  // number of block groups
+    const unsigned stride2  // stride (B) between start of block groups
 ) {
 
-  assert(blockLength % N == 0); // N should evenly divide block length
+  assert(count0 % N == 0); // N should evenly divide block length
 
   // n-1 counts of the stride, plus the extent of the last count
   const uint64_t extent =
-      (count1 - 1) * stride1 + (count0 - 1) * stride0 + blockLength;
+      (count2 - 1) * stride2 + (count1 - 1) * stride1 + count0;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -106,14 +105,13 @@ __global__ static void unpack_bytes(
 
   for (int i = 0; i < incount; ++i) {
     char *__restrict__ dst = op + i * extent;
-    const char *__restrict__ src = ip + i * count1 * count0 * blockLength;
+    const char *__restrict__ src = ip + i * count2 * count1 * count0;
 
-    for (unsigned z = tz; z < count1; z += gridDim.z * blockDim.z) {
-      for (unsigned y = ty; y < count0; y += gridDim.y * blockDim.y) {
-        for (unsigned x = tx; x < blockLength / N;
-             x += gridDim.x * blockDim.x) {
-          unsigned bi = z * count0 * blockLength + y * blockLength + x * N;
-          unsigned bo = z * stride1 + y * stride0 + x * N;
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+        for (unsigned x = tx; x < count0 / N; x += gridDim.x * blockDim.x) {
+          unsigned bi = z * count1 * count0 + y * count0 + x * N;
+          unsigned bo = z * stride2 + y * stride1 + x * N;
           // printf("%u -> %u\n", bi, bo);
 
           if (N == 1) {
@@ -140,16 +138,15 @@ __global__ static void unpack_bytes(
   }
 }
 
-PackerStride2::PackerStride2(unsigned off, unsigned blockLength,
-                             unsigned count0, unsigned stride0, unsigned count1,
-                             unsigned stride1) {
+Packer3D::Packer3D(unsigned off, unsigned blockLength, unsigned count1,
+                   unsigned stride1, unsigned count2, unsigned stride2) {
   offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);
-  count_[0] = count0;
-  count_[1] = count1;
-  stride_[0] = stride0;
-  stride_[1] = stride1;
+  count_[0] = count1;
+  count_[1] = count2;
+  stride_[0] = stride1;
+  stride_[1] = stride2;
 
   // blocklength is a multiple of wordsize
   // offset is a multiple of wordsize
@@ -170,8 +167,8 @@ PackerStride2::PackerStride2(unsigned off, unsigned blockLength,
   // gd_ = Dim3(1, 1, 1);
 }
 
-void PackerStride2::launch_pack(void *outbuf, int *position, const void *inbuf,
-                                const int incount, cudaStream_t stream) const {
+void Packer3D::launch_pack(void *outbuf, int *position, const void *inbuf,
+                           const int incount, cudaStream_t stream) const {
 
   LOG_SPEW("launch_pack offset=" << offset_);
   inbuf = static_cast<const char *>(inbuf) + offset_;
@@ -205,9 +202,8 @@ void PackerStride2::launch_pack(void *outbuf, int *position, const void *inbuf,
   (*position) += incount * count_[1] * count_[0] * blockLength_;
 }
 
-void PackerStride2::launch_unpack(const void *inbuf, int *position,
-                                  void *outbuf, const int outcount,
-                                  cudaStream_t stream) const {
+void Packer3D::launch_unpack(const void *inbuf, int *position, void *outbuf,
+                             const int outcount, cudaStream_t stream) const {
 
   outbuf = static_cast<char *>(outbuf) + offset_;
 
@@ -236,45 +232,45 @@ void PackerStride2::launch_unpack(const void *inbuf, int *position,
 }
 
 #if 0
-void PackerStride2::pack_async(void *outbuf, int *position, const void *inbuf,
+void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
                                const int incount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = pack_launch_info(inbuf);
-  LOG_SPEW("PackerStride2::pack on CUDA " << info.device);
+  LOG_SPEW("Packer3D::pack on CUDA " << info.device);
   CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_pack(outbuf, position, inbuf, incount, info.stream);
 
-  LOG_SPEW("PackerStride2::restore device " << device);
+  LOG_SPEW("Packer3D::restore device " << device);
   CUDA_RUNTIME(cudaSetDevice(device));
 }
 #endif
 
-void PackerStride2::pack(void *outbuf, int *position, const void *inbuf,
-                         const int incount) const {
+void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
+                    const int incount) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
 }
 
 #if 0
-void PackerStride2::unpack_async(const void *inbuf, int *position, void *outbuf,
+void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
                            const int outcount) const {
 
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = unpack_launch_info(outbuf);
-  LOG_SPEW("PackerStride2::unpack on CUDA " << info.device);
+  LOG_SPEW("Packer3D::unpack on CUDA " << info.device);
   CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
-  LOG_SPEW("PackerStride2::restore device " << device);
+  LOG_SPEW("Packer3D::restore device " << device);
   CUDA_RUNTIME(cudaSetDevice(device));
 }
 #endif
 
-void PackerStride2::unpack(const void *inbuf, int *position, void *outbuf,
-                           const int outcount) const {
+void Packer3D::unpack(const void *inbuf, int *position, void *outbuf,
+                      const int outcount) const {
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));

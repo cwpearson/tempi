@@ -2,7 +2,7 @@
 
 #include "packer.hpp"
 
-class PackerStride2 : public Packer {
+class Packer3D : public Packer {
   unsigned offset_; // (B) before first element
   unsigned blockLength_;
   unsigned count_[2];
@@ -12,7 +12,7 @@ class PackerStride2 : public Packer {
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
 
 public:
-  PackerStride2(unsigned off, unsigned blockLength, unsigned count0, unsigned stride0,
+  Packer3D(unsigned off, unsigned blockLength, unsigned count0, unsigned stride0,
                 unsigned count1, unsigned stride1);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;

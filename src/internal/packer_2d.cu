@@ -1,4 +1,4 @@
-#include "packer_stride_1.hpp"
+#include "packer_2d.hpp"
 
 #include "cuda_runtime.hpp"
 #include "dim3.hpp"
@@ -15,17 +15,18 @@ __global__ static void
 pack_bytes(void *__restrict__ outbuf,
            int position, // location in the output buffer to start packing (B)
            const void *__restrict__ inbuf,
-           const int incount,    // number of datatypes to pack
-           unsigned blockLength, // block length (B)
-           unsigned count,       // count of blocks in a group
-           unsigned stride       // stride (B) between start of blocks in group
+           const int incount, // number of datatypes to pack
+           unsigned count0,   // bytes in dim 0
+           unsigned count1,   // elements in dim 1
+           unsigned stride1   // stride (B) between elements in dim1
+                              // stride0 is implicitly 1
 ) {
 
-  assert(blockLength % N == 0); // N should evenly divide block length
-  assert(count >= 1);
+  assert(count0 % N == 0); // N should evenly divide block length
+  assert(count1 >= 1);
 
   // as the input space may be large, incount * extent may be over 2G
-  const uint64_t extent = (count - 1) * stride + blockLength;
+  const uint64_t extent = (count1 - 1) * stride1 + count0;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -35,8 +36,8 @@ pack_bytes(void *__restrict__ outbuf,
   const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
 
   for (int z = tz; z < incount; z += gridDim.z * blockDim.z) {
-    // each packed datatype will take count * blockLength bytes in outbuf
-    char *__restrict__ dst = op + z * blockLength * count;
+    // each packed datatype will take count1 * count0 bytes in outbuf
+    char *__restrict__ dst = op + z * count1 * count0;
     // each datatype input has extent separating their starts
     const char *__restrict__ src = ip + z * extent;
 
@@ -45,10 +46,10 @@ pack_bytes(void *__restrict__ outbuf,
     // }
 
     // x direction handle the blocks, y handles the block counts
-    for (unsigned y = ty; y < count; y += gridDim.y * blockDim.y) {
-      for (unsigned x = tx; x < blockLength / N; x += gridDim.x * blockDim.x) {
-        unsigned bo = y * blockLength + x * N;
-        unsigned bi = y * stride + x * N;
+    for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+      for (unsigned x = tx; x < count0 / N; x += gridDim.x * blockDim.x) {
+        unsigned bo = y * count0 + x * N;
+        unsigned bi = y * stride1 + x * N;
         // printf("%u -> %u\n", bi, bo);
 
 #if 0
@@ -59,7 +60,7 @@ pack_bytes(void *__restrict__ outbuf,
             printf("ioff=%lu bi=%u, z=%d, z*ext=%lu\n", ioff, bi, z, z*extent);
           }
           if (ooff >= 8388608) {
-            printf("ooff=%lu bo=%u, z=%d, z*bl*cnt=%d\n", ooff, bo, z, z * blockLength * count);
+            printf("ooff=%lu bo=%u, z=%d, z*bl*cnt=%d\n", ooff, bo, z, z * count0 * count);
           }
         }
 #endif
@@ -151,8 +152,8 @@ __global__ static void unpack_bytes(
   }
 }
 
-PackerStride1::PackerStride1(unsigned off, unsigned blockLength, unsigned count,
-                             unsigned stride) {
+Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
+                   unsigned stride) {
   offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);
@@ -173,8 +174,8 @@ PackerStride1::PackerStride1(unsigned off, unsigned blockLength, unsigned count,
   gd_ = (Dim3(blockLength_ / wordSize_, count_, 1) + bd_ - Dim3(1, 1, 1)) / bd_;
 }
 
-void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
-                                const int incount, cudaStream_t stream) const {
+void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
+                           const int incount, cudaStream_t stream) const {
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
   if (uintptr_t(inbuf) % wordSize_) {
@@ -205,9 +206,8 @@ void PackerStride1::launch_pack(void *outbuf, int *position, const void *inbuf,
   (*position) += incount * count_ * blockLength_;
 }
 
-void PackerStride1::launch_unpack(const void *inbuf, int *position,
-                                  void *outbuf, const int outcount,
-                                  cudaStream_t stream) const {
+void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
+                             const int outcount, cudaStream_t stream) const {
   outbuf = static_cast<char *>(outbuf) + offset_;
 
   Dim3 gd = gd_;
@@ -236,46 +236,46 @@ void PackerStride1::launch_unpack(const void *inbuf, int *position,
 }
 
 #if 0
-void PackerStride1::pack_async(void *outbuf, int *position, const void *inbuf,
+void Packer2D::pack_async(void *outbuf, int *position, const void *inbuf,
                                const int incount) const {
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = pack_launch_info(inbuf);
-  LOG_SPEW("PackerStride1::pack on CUDA " << info.device);
+  LOG_SPEW("Packer2D::pack on CUDA " << info.device);
   CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_pack(outbuf, position, inbuf, incount, info.stream);
-  LOG_SPEW("PackerStride1::restore device " << device);
+  LOG_SPEW("Packer2D::restore device " << device);
   CUDA_RUNTIME(cudaSetDevice(device));
 }
 #endif
 
 // same as async but synchronize after launch
-void PackerStride1::pack(void *outbuf, int *position, const void *inbuf,
-                         const int incount) const {
+void Packer2D::pack(void *outbuf, int *position, const void *inbuf,
+                    const int incount) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
 }
 
 #if 0
-void PackerStride1::unpack_async(const void *inbuf, int *position, void *outbuf,
+void Packer2D::unpack_async(const void *inbuf, int *position, void *outbuf,
                                  const int outcount) const {
   int device;
   CUDA_RUNTIME(cudaGetDevice(&device));
   LaunchInfo info = unpack_launch_info(outbuf);
-  LOG_SPEW("PackerStride1::unpack on CUDA " << info.device);
+  LOG_SPEW("Packer2D::unpack on CUDA " << info.device);
   CUDA_RUNTIME(cudaSetDevice(info.device));
 
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
 
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
-  LOG_SPEW("PackerStride1::restore device " << device);
+  LOG_SPEW("Packer2D::restore device " << device);
   CUDA_RUNTIME(cudaSetDevice(device));
 }
 #endif
 
-void PackerStride1::unpack(const void *inbuf, int *position, void *outbuf,
-                           const int outcount) const {
+void Packer2D::unpack(const void *inbuf, int *position, void *outbuf,
+                      const int outcount) const {
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));

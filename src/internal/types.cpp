@@ -2,8 +2,8 @@
 
 #include "logging.hpp"
 #include "packer_1d.hpp"
-#include "packer_stride_1.hpp"
-#include "packer_stride_2.hpp"
+#include "packer_2d.hpp"
+#include "packer_3d.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -471,14 +471,14 @@ std::unique_ptr<Packer> plan_pack(Type &type) {
           std::make_unique<Packer1D>(strided.start_, strided.counts[0]);
       return packer;
     } else if (2 == strided.ndims()) {
-      LOG_SPEW("select PackerStride1 for " << strided.str());
-      std::unique_ptr<Packer> packer = std::make_unique<PackerStride1>(
+      LOG_SPEW("select Packer2D for " << strided.str());
+      std::unique_ptr<Packer> packer = std::make_unique<Packer2D>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1]);
       return packer;
     } else if (3 == strided.ndims()) {
-      LOG_SPEW("select PackerStride2 for " << strided.str());
-      std::unique_ptr<Packer> packer = std::make_unique<PackerStride2>(
+      LOG_SPEW("select Packer3D for " << strided.str());
+      std::unique_ptr<Packer> packer = std::make_unique<Packer3D>(
           strided.start_, strided.counts[0], strided.counts[1],
           strided.strides[1], strided.counts[2], strided.strides[2]);
       return packer;
