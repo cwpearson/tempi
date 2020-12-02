@@ -5,8 +5,8 @@
 
 #include "cuda_runtime.hpp"
 #include "env.hpp"
+#include "packer_cache.hpp"
 #include "symbols.hpp"
-#include "types.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>

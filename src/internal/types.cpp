@@ -4,6 +4,7 @@
 #include "packer_1d.hpp"
 #include "packer_2d.hpp"
 #include "packer_3d.hpp"
+#include "packer_cache.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -27,7 +28,6 @@
 */
 
 std::map<MPI_Datatype, Type> traverseCache;
-/*extern*/ std::map<MPI_Datatype, std::unique_ptr<Packer>> packerCache;
 
 // decode an MPI datatype
 // https://www.mpi-forum.org/docs/mpi-2.0/mpi-20-html/node161.htm
@@ -472,9 +472,9 @@ std::unique_ptr<Packer> plan_pack(Type &type) {
       return packer;
     } else if (2 == strided.ndims()) {
       LOG_SPEW("select Packer2D for " << strided.str());
-      std::unique_ptr<Packer> packer = std::make_unique<Packer2D>(
-          strided.start_, strided.counts[0], strided.counts[1],
-          strided.strides[1]);
+      std::unique_ptr<Packer> packer =
+          std::make_unique<Packer2D>(strided.start_, strided.counts[0],
+                                     strided.counts[1], strided.strides[1]);
       return packer;
     } else if (3 == strided.ndims()) {
       LOG_SPEW("select Packer3D for " << strided.str());

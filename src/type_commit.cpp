@@ -3,6 +3,7 @@
 #include "packer.hpp"
 #include "symbols.hpp"
 #include "types.hpp"
+#include "packer_cache.hpp"
 
 #include <mpi.h>
 

@@ -20,7 +20,7 @@ endmacro()
 
 set(TEMPI_BINARY_SOURCES benchmark.cpp)
 
-
+add_tempi_executable(bench-pack bench_pack.cpp)
 add_tempi_executable(bench-mpi-pack bench_mpi_pack.cpp)
 add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp)

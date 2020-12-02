@@ -22,6 +22,7 @@ struct BenchResult {
 BenchResult bench(MPI_Datatype ty,  // message datatype
                   int count,        // number of datatypes
                   const int nIters, // iterations to measure
+                  const bool stage, // pack into host / unpack from host
                   const char *name = "<unnamed>") {
 
   MPI_Type_commit(&ty);
@@ -39,7 +40,11 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   char *src = {}, *dst = {};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&src, typeExtent * count));
-  CUDA_RUNTIME(cudaMalloc(&dst, packedSize));
+  if (stage) {
+    CUDA_RUNTIME(cudaHostAlloc(&dst, packedSize, cudaHostAllocMapped));
+  } else {
+    CUDA_RUNTIME(cudaMalloc(&dst, packedSize));
+  }
 
   Statistics packStats, unpackStats;
   nvtxRangePush(name);
@@ -60,7 +65,11 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   nvtxRangePop();
 
   CUDA_RUNTIME(cudaFree(src));
-  CUDA_RUNTIME(cudaFree(dst));
+  if (stage) {
+    CUDA_RUNTIME(cudaFreeHost(dst));
+  } else {
+    CUDA_RUNTIME(cudaFree(dst));
+  }
 
   MPI_Type_free(&ty);
 
@@ -103,6 +112,9 @@ int main(int argc, char **argv) {
   } else {
     nIters = 200;
   }
+
+  std::vector<bool> stage{
+      true}; // whether to one-shot pack device-host / unpack host-device
 
   BenchResult result;
 
@@ -152,7 +164,7 @@ int main(int argc, char **argv) {
 
               MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
 
-              result = bench(ty, count, nIters, s.c_str());
+              result = bench(ty, count, nIters, true, s.c_str());
 
               std::cout << ","
                         << double(result.size) / 1024.0 / 1024.0 /

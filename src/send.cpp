@@ -2,6 +2,7 @@
 #include "cuda_runtime.hpp"
 #include "env.hpp"
 #include "logging.hpp"
+#include "packer_cache.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
 #include "types.hpp"
