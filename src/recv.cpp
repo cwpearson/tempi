@@ -11,8 +11,7 @@
 
 #include <vector>
 
-static int pack_gpu_gpu_unpack(int device, Packer &packer,
-                               PARAMS_MPI_Recv) {
+static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
   // recv into device buffer
@@ -27,7 +26,8 @@ static int pack_gpu_gpu_unpack(int device, Packer &packer,
   LOG_SPEW("allocate " << packedBytes << "B device recv buffer");
 
   // recv into temporary buffer
-  int err = libmpi.MPI_Recv(packBuf, packedBytes, MPI_PACKED, source, tag, comm, status);
+  int err = libmpi.MPI_Recv(packBuf, packedBytes, MPI_PACKED, source, tag, comm,
+                            status);
 
   // unpack from temporary buffer
   int pos = 0;
@@ -36,6 +36,35 @@ static int pack_gpu_gpu_unpack(int device, Packer &packer,
   // release temporary buffer
   LOG_SPEW("free intermediate recv buffer");
   deviceAllocator.deallocate(packBuf, packedBytes);
+  return err;
+}
+
+/* recv data into pinned buffer and unpack into GPU */
+static int pack_cpu_cpu_unpack(int device, Packer &packer, PARAMS_MPI_Recv) {
+  CUDA_RUNTIME(cudaSetDevice(device));
+
+  // recv into device buffer
+  int packedBytes;
+  {
+    int tySize;
+    MPI_Type_size(datatype, &tySize);
+    packedBytes = tySize * count;
+  }
+  void *packBuf = nullptr;
+  packBuf = hostAllocator.allocate(packedBytes);
+  LOG_SPEW("allocate " << packedBytes << "B device recv buffer");
+
+  // recv into temporary buffer
+  int err = libmpi.MPI_Recv(packBuf, packedBytes, MPI_PACKED, source, tag, comm,
+                            status);
+
+  // unpack from temporary buffer
+  int pos = 0;
+  packer.unpack(packBuf, &pos, buf, count);
+
+  // release temporary buffer
+  LOG_SPEW("free intermediate recv buffer");
+  hostAllocator.deallocate(packBuf, packedBytes);
   return err;
 }
 
@@ -76,7 +105,7 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   auto pi = packerCache.find(datatype);
   if (packerCache.end() != pi) {
     LOG_SPEW("MPI_Recv: fast packer");
-    return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+    return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
   }
 
   // message size

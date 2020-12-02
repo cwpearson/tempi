@@ -13,6 +13,7 @@
 
 #include <vector>
 
+/* pack data into GPU buffer and send */
 static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
@@ -36,6 +37,34 @@ static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
 
   // release temporary buffer
   deviceAllocator.deallocate(packBuf, packedBytes);
+
+  return err;
+}
+
+/* pack data into pinned buffer and send */
+static int pack_cpu_cpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
+  CUDA_RUNTIME(cudaSetDevice(device));
+
+  // reserve intermediate buffer
+  int packedBytes;
+  {
+    int size;
+    MPI_Pack_size(count, datatype, comm, &size);
+    packedBytes = size;
+  }
+  void *packBuf = nullptr;
+  packBuf = hostAllocator.allocate(packedBytes);
+  LOG_SPEW("allocate " << packedBytes << "B device send buffer");
+
+  // pack into device buffer
+  int pos = 0;
+  packer.pack(packBuf, &pos, buf, count);
+
+  // send to other device
+  int err = libmpi.MPI_Send(packBuf, packedBytes, MPI_PACKED, dest, tag, comm);
+
+  // release temporary buffer
+  hostAllocator.deallocate(packBuf, packedBytes);
 
   return err;
 }
@@ -77,7 +106,7 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
   auto pi = packerCache.find(datatype);
   if (packerCache.end() != pi) {
     LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
-    return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
+    return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
   } else {
     LOG_SPEW("MPI_Send: no packer for " << uintptr_t(datatype));
   }
