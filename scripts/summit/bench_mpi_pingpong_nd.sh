@@ -3,7 +3,7 @@
 #BSUB -J bench_mpi_pingpong_nd 
 #BSUB -o bench_mpi_pingpong_nd.o%J
 #BSUB -e bench_mpi_pingpong_nd.e%J
-#BSUB -W 00:10
+#BSUB -W 02:00
 #BSUB -nnodes 2
 
 set -eou pipefail
