@@ -128,8 +128,11 @@ int main(int argc, char **argv) {
   std::vector<int> contigs{1, 2, 4, 8, 12, 16, 20, 24, 32, 64, 128, 256};
 
   int stride = 256;
-  bool stage = true;
+  bool stage;
 
+  // zero-copy pack time
+  std::cout << "oneshot pack\n";
+  stage = true;
   for (int contig : contigs) {
     std::cout << "," << contig;
   }
@@ -158,8 +161,10 @@ int main(int argc, char **argv) {
     std::cout << std::endl << std::flush;
   }
 
-
-for (int contig : contigs) {
+  // zero-copy unpack time
+  std::cout << "oneshot unpack\n";
+  stage = true;
+  for (int contig : contigs) {
     std::cout << "," << contig;
   }
   std::cout << std::endl << std::flush;
@@ -187,7 +192,67 @@ for (int contig : contigs) {
     std::cout << std::endl << std::flush;
   }
 
+  // device pack time
+  stage = false;
+  std::cout << "device pack\n";
+  for (int contig : contigs) {
+    std::cout << "," << contig;
+  }
+  std::cout << std::endl << std::flush;
 
+  for (int target : targets) {
+    std::cout << target;
+    for (int contig : contigs) {
+      if (contig > target) {
+        contig = target;
+      }
+
+      int numBlocks = target / contig;
+
+      std::string s;
+      s += std::to_string(target);
+      s += "|" + std::to_string(contig);
+      MPI_Datatype ty = make_2d_byte_vector(numBlocks, contig, stride);
+      result = bench(ty, nIters, stage, s.c_str());
+      MPI_Type_free(&ty);
+
+      std::cout << ",";
+      std::cout << result.packTime;
+      std::cout << std::flush;
+    }
+    std::cout << std::endl << std::flush;
+  }
+
+  // device unpack time
+  stage = false;
+  std::cout << "device unpack\n";
+  for (int contig : contigs) {
+    std::cout << "," << contig;
+  }
+  std::cout << std::endl << std::flush;
+
+  for (int target : targets) {
+    std::cout << target;
+    for (int contig : contigs) {
+      if (contig > target) {
+        contig = target;
+      }
+
+      int numBlocks = target / contig;
+
+      std::string s;
+      s += std::to_string(target);
+      s += "|" + std::to_string(contig);
+      MPI_Datatype ty = make_2d_byte_vector(numBlocks, contig, stride);
+      result = bench(ty, nIters, stage, s.c_str());
+      MPI_Type_free(&ty);
+
+      std::cout << ",";
+      std::cout << result.unpackTime;
+      std::cout << std::flush;
+    }
+    std::cout << std::endl << std::flush;
+  }
 
   MPI_Finalize();
   return 0;
