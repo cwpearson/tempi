@@ -10,12 +10,14 @@ namespace environment {
 /*extern*/ bool noTypeCommit;
 /*extern*/ PlacementMethod placement;
 /*extern*/ AlltoallvMethod alltoallv;
+/*extern*/ DatatypeMethod datatype;
 }; // namespace environment
 
 void read_environment() {
   using namespace environment;
   placement = PlacementMethod::NONE; // default to library placement
   alltoallv = AlltoallvMethod::AUTO;
+  datatype = DatatypeMethod::ONESHOT;
 
   noTempi = (nullptr != std::getenv("TEMPI_DISABLE"));
   noPack = (nullptr != std::getenv("TEMPI_NO_PACK"));
@@ -53,5 +55,12 @@ void read_environment() {
   }
   if (nullptr != std::getenv("TEMPI_PLACEMENT_RANDOM")) {
     placement = PlacementMethod::RANDOM;
+  }
+
+    if (nullptr != std::getenv("TEMPI_DATATYPE_ONESHOT")) {
+    datatype = DatatypeMethod::ONESHOT;
+  }
+    if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
+    datatype = DatatypeMethod::DEVICE;
   }
 }

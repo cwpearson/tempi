@@ -16,12 +16,18 @@ enum class AlltoallvMethod {
   ISIR_REMOTE_STAGED
 };
 
+enum class DatatypeMethod {
+  ONESHOT, // pack into mapped host buffer
+  DEVICE // pack into device buffer
+};
+
 namespace environment {
 extern bool noTempi; // disable all TEMPI globally
 extern bool noPack;
 extern bool noTypeCommit;
 extern PlacementMethod placement;
 extern AlltoallvMethod alltoallv;
+extern DatatypeMethod datatype;
 }; // namespace environment
 
 void read_environment();

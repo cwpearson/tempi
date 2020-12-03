@@ -106,8 +106,20 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
   // optimize for fast GPU packer
   auto pi = packerCache.find(datatype);
   if (packerCache.end() != pi) {
+
+    switch (environment::datatype){
+      case DatatypeMethod::ONESHOT: {
     LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
     return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
+      }
+      case DatatypeMethod::DEVICE: {
+    LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
+    return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
+      }
+      default:
+      LOG_ERROR("unexpected DatatypeMethod");
+      return MPI_ERR_UNKNOWN;
+    }
   } else {
     LOG_SPEW("MPI_Send: no packer for " << uintptr_t(datatype));
   }

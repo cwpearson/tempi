@@ -104,8 +104,19 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   // optimize packer
   auto pi = packerCache.find(datatype);
   if (packerCache.end() != pi) {
-    LOG_SPEW("MPI_Recv: fast packer");
-    return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+
+    switch(environment::datatype) {
+      case DatatypeMethod::ONESHOT: {
+return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+      }
+      case DatatypeMethod::DEVICE: {
+return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+      }
+      default: {
+        LOG_ERROR("unexpected DatatypeMethod");
+        return MPI_ERR_UNKNOWN;
+      }
+    }
   }
 
   // message size
