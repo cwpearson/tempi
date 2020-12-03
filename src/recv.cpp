@@ -11,7 +11,7 @@
 
 #include <vector>
 
-static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Recv) {
+static int recv_device(int device, Packer &packer, PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
   // recv into device buffer
@@ -40,7 +40,7 @@ static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Recv) {
 }
 
 /* recv data into pinned buffer and unpack into GPU */
-static int pack_cpu_cpu_unpack(int device, Packer &packer, PARAMS_MPI_Recv) {
+static int recv_oneshot(int device, Packer &packer, PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
   // recv into device buffer
@@ -107,10 +107,10 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
 
     switch(environment::datatype) {
       case DatatypeMethod::ONESHOT: {
-return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+return recv_oneshot(attr.device, *(pi->second), ARGS_MPI_Recv);
       }
       case DatatypeMethod::DEVICE: {
-return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Recv);
+return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
       }
       default: {
         LOG_ERROR("unexpected DatatypeMethod");

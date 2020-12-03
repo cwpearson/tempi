@@ -15,7 +15,7 @@
 #include <vector>
 
 /* pack data into GPU buffer and send */
-static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
+static int send_device(int device, Packer &packer, PARAMS_MPI_Send) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
   // reserve intermediate buffer
@@ -43,7 +43,7 @@ static int pack_gpu_gpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
 }
 
 /* pack data into pinned buffer and send */
-static int pack_cpu_cpu_unpack(int device, Packer &packer, PARAMS_MPI_Send) {
+static int send_oneshot(int device, Packer &packer, PARAMS_MPI_Send) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
   // reserve intermediate buffer
@@ -109,12 +109,12 @@ extern "C" int MPI_Send(PARAMS_MPI_Send) {
 
     switch (environment::datatype){
       case DatatypeMethod::ONESHOT: {
-    LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
-    return pack_cpu_cpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
+    LOG_SPEW("MPI_Send: send_oneshot");
+    return send_oneshot(attr.device, *(pi->second), ARGS_MPI_Send);
       }
       case DatatypeMethod::DEVICE: {
-    LOG_SPEW("MPI_Send: pack_gpu_gpu_unpack");
-    return pack_gpu_gpu_unpack(attr.device, *(pi->second), ARGS_MPI_Send);
+    LOG_SPEW("MPI_Send: send_device");
+    return send_device(attr.device, *(pi->second), ARGS_MPI_Send);
       }
       default:
       LOG_ERROR("unexpected DatatypeMethod");

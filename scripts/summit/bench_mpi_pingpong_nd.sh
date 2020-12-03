@@ -23,15 +23,31 @@ mkdir -p $SCRATCH
 
 echo "summit pingpong-nd" > $OUT
 
-echo "1nodes,2rankpernode,tempi" >> $OUT
+echo "1nodes,2rankpernode,tempi-datatype-oneshot" >> $OUT
+export TEMPI_DATATYPE_ONESHOT=""
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
+unset TEMPI_DATATYPE_ONESHOT
+
+echo "1nodes,2rankpernode,tempi-datatype-device" >> $OUT
+export TEMPI_DATATYPE_DEVICE=""
+jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
+unset TEMPI_DATATYPE_DEVICE
+
 echo "1nodes,2rankpernode,notempi" >> $OUT
 export TEMPI_DISABLE=""
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
 unset TEMPI_DISABLE
 
-echo "2nodes,1rankpernode,tempi" >> $OUT
+echo "2nodes,1rankpernode,tempi-datatype-oneshot" >> $OUT
+export TEMPI_DATATYPE_ONESHOT=""
 jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
+unset TEMPI_DATATYPE_ONESHOT
+
+echo "2nodes,1rankpernode,tempi-datatype-device" >> $OUT
+export TEMPI_DATATYPE_DEVICE=""
+jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
+unset TEMPI_DATATYPE_DEVICE
+
 echo "2nodes,1rankpernode,notempi" >> $OUT
 export TEMPI_DISABLE=""
 jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-nd | tee -a $OUT
