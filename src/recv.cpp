@@ -128,7 +128,7 @@ return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
   }
 
   // use staged for big remote messages
-  if (!is_colocated(comm, source) && numBytes >= (1 << 19) &&
+  if (!is_colocated(comm, source) && numBytes > (1 << 18) &&
       numBytes < (1 << 21)) {
     LOG_SPEW("MPI_Recv: staged");
     return staged(numBytes, ARGS_MPI_Recv);
