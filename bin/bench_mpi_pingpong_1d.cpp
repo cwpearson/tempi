@@ -53,6 +53,7 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
 
   Statistics stats;
   nvtxRangePush(name);
+  double itersStart = MPI_Wtime();
   for (int n = 0; n < nIters; ++n) {
     int position = 0;
     MPI_Barrier(MPI_COMM_WORLD);
@@ -85,25 +86,15 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   }
 
   if (ty != MPI_BYTE) {
-    MPI_Type_commit(&ty);
+    MPI_Type_free(&ty);
   }
 
   // type is send back and forth
-  return BenchResult{.bytes = typeSize * count, .pingPongTime = stats.min()};
+  return BenchResult{.bytes = typeSize * count, .pingPongTime = stats.trimean()};
 }
 
 struct Factory1D {
   TypeFactory1D fn;
-  const char *name;
-};
-
-struct Factory2D {
-  TypeFactory2D fn;
-  const char *name;
-};
-
-struct Factory3D {
-  TypeFactory3D fn;
   const char *name;
 };
 
@@ -120,112 +111,46 @@ int main(int argc, char **argv) {
     LOG_FATAL("needs even number of ranks");
   }
 
-  int nIters = 10;
-  std::string s;
-
-  BenchResult result;
-
+  int nIters;
+  std::vector<int64_t> totals;
   std::vector<bool> hosts{true, false};
-  std::vector<int> counts;
-
-  /* 2D types
-   */
-
-  if (0 == rank) {
-    std::cout << "desc,ranks,numblocks,blocklength,stride,B/rank,B,elapsed "
-                 "(s),bandwidth/rank "
-                 "(MiB/s), bandwidth agg (MiB/s)\n";
-  }
-
-  int numBlocks = 1000;
-  int count = 1;
-  std::vector<Factory2D> factories2d{
-      Factory2D{make_2d_byte_vector, "2d_byte_vector"},
-      Factory2D{make_2d_byte_hvector, "2d_byte_hvector"},
-      Factory2D{make_2d_byte_subarray, "2d_byte_subarray"}};
-
-  std::vector<int> blockLengths{1, 2, 4, 8, 128};
-
-  for (Factory2D factory : factories2d) {
-
-    for (int blockLength : blockLengths) {
-
-      std::vector<int> strides;
-      for (int i = blockLength; i < 512; i *= 2) {
-        strides.push_back(i);
-      }
-
-      for (int stride : strides) {
-
-        s = factory.name;
-        s += "|" + std::to_string(numBlocks);
-        s += "|" + std::to_string(blockLength);
-        s += "|" + std::to_string(stride);
-
-        if (0 == rank) {
-          std::cout << s;
-          std::cout << "," << size;
-          std::cout << "," << numBlocks;
-          std::cout << "," << blockLength;
-          std::cout << "," << stride;
-          std::cout << std::flush;
-        }
-
-        MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
-
-        result = bench(ty, 1, false /*host*/, nIters, s.c_str());
-
-        if (0 == rank) {
-          std::cout << "," << result.bytes;        // size of a send
-          std::cout << "," << result.bytes * size; // total data sent
-          // bw per rank. each pingpong has two sends
-          std::cout << "," << 2 * result.bytes / result.pingPongTime;
-          // agg bw (total data sent / time)
-          std::cout << "," << result.bytes * size / result.pingPongTime;
-          std::cout << "\n";
-          std::cout << std::flush;
-        }
-      }
-    }
-  }
 
   /* 1D types
    */
 
+  nIters = 200;
+
+
   if (0 == rank) {
-    std::cout << "desc,host,ranks,B/rank,B,elapsed (s),bandwidth/rank "
+    std::cout << "desc,host,B/rank,B,elapsed (s),bandwidth/rank "
                  "(MiB/s), bandwidth agg (MiB/s)\n";
   }
 
-  counts = {1,     2,       4,       8,       16,      32,      64,    128,
+  totals = {1,     2,       4,       8,       16,      32,      64,    128,
             256,   512,     1024,    1 << 11, 4096,    1 << 13, 16384, 1 << 15,
-            65536, 1 << 17, 1 << 19, 1 << 20, 1 << 21, 1 << 24};
+            65536, 98304, 1 << 17, 1 << 18, 393216, 1 << 19, 1 << 20, 1 << 21, 1 << 24};
 
   for (bool host : hosts) {
-    for (int count : counts) {
+    for (int total : totals) {
 
-      s = std::to_string(host) + "|" + std::to_string(size) + "|" +
-          std::to_string(count);
+      std::string s = std::to_string(host) + "|" + 
+          std::to_string(total);
 
       if (0 == rank) {
         std::cout << s;
         std::cout << "," << host;
-        std::cout << "," << size;
-        std::cout << "," << count;
-        std::cout << "," << count * size;
+        std::cout << "," << total;
+        std::cout << "," << total * size;
         std::cout << std::flush;
       }
 
       nvtxRangePush(s.c_str());
-      result = bench(MPI_BYTE, count, host, nIters, s.c_str());
+      BenchResult result = bench(MPI_BYTE, total, host, nIters, s.c_str());
       nvtxRangePop();
       if (0 == rank) {
-        std::cout << "," << result.pingPongTime;
-
-        // half the ranks send, then the other half, so each rank sends once
-        std::cout << "," << double(count) / 1024 / 1024 / result.pingPongTime;
-        std::cout << ","
-                  << double(count) * size / 1024 / 1024 / result.pingPongTime;
+        std::cout << "," << result.pingPongTime / 2;
+        std::cout << "," << 2 * result.bytes / 1024.0 / 1024.0 / result.pingPongTime;
+        std::cout << "," << result.bytes * size / 1024.0 / 1024.0 / result.pingPongTime;
         std::cout << "\n";
         std::cout << std::flush;
       }

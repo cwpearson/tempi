@@ -22,7 +22,8 @@ set(TEMPI_BINARY_SOURCES benchmark.cpp)
 
 add_tempi_executable(bench-pack bench_pack.cpp)
 add_tempi_executable(bench-mpi-pack bench_mpi_pack.cpp)
-add_tempi_executable(bench-mpi-pingpong bench_mpi_pingpong.cpp)
+add_tempi_executable(bench-mpi-pingpong-1d bench_mpi_pingpong_1d.cpp)
+add_tempi_executable(bench-mpi-pingpong-nd bench_mpi_pingpong_nd.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp)
 
