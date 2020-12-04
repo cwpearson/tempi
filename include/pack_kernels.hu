@@ -1,0 +1,72 @@
+#include <cassert>
+#include <cstdint>
+#include <cstdio>
+
+/*
+ */
+template <unsigned W>
+__device__ void warp_memcpy_aligned(void *__restrict__ dst,
+                                    const void *__restrict__ src, size_t n) {
+
+  assert(n % W == 0 && "wrong word size");
+
+  uint8_t lx = threadIdx.x % 32;
+  for (int i = lx; i < n / W; i += 32) {
+
+
+    if (1 == W) {
+      static_cast<uint8_t *>(dst)[i] = static_cast<const uint8_t *>(src)[i];
+    } else if (2 == W) {
+      static_cast<uint16_t *>(dst)[i] = static_cast<const uint16_t *>(src)[i];
+    } else if (4 == W) {
+      static_cast<uint32_t *>(dst)[i] = static_cast<const uint32_t *>(src)[i];
+    } else if (8 == W) {
+      static_cast<uint64_t *>(dst)[i] = static_cast<const uint64_t *>(src)[i];
+    } else if (16 == W) {
+      static_cast<ulonglong2 *>(dst)[i] = static_cast<const ulonglong2 *>(src)[i];
+    } else if (32 == W) {
+      static_cast<ulonglong4 *>(dst)[i] = static_cast<const ulonglong4 *>(src)[i];
+    }
+  }
+}
+
+template <unsigned W>
+__global__ void
+pack_bytes_aligned(void *__restrict__ outbuf, const void *__restrict__ inbuf,
+                   const unsigned incount, const unsigned count0,
+                   const unsigned count1, const unsigned stride1,
+                   const unsigned extent) {
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+  const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
+
+  for (int z = tz; z < incount; z += gridDim.z * blockDim.z) {
+    char *__restrict__ dst =
+        reinterpret_cast<char *>(outbuf) + z * count1 * count0;
+    const char *__restrict__ src =
+        reinterpret_cast<const char *>(inbuf) + z * extent;
+
+    for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+      unsigned bo = y * count0;
+      unsigned bi = y * stride1;
+#if 0
+      if (tx == 0) {
+        printf("%u %u\n", bi, count0);
+      }
+#endif
+      warp_memcpy_aligned<W>(dst + bo, src + bi, count0);
+    }
+  }
+}
+
+struct LaunchInfo {
+  dim3 dimGrid;
+  dim3 dimBlock;
+  cudaStream_t stream;
+};
+
+struct Pack2DAligned {
+
+  LaunchInfo get_launch_info();
+};

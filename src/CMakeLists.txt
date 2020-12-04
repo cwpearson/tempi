@@ -19,6 +19,7 @@ ${CMAKE_CURRENT_LIST_DIR}/wait.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/pack_kernels.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_1d.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_2d.cu
