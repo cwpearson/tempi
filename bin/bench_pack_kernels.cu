@@ -131,8 +131,8 @@ int main(int argc, char **argv) {
 
   int nIters = 30;
 
-  std::vector<bool> stage{
-      true}; // whether to one-shot pack device-host / unpack host-device
+  std::vector<bool> stages{
+      false, true}; // whether to one-shot pack device-host / unpack host-device
 
   BenchResult result;
 
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
   std::vector<int> counts{1, 2};
   // counts = {1};
 
-  std::cout << "s,count,numblocks,stride,blocklengths";
+  std::cout << "s,one-shot,count,numblocks,stride,blocklengths";
   std::cout << std::endl << std::flush;
 
   std::vector<int> blockLengths{1, 2, 4, 6, 8, 12, 16, 20, 32, 64, 128, 256};
@@ -153,40 +153,44 @@ int main(int argc, char **argv) {
   std::vector<int> strides{16, 256};
   // strides = {16};
 
-  for (int target : targets) {
-    for (int count : counts) {
-      for (int stride : strides) {
-        for (int blockLength : blockLengths) {
+  for (bool stage: stages){
+    for (int target : targets) {
+      for (int count : counts) {
+        for (int stride : strides) {
+          for (int blockLength : blockLengths) {
 
-          int numBlocks = target / blockLength;
+            int numBlocks = target / blockLength;
 
-          if (numBlocks > 0 && stride >= blockLength) {
+            if (numBlocks > 0 && stride >= blockLength) {
 
-            std::string s;
-            s += std::to_string(count);
-            s += "|" + std::to_string(target);
-            s += "|" + std::to_string(stride);
-            s += "|" + std::to_string(blockLength);
+              std::string s;
+              s += std::to_string(stage);
+              s += "|" + std::to_string(count);
+              s += "|" + std::to_string(target);
+              s += "|" + std::to_string(stride);
+              s += "|" + std::to_string(blockLength);
 
-            std::cout << s;
-            std::cout << "," << count;
-            std::cout << "," << target;
-            std::cout << "," << stride;
-            std::cout << "," << blockLength;
-            std::cout << std::flush;
+              std::cout << s;
+              std::cout << "," << stage;
+              std::cout << "," << count;
+              std::cout << "," << target;
+              std::cout << "," << stride;
+              std::cout << "," << blockLength;
+              std::cout << std::flush;
 
-            BenchArgs args{.numBlocks = numBlocks,
-                           .blockLength = blockLength,
-                           .stride = stride,
-                           .count = count};
+              BenchArgs args{.numBlocks = numBlocks,
+                             .blockLength = blockLength,
+                             .stride = stride,
+                             .count = count};
 
-            result = bench(args, nIters, true, s.c_str());
+              result = bench(args, nIters, stage, s.c_str());
 
-            std::cout << ","
-                      << double(result.size) / 1024.0 / 1024.0 /
-                             result.packTime;
-            std::cout << std::flush;
-            std::cout << std::endl << std::flush;
+              std::cout << ","
+                        << double(result.size) / 1024.0 / 1024.0 /
+                               result.packTime;
+              std::cout << std::flush;
+              std::cout << std::endl << std::flush;
+            }
           }
         }
       }
