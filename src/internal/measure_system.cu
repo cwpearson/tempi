@@ -1,5 +1,6 @@
 #include "benchmark.hpp"
 #include "cuda_runtime.hpp"
+#include "logging.hpp"
 #include "measure_system.hpp"
 
 #include <mpi.h>
@@ -43,17 +44,39 @@ public:
   }
 };
 
-void measure_system(MPI_Comm comm) {
+bool load_benchmark_cache(MPI_Comm comm) {
+  LOG_ERROR("unable to load benchmark cache. unimpemented");
+  return false;
+}
 
-  int rank, size;
+bool benchmark_system(MPI_Comm comm) {
+
+  int rank;
   MPI_Comm_rank(comm, &rank);
-  MPI_Comm_size(comm, &size);
 
   if (rank == 0) {
-    Benchmark *bm = new KernelLaunchBenchmark();
-    Benchmark::Result res = bm->run();
+    KernelLaunchBenchmark bm;
+    Benchmark::Result res = bm.run();
     std::cerr << "=== " << res.trimean << " " << res.nIters << " ===\n";
-    delete bm;
     kernelLaunch.secs = res.trimean;
+  }
+
+  return true;
+}
+
+bool save_benchmark_cache(MPI_Comm comm) {
+  int rank;
+  MPI_Comm_rank(comm, &rank);
+  if (0 == rank) {
+    LOG_ERROR("save_benchmark_cache unimplemented");
+  }
+  return false;
+}
+
+void measure_system(MPI_Comm comm) {
+
+  if (!load_benchmark_cache(comm)) {
+    benchmark_system(comm);
+    save_benchmark_cache(comm);
   }
 }
