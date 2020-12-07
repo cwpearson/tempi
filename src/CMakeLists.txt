@@ -18,7 +18,10 @@ ${CMAKE_CURRENT_LIST_DIR}/wait.cpp
 
 ${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/benchmark.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/iid.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/pack_kernels.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_1d.cu
@@ -27,6 +30,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/packer_3d.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_cache.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/partition.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/requests.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/statistics.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/symbols.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/task_staged_isend.cpp

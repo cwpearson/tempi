@@ -17,4 +17,5 @@ public:
   double trimean();
   double med();
   double stddev() const;
+  const std::vector<double> &raw() const { return x; }
 };
