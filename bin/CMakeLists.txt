@@ -1,4 +1,4 @@
-add_library(tempi_bin OBJECT benchmark.cpp method.cpp statistics.cpp)
+add_library(tempi_bin OBJECT benchmark.cpp method.cpp)
 tempi_add_output_level_defines(tempi_bin)
 target_include_directories(tempi_bin SYSTEM PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 target_include_directories(tempi_bin PRIVATE ${MPI_CXX_INCLUDE_DIRS})
