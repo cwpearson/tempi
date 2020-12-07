@@ -3,7 +3,7 @@
 std::random_device rd;
 /*extern*/ std::mt19937 g(rd());
 
-double avg(const std::vector<int64_t> &s) {
+inline double avg(const std::vector<int64_t> &s) {
   double a = 0;
   for (int64_t e : s) {
     a += e;
@@ -11,7 +11,7 @@ double avg(const std::vector<int64_t> &s) {
   return a / s.size();
 }
 
-double med(const std::vector<int64_t> &s) {
+inline double med(const std::vector<int64_t> &s) {
   if (s.size() % 2) {
     return (s[s.size() / 2] + s[s.size() / 2 + 1]) / 2;
   } else {
@@ -19,7 +19,7 @@ double med(const std::vector<int64_t> &s) {
   }
 }
 
-int64_t get_excursion(const std::vector<int64_t> &s) {
+inline int64_t get_excursion(const std::vector<int64_t> &s) {
   double xBar = avg(s);
   int64_t runSum = 0;
   double maxExc = -1;
@@ -31,7 +31,7 @@ int64_t get_excursion(const std::vector<int64_t> &s) {
   return maxExc;
 }
 
-int64_t get_num_runs(const std::vector<int64_t> &s) {
+inline int64_t get_num_runs(const std::vector<int64_t> &s) {
 
   std::vector<bool> sp(s.size() - 1);
 
@@ -52,7 +52,7 @@ int64_t get_num_runs(const std::vector<int64_t> &s) {
   return numRuns;
 }
 
-int64_t get_longest_run(const std::vector<int64_t> &s) {
+inline int64_t get_longest_run(const std::vector<int64_t> &s) {
 
   std::vector<int> sp;
 
@@ -76,7 +76,7 @@ int64_t get_longest_run(const std::vector<int64_t> &s) {
   return longestRun;
 }
 
-int64_t get_num_inc_dec(const std::vector<int64_t> &s) {
+inline int64_t get_num_inc_dec(const std::vector<int64_t> &s) {
 
   int64_t ni = 0, nd = 0;
 
@@ -91,7 +91,7 @@ int64_t get_num_inc_dec(const std::vector<int64_t> &s) {
   return std::max(nd, ni);
 }
 
-int64_t get_num_runs_med(const std::vector<int64_t> &s) {
+inline int64_t get_num_runs_med(const std::vector<int64_t> &s) {
 
   double m = med(s);
   std::vector<int> sp;
@@ -113,7 +113,7 @@ int64_t get_num_runs_med(const std::vector<int64_t> &s) {
   return numRuns;
 }
 
-int64_t get_longest_run_med(const std::vector<int64_t> &s) {
+inline int64_t get_longest_run_med(const std::vector<int64_t> &s) {
 
   double m = med(s);
   std::vector<int> sp;
@@ -138,7 +138,7 @@ int64_t get_longest_run_med(const std::vector<int64_t> &s) {
   return longestRun;
 }
 
-int64_t get_average_collision(const std::vector<int64_t> &s) {
+inline int64_t get_average_collision(const std::vector<int64_t> &s) {
 
   std::vector<int64_t> c;
 
@@ -157,7 +157,7 @@ int64_t get_average_collision(const std::vector<int64_t> &s) {
   return avg(c);
 }
 
-int64_t get_max_collision(const std::vector<int64_t> &s) {
+inline int64_t get_max_collision(const std::vector<int64_t> &s) {
 
   std::vector<int64_t> c;
 
@@ -191,14 +191,29 @@ bool sp_800_90B(const std::vector<double> &s) {
   }
   std::cerr << "\n";
 
-#if 0
+  // use this sort of strange construction so that we can reuse the
+  // std::shuffle which is slow for large numbers of samples
   int64_t t[8]{}, tp[8][10000]{};
   t[0] = get_excursion(fixed);
+  t[1] = get_num_runs(fixed);
+  t[2] = get_longest_run(fixed);
+  t[3] = get_num_inc_dec(fixed);
+  t[4] = get_num_runs_med(fixed);
+  t[5] = get_longest_run_med(fixed);
+  t[6] = get_average_collision(fixed);
+  t[7] = get_max_collision(fixed);
   for (int j = 0; j < 10000; ++j) {
     std::vector<int64_t> fixedp = fixed;
     std::shuffle(fixedp.begin(), fixedp.end(), g);
 
     tp[0][j] = get_excursion(fixedp);
+    tp[1][j] = get_num_runs(fixedp);
+    tp[2][j] = get_longest_run(fixedp);
+    tp[3][j] = get_num_inc_dec(fixedp);
+    tp[4][j] = get_num_runs_med(fixedp);
+    tp[5][j] = get_longest_run_med(fixedp);
+    tp[6][j] = get_average_collision(fixedp);
+    tp[7][j] = get_max_collision(fixedp);
   }
 
   for (int i = 0; i < 8; ++i) {
@@ -217,43 +232,5 @@ bool sp_800_90B(const std::vector<double> &s) {
       return false;
     }
   }
-  return true;
-#endif
-
-  if (!permutation_test<get_excursion>(fixed)) {
-    std::cerr << "failed excursion\n";
-    return false;
-  }
-  if (!permutation_test<get_num_runs>(fixed)) {
-    std::cerr << "failed number of directional runs\n";
-    return false;
-  }
-  if (!permutation_test<get_longest_run>(fixed)) {
-    std::cerr << "failed number of directional runs\n";
-    return false;
-  }
-  if (!permutation_test<get_num_inc_dec>(fixed)) {
-    std::cerr << "failed number inc/dec\n";
-    return false;
-  }
-  if (!permutation_test<get_num_runs_med>(fixed)) {
-    std::cerr << "failed number of runs by median\n";
-    return false;
-  }
-  if (!permutation_test<get_longest_run_med>(fixed)) {
-    std::cerr << "failed longest run by median\n";
-    return false;
-  }
-  if (!permutation_test<get_average_collision>(fixed)) {
-    std::cerr << "failed average collision\n";
-    return false;
-  }
-  if (!permutation_test<get_max_collision>(fixed)) {
-    std::cerr << "failed max collision\n";
-    return false;
-  } else {
-    // std::cerr << "PASS max collision\n";
-  }
-
   return true;
 }
