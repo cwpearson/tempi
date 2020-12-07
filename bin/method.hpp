@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../support/squaremat.hpp"
-#include "statistics.hpp"
+#include "../include/statistics.hpp"
 
 #include <chrono>
 #include <string>
