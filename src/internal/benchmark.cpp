@@ -13,15 +13,11 @@ Benchmark::Result Benchmark::run() {
 
   setup();
 
-  // warmup for 5 iters or 0.01s, whichever comes first
   {
-    Time start = Clock::now();
-    Duration warmupSecs{};
     int iter = 0;
-    while (warmupSecs.count() < maxWarmupSecs || iter < minWarmupIter) {
+    while (iter < minWarmupIter) {
       run_iter();
       ++iter;
-      warmupSecs = Clock::now() - start;
     }
   }
 
@@ -64,15 +60,12 @@ Benchmark::Result MpiBenchmark::run() {
   setup();
 
   {
-    Time start = Clock::now();
-    Duration warmupSecs{};
     int iter = 0;
     bool keepRunning = true;
     while (keepRunning) {
       run_iter();
       ++iter;
-      warmupSecs = Clock::now() - start;
-      keepRunning = warmupSecs.count() < maxWarmupSecs || iter < minWarmupIter;
+      keepRunning = iter < minWarmupIter;
       MPI_Bcast(&keepRunning, 1, MPI_C_BOOL, 0, comm_);
     }
     MPI_Barrier(comm_);
@@ -97,8 +90,8 @@ Benchmark::Result MpiBenchmark::run() {
       ++iter;
       Duration trialDur = Clock::now() - trialStart;
       stats.insert(res.time);
-      runIter = (iter < minSamples || trialDur.count() < maxTrialTime) &&
-                iter < maxSamples;
+      runIter = iter < minSamples || (trialDur.count() < maxTrialTime &&
+                iter < maxSamples);
       MPI_Bcast(&runIter, 1, MPI_C_BOOL, 0, comm_);
     }
     ++trial;
