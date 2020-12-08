@@ -9,12 +9,11 @@ class Benchmark {
 protected:
   // minimum guaranteed warmup iterations and maximum warmup time
   constexpr static int64_t minWarmupIter = 2;
-  constexpr static double maxWarmupSecs = 0.01;
 
   // maximum number of samples to take per trial
-  constexpr static int64_t minSamples = 7;    // empirically determined
-  constexpr static int64_t maxSamples = 500; // performance of tests
-  constexpr static int64_t maxTrials = 10;
+  constexpr static int64_t minSamples = 7;    // larger -> more accurate iid test
+  constexpr static int64_t maxSamples = 500; // smaller -> faster iid test
+  constexpr static int64_t maxTrials = 5; // how many times to try getting to iid
   constexpr static double maxTrialTime = 0.1; // maximum time allowed per trial
 
 public:
