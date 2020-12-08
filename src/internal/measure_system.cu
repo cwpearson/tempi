@@ -56,9 +56,9 @@ public:
 
     int rank;
     MPI_Comm_rank(comm_, &rank);
-    int reps = 2000 / buf_.size();
-    if (reps < 10)
-      reps = 10;
+    int reps = 1000 / buf_.size();
+    if (reps < 2)
+      reps = 2;
     Time start = Clock::now();
     for (int i = 0; i < reps; ++i) {
 
