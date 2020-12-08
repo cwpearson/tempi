@@ -11,10 +11,12 @@ std::random_device rd;
 /*extern*/ std::mt19937 g(rd());
 
 inline double med(const std::vector<double> &s) {
-  if (s.size() % 2) {
-    return (s[s.size() / 2] + s[s.size() / 2 + 1]) / 2;
+  std::vector<double> sp = s;
+  std::sort(sp.begin(), sp.end());
+  if (sp.size() % 2) {
+    return (sp[sp.size() / 2] + sp[sp.size() / 2 + 1]) / 2;
   } else {
-    return s[s.size() / 2];
+    return sp[sp.size() / 2];
   }
 }
 
@@ -200,7 +202,10 @@ bool sp_800_90B(const std::vector<double> &s) {
   // std::shuffle which is slow for large numbers of samples
   int64_t t[NUM_TESTS]{}, tp[NUM_TESTS][10000]{};
   for (int i = 0; i < NUM_TESTS; ++i) {
+    //Time start = Clock::now();
     t[i] = tests[i].fn(s);
+    //Time stop = Clock::now();
+    //std::cerr << i << " " << Duration(stop - start).count() << "\n";
   }
 
   for (int j = 0; j < 10000; ++j) {
@@ -208,12 +213,14 @@ bool sp_800_90B(const std::vector<double> &s) {
     std::shuffle(sp.begin(), sp.end(), g);
     for (int i = 0; i < NUM_TESTS; ++i) {
       tp[i][j] = tests[i].fn(sp);
+#if 0
       if (1 == i && j < 10) {
         std::cerr << tp[i][j] << " ";
       }
       if (1 == i && j == 11) {
         std::cerr << "\n";
       }
+#endif
     }
   }
 
