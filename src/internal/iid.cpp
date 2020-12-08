@@ -1,17 +1,16 @@
 #include "iid.hpp"
 
+#include <cassert>
+#include <chrono>
+
+typedef std::chrono::high_resolution_clock Clock;
+typedef std::chrono::duration<double> Duration;
+typedef std::chrono::time_point<Clock, Duration> Time;
+
 std::random_device rd;
 /*extern*/ std::mt19937 g(rd());
 
-inline double avg(const std::vector<int64_t> &s) {
-  double a = 0;
-  for (int64_t e : s) {
-    a += e;
-  }
-  return a / s.size();
-}
-
-inline double med(const std::vector<int64_t> &s) {
+inline double med(const std::vector<double> &s) {
   if (s.size() % 2) {
     return (s[s.size() / 2] + s[s.size() / 2 + 1]) / 2;
   } else {
@@ -19,64 +18,55 @@ inline double med(const std::vector<int64_t> &s) {
   }
 }
 
-inline int64_t get_excursion(const std::vector<int64_t> &s) {
+inline bool eq(double a, double b) { return a == b; }
+
+inline double get_excursion(const std::vector<double> &s) {
   double xBar = avg(s);
-  int64_t runSum = 0;
+  double runSum = 0;
   double maxExc = -1;
   for (size_t i = 0; i < s.size(); ++i) {
     runSum += s[i];
-    double exc = std::abs(runSum - (i + 1) * xBar);
+    double exc = std::abs(double(runSum) - (i + 1) * xBar);
     maxExc = std::max(maxExc, exc);
   }
+  assert(maxExc >= 0);
   return maxExc;
 }
 
-inline int64_t get_num_runs(const std::vector<int64_t> &s) {
-
-  std::vector<bool> sp(s.size() - 1);
-
-  for (size_t i = 0; i < s.size() - 1; ++i) {
-    if (s[i] > s[i + 1]) {
-      sp[i] = false;
-    } else {
-      sp[i] = true;
-    }
-  }
+// number of directional runs.
+inline double get_num_runs(const std::vector<double> &s) {
 
   size_t numRuns = 1;
-  for (size_t i = 0; i < sp.size() - 1; ++i) {
-    if (sp[i] != sp[i + 1]) {
+  for (size_t i = 0; i < s.size() - 2; ++i) {
+    bool spi = s[i] <= s[i + 1];
+    bool spj = s[i + 1] <= s[i + 2];
+    if (spi != spj) {
       ++numRuns;
     }
   }
+
   return numRuns;
 }
 
-inline int64_t get_longest_run(const std::vector<int64_t> &s) {
+inline double get_longest_run(const std::vector<double> &s) {
 
-  std::vector<int> sp;
+  int64_t currRun = 1, longestRun = 0;
 
-  for (size_t i = 0; i < s.size() - 1; ++i) {
-    if (s[i] > s[i + 1]) {
-      sp.push_back(-1);
-    } else {
-      sp.push_back(1);
-    }
-  }
-
-  int64_t currRun = 1, longestRun = -1;
-  for (size_t i = 0; i < sp.size() - 1; ++i) {
-    if (sp[i] == sp[i + 1]) {
+  for (size_t i = 0; i < s.size() - 2; ++i) {
+    bool spi = s[i] <= s[i + 1];
+    bool spj = s[i + 1] <= s[i + 2];
+    if (spi == spj) {
       ++currRun;
     } else {
       longestRun = std::max(currRun, longestRun);
       currRun = 1;
     }
   }
+
   return longestRun;
 }
 
-inline int64_t get_num_inc_dec(const std::vector<int64_t> &s) {
+inline double get_num_inc_dec(const std::vector<double> &s) {
 
   int64_t ni = 0, nd = 0;
 
@@ -91,7 +81,7 @@ inline int64_t get_num_inc_dec(const std::vector<int64_t> &s) {
   return std::max(nd, ni);
 }
 
-inline int64_t get_num_runs_med(const std::vector<int64_t> &s) {
+inline double get_num_runs_med(const std::vector<double> &s) {
 
   double m = med(s);
   std::vector<int> sp;
@@ -113,7 +103,7 @@ inline int64_t get_num_runs_med(const std::vector<int64_t> &s) {
   return numRuns;
 }
 
-inline int64_t get_longest_run_med(const std::vector<int64_t> &s) {
+inline double get_longest_run_med(const std::vector<double> &s) {
 
   double m = med(s);
   std::vector<int> sp;
@@ -138,9 +128,9 @@ inline int64_t get_longest_run_med(const std::vector<int64_t> &s) {
   return longestRun;
 }
 
-inline int64_t get_average_collision(const std::vector<int64_t> &s) {
+inline double get_average_collision(const std::vector<double> &s) {
 
-  std::vector<int64_t> c;
+  std::vector<double> c;
 
   int64_t i = 0;
   while (i < int64_t(s.size())) {
@@ -157,17 +147,15 @@ inline int64_t get_average_collision(const std::vector<int64_t> &s) {
   return avg(c);
 }
 
-inline int64_t get_max_collision(const std::vector<int64_t> &s) {
+inline double get_max_collision(const std::vector<double> &s) {
 
-  std::vector<int64_t> c;
+  std::vector<double> c;
 
-  size_t length;
-  int64_t start = s[0];
   int64_t i = 0;
   int64_t maxC = -1;
-  while (i < s.size()) {
+  while (i < int64_t(s.size())) {
     int64_t j;
-    for (j = i + 1; j < s.size(); ++j) {
+    for (j = i + 1; j < int64_t(s.size()); ++j) {
       if (s[i] == s[j]) {
         maxC = std::max(maxC, j - i);
         break;
@@ -179,9 +167,23 @@ inline int64_t get_max_collision(const std::vector<int64_t> &s) {
   return maxC;
 }
 
+struct Test {
+  double (*fn)(const std::vector<double> &);
+  const char *name;
+};
+
+Test tests[]{{get_excursion, "excursion"},
+             {get_num_runs, "num_runs"},
+             {get_longest_run, "longest_run"},
+             {get_num_inc_dec, "num_inc_dec"},
+             {get_num_runs_med, "num_runs_med"},
+             {get_longest_run_med, "longest_run_med"},
+             {get_average_collision, "average_collision"},
+             {get_max_collision, "max_collision"}};
+
 bool sp_800_90B(const std::vector<double> &s) {
 
-  std::vector<int64_t> fixed = to_fixed(s);
+#if 0
   for (size_t i = 0; i < 10; ++i) {
     std::cerr << s[i] << " ";
   }
@@ -190,33 +192,32 @@ bool sp_800_90B(const std::vector<double> &s) {
     std::cerr << fixed[i] << " ";
   }
   std::cerr << "\n";
+#endif
+
+  constexpr int NUM_TESTS = sizeof(tests) / sizeof(tests[0]);
 
   // use this sort of strange construction so that we can reuse the
   // std::shuffle which is slow for large numbers of samples
-  int64_t t[8]{}, tp[8][10000]{};
-  t[0] = get_excursion(fixed);
-  t[1] = get_num_runs(fixed);
-  t[2] = get_longest_run(fixed);
-  t[3] = get_num_inc_dec(fixed);
-  t[4] = get_num_runs_med(fixed);
-  t[5] = get_longest_run_med(fixed);
-  t[6] = get_average_collision(fixed);
-  t[7] = get_max_collision(fixed);
-  for (int j = 0; j < 10000; ++j) {
-    std::vector<int64_t> fixedp = fixed;
-    std::shuffle(fixedp.begin(), fixedp.end(), g);
-
-    tp[0][j] = get_excursion(fixedp);
-    tp[1][j] = get_num_runs(fixedp);
-    tp[2][j] = get_longest_run(fixedp);
-    tp[3][j] = get_num_inc_dec(fixedp);
-    tp[4][j] = get_num_runs_med(fixedp);
-    tp[5][j] = get_longest_run_med(fixedp);
-    tp[6][j] = get_average_collision(fixedp);
-    tp[7][j] = get_max_collision(fixedp);
+  int64_t t[NUM_TESTS]{}, tp[NUM_TESTS][10000]{};
+  for (int i = 0; i < NUM_TESTS; ++i) {
+    t[i] = tests[i].fn(s);
   }
 
-  for (int i = 0; i < 8; ++i) {
+  for (int j = 0; j < 10000; ++j) {
+    std::vector<double> sp = s;
+    std::shuffle(sp.begin(), sp.end(), g);
+    for (int i = 0; i < NUM_TESTS; ++i) {
+      tp[i][j] = tests[i].fn(sp);
+      if (1 == i && j < 10) {
+        std::cerr << tp[i][j] << " ";
+      }
+      if (1 == i && j == 11) {
+        std::cerr << "\n";
+      }
+    }
+  }
+
+  for (int i = 0; i < NUM_TESTS; ++i) {
     int64_t C0 = 0, C1 = 0;
     for (int j = 0; j < 10000; ++j) {
       if (tp[i][j] > t[i])
@@ -227,8 +228,15 @@ bool sp_800_90B(const std::vector<double> &s) {
     // original test statistic has a very high rank
     // original test statistic has a very low rank
     // false positive probability of 0.001
+#if 0
     std::cerr << C0 + C1 << " " << C0 << "\n";
-    if (C0 + C1 <= 5 || C0 >= 9995) {
+#endif
+    if (C0 + C1 <= 5) {
+      std::cerr << "FAIL (high) " << tests[i].name << "\n";
+      return false;
+    }
+    if (C0 >= 9995) {
+      std::cerr << "FAIL (low) " << tests[i].name << "\n";
       return false;
     }
   }
