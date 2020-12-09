@@ -23,5 +23,5 @@ mkdir -p $SCRATCH
 
 echo "" > $OUT
 
-jsrun --smpiargs="-gpu" -n 1 -a 1 -g 1 -c 7 -r 1 -b rs ../../build/test/measure_system | tee -a $OUT
+jsrun --smpiargs="-gpu" -n 1 -a 1 -g 1 -c 7 -r 1 -b rs ../../build/bin/measure_system | tee -a $OUT
 

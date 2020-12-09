@@ -86,47 +86,36 @@ inline double get_num_inc_dec(const std::vector<double> &s) {
 inline double get_num_runs_med(const std::vector<double> &s) {
 
   double m = med(s);
-  std::vector<int> sp;
-
-  for (size_t i = 0; i < s.size() - 1; ++i) {
-    if (s[i] < m) {
-      sp.push_back(-1);
-    } else {
-      sp.push_back(1);
-    }
-  }
 
   size_t numRuns = 1;
-  for (size_t i = 0; i < sp.size() - 1; ++i) {
-    if (sp[i] != sp[i + 1]) {
+  for (size_t i = 0; i < s.size() - 1; ++i) {
+    bool spi = s[i] >= m;
+    bool spj = s[i + 1] >= m;
+    if (spi != spj) {
       ++numRuns;
     }
   }
+
   return numRuns;
 }
 
 inline double get_longest_run_med(const std::vector<double> &s) {
 
   double m = med(s);
-  std::vector<int> sp;
-
-  for (size_t i = 0; i < s.size() - 1; ++i) {
-    if (s[i] < m) {
-      sp.push_back(-1);
-    } else {
-      sp.push_back(1);
-    }
-  }
 
   int64_t currRun = 1, longestRun = -1;
-  for (size_t i = 0; i < sp.size() - 1; ++i) {
-    if (sp[i] == sp[i + 1]) {
+
+  for (size_t i = 0; i < s.size() - 1; ++i) {
+    bool spi = s[i] >= m;
+    bool spj = s[i + 1] >= m;
+    if (spi == spj) {
       ++currRun;
     } else {
       longestRun = std::max(currRun, longestRun);
       currRun = 1;
     }
   }
+
   return longestRun;
 }
 
@@ -202,10 +191,10 @@ bool sp_800_90B(const std::vector<double> &s) {
   // std::shuffle which is slow for large numbers of samples
   int64_t t[NUM_TESTS]{}, tp[NUM_TESTS][10000]{};
   for (int i = 0; i < NUM_TESTS; ++i) {
-    //Time start = Clock::now();
+    // Time start = Clock::now();
     t[i] = tests[i].fn(s);
-    //Time stop = Clock::now();
-    //std::cerr << i << " " << Duration(stop - start).count() << "\n";
+    // Time stop = Clock::now();
+    // std::cerr << i << " " << Duration(stop - start).count() << "\n";
   }
 
   for (int j = 0; j < 10000; ++j) {

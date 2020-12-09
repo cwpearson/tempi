@@ -21,6 +21,7 @@ endmacro()
 set(TEMPI_BINARY_SOURCES benchmark.cpp)
 
 add_tempi_executable(bench-pack bench_pack.cpp)
+add_tempi_executable(measure-system measure_system.cpp)
 add_tempi_executable(bench-pack-kernels bench_pack_kernels.cu)
 add_tempi_executable(bench-mpi-pack bench_mpi_pack.cpp)
 add_tempi_executable(bench-mpi-pingpong-1d bench_mpi_pingpong_1d.cpp)

@@ -21,9 +21,6 @@ endmacro()
 pmpi_test_exe(iid iid.cpp)
 add_test(NAME iid COMMAND iid)
 
-pmpi_test_exe(measure_system measure_system.cpp)
-add_test(NAME measure_system COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 measure_system)
-
 pmpi_test_exe(type_equivalence type_equivalence.cpp)
 add_test(NAME type_equivalence COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 type_equivalence)
 

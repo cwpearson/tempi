@@ -26,24 +26,28 @@ Benchmark::Result Benchmark::run() {
   while (true) {
     int64_t iter = 0;
     Statistics stats;
-    Time wholeStart = Clock::now();
-    Duration wholeTime{};
-    while (iter < minSamples || wholeTime.count() < maxTrialTime) {
+    Time trialStart = Clock::now();
+    while (iter < minSamples ||
+           (Duration(Clock::now() - trialStart).count() < maxTrialTime &&
+            iter < maxSamples)) {
       IterResult res = run_iter();
       ++iter;
-      wholeTime = Clock::now() - wholeStart;
       stats.insert(res.time);
     }
     ++trial;
 
     if (sp_800_90B(stats.raw())) {
-      return Result{
-          .nTrials = trial, .nIters = iter, .trimean = stats.trimean()};
+      return Result{.nTrials = trial,
+                    .nIters = iter,
+                    .trimean = stats.trimean(),
+                    .iid = true};
     }
     if (trial == maxTrials) {
       LOG_ERROR("benchmark ended without IID");
-      return Result{
-          .nTrials = trial, .nIters = iter, .trimean = stats.trimean()};
+      return Result{.nTrials = trial,
+                    .nIters = iter,
+                    .trimean = stats.trimean(),
+                    .iid = false};
     }
   }
 
@@ -90,8 +94,8 @@ Benchmark::Result MpiBenchmark::run() {
       ++iter;
       Duration trialDur = Clock::now() - trialStart;
       stats.insert(res.time);
-      runIter = iter < minSamples || (trialDur.count() < maxTrialTime &&
-                iter < maxSamples);
+      runIter = iter < minSamples ||
+                (trialDur.count() < maxTrialTime && iter < maxSamples);
       MPI_Bcast(&runIter, 1, MPI_C_BOOL, 0, comm_);
     }
     ++trial;
@@ -114,17 +118,22 @@ Benchmark::Result MpiBenchmark::run() {
 #endif
 
     bool runNextTrial = true;
+    bool iid;
     if (0 == rank && sp_800_90B(stats.raw())) {
       runNextTrial = false;
+      iid = true;
     }
-    if (trial == maxTrials) {
+    if (0 == rank && trial == maxTrials) {
       LOG_ERROR("benchmark ended without IID");
       runNextTrial = false;
+      iid = false;
     }
     MPI_Bcast(&runNextTrial, 1, MPI_C_BOOL, 0, comm_);
     if (!runNextTrial) {
-      return Result{
-          .nTrials = trial, .nIters = iter, .trimean = stats.trimean()};
+      return Result{.nTrials = trial,
+                    .nIters = iter,
+                    .trimean = stats.trimean(),
+                    .iid = iid};
     }
   }
 

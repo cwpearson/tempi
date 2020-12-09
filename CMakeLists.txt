@@ -274,14 +274,12 @@ target_link_libraries(tempi PUBLIC ${NVTOOLSEXT_LIB})
 ## find an MPI header to include, but we don't need to link against MPI.
 target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
 
+## add thirdparty
+target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
+
 ## Add include directories
 target_include_directories(tempi SYSTEM PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 target_include_directories(tempi PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
-
-
-
-
-

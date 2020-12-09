@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 enum class PlacementMethod {
   NONE,   // library placement
   RANDOM, // random placement of ranks
@@ -18,7 +20,7 @@ enum class AlltoallvMethod {
 
 enum class DatatypeMethod {
   ONESHOT, // pack into mapped host buffer
-  DEVICE // pack into device buffer
+  DEVICE   // pack into device buffer
 };
 
 namespace environment {
@@ -28,6 +30,7 @@ extern bool noTypeCommit;
 extern PlacementMethod placement;
 extern AlltoallvMethod alltoallv;
 extern DatatypeMethod datatype;
+extern std::string cacheDir;
 }; // namespace environment
 
 void read_environment();

@@ -11,6 +11,7 @@ namespace environment {
 /*extern*/ PlacementMethod placement;
 /*extern*/ AlltoallvMethod alltoallv;
 /*extern*/ DatatypeMethod datatype;
+/*extern*/ std::string cacheDir;
 }; // namespace environment
 
 void read_environment() {
@@ -43,24 +44,48 @@ void read_environment() {
 #ifdef TEMPI_ENABLE_METIS
     placement = PlacementMethod::METIS;
 #else
-    std::cerr << "ERROR: TEMPI_PLACEMENT_METIS in environment but TEMPI_ENABLE_METIS not defined\n";
+    std::cerr << "ERROR: TEMPI_PLACEMENT_METIS in environment but "
+                 "TEMPI_ENABLE_METIS not defined\n";
 #endif
   }
   if (nullptr != std::getenv("TEMPI_PLACEMENT_KAHIP")) {
 #ifdef TEMPI_ENABLE_KAHIP
     placement = PlacementMethod::KAHIP;
 #else
-    std::cerr << "ERROR: TEMPI_PLACEMENT_KAHIP in environment but TEMPI_ENABLE_KAHIP not defined\n";
+    std::cerr << "ERROR: TEMPI_PLACEMENT_KAHIP in environment but "
+                 "TEMPI_ENABLE_KAHIP not defined\n";
 #endif
   }
   if (nullptr != std::getenv("TEMPI_PLACEMENT_RANDOM")) {
     placement = PlacementMethod::RANDOM;
   }
 
-    if (nullptr != std::getenv("TEMPI_DATATYPE_ONESHOT")) {
+  if (nullptr != std::getenv("TEMPI_DATATYPE_ONESHOT")) {
     datatype = DatatypeMethod::ONESHOT;
   }
-    if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
+  if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
     datatype = DatatypeMethod::DEVICE;
   }
+
+  {
+    const char *cd = std::getenv("TEMPI_CACHE_DIR");
+    if (cd) {
+      cacheDir = cd;
+    } else {
+      cd = std::getenv("XDG_CACHE_HOME");
+      if (!cd) {
+        cd = std::getenv("HOME");
+        if (!cd) {
+          cacheDir = "/var/tmp";
+        } else {
+          cacheDir = cd;
+          cacheDir += "/.tempi";
+        }
+      } else {
+        cacheDir = cd;
+        cacheDir += "/tempi";
+      }
+    }
+  }
+
 }

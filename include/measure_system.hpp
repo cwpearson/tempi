@@ -2,10 +2,22 @@
 
 #include <mpi.h>
 
-struct KernelLaunch {
-  double secs;
+#include <string>
+#include <vector>
+
+struct Bandwidth {
+  int64_t bytes;
+  double time;
+  bool iid;
 };
 
-extern KernelLaunch kernelLaunch;
+struct SystemPerformance {
+  double cudaKernelLaunch;
+  std::vector<Bandwidth> pingpong;
+  std::vector<Bandwidth> d2h;
+  std::vector<Bandwidth> h2d;
+};
 
-void measure_system(MPI_Comm comm);
+SystemPerformance measure_system_performance(MPI_Comm comm);
+bool export_system_performance(const SystemPerformance &sp);
+bool import_system_performance(SystemPerformance &sp);

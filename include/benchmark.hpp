@@ -22,6 +22,7 @@ public:
     int64_t nTrials; // number of trial runs
     int64_t nIters;  // number of iterations in the final run
     double trimean;
+    bool iid;
   };
 
   struct IterResult {

@@ -21,6 +21,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/benchmark.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/iid.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/pack_kernels.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp
