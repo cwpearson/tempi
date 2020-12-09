@@ -228,11 +228,11 @@ bool sp_800_90B(const std::vector<double> &s) {
     std::cerr << C0 + C1 << " " << C0 << "\n";
 #endif
     if (C0 + C1 <= 5) {
-      std::cerr << "FAIL (high) " << tests[i].name << "\n";
+      LOG_INFO("failed " << tests[i].name << " (high)");
       return false;
     }
     if (C0 >= 9995) {
-      std::cerr << "FAIL (low) " << tests[i].name << "\n";
+      LOG_INFO("failed " << tests[i].name << " (low)");
       return false;
     }
   }

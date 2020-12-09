@@ -165,6 +165,12 @@ Darshan is not explicitly included in the link step when building, so somehow it
 In any case, we can fix this by `module unload darshan-runtime`, so then our `MPI_Init` happens right after `libpami_cudahook.so`.
 Later, the lazy lookup will cause it to happen in `libmpiprofilesupport.so.3` and then `libmpi_ibm.so.3`.
 
+## OpenMPI
+
+`./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
+
+
+
 **other notes**
 
 nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on. Disable with `nsys profile -t cuda,nvtx`.

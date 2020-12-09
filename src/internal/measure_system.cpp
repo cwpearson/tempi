@@ -27,13 +27,15 @@ void from_json(const json &j, Bandwidth &p) {
 
 // === SystemPerformance ===
 void to_json(json &j, const SystemPerformance &p) {
-  j["pingpong"] = p.pingpong;
+  j["intraNodeCpuCpuPingpong"] = p.intraNodeCpuCpuPingpong;
+  j["intraNodeGpuGpuPingpong"] = p.intraNodeGpuGpuPingpong;
   j["d2h"] = p.d2h;
   j["h2d"] = p.h2d;
   j["cudaKernelLaunch"] = p.cudaKernelLaunch;
 }
 void from_json(const json &j, SystemPerformance &p) {
-  j.at("pingpong").get_to(p.pingpong);
+  j.at("intraNodeCpuCpuPingpong").get_to(p.intraNodeCpuCpuPingpong);
+  j.at("intraNodeGpuGpuPingpong").get_to(p.intraNodeGpuGpuPingpong);
   j.at("d2h").get_to(p.d2h);
   j.at("h2d").get_to(p.h2d);
   j.at("cudaKernelLaunch").get_to(p.cudaKernelLaunch);
@@ -42,32 +44,39 @@ void from_json(const json &j, SystemPerformance &p) {
 bool export_system_performance(const SystemPerformance &sp) {
   json j = sp;
   std::string s = j.dump(2);
-  LOG_INFO("ceated json:" << s);
-
   LOG_INFO("ensure cacheDir " << environment::cacheDir);
   std::filesystem::path path(environment::cacheDir);
   std::filesystem::create_directory(path);
   path /= "perf.json";
-  LOG_INFO("write " << path);
+  LOG_INFO("open " << path);
   std::ofstream file(path);
+  if (file.fail()) {
+    LOG_INFO("couldn't open " << path);
+    return false;
+  }
+  LOG_INFO("write " << path);
   file << s;
   file.close();
+
   return true;
 }
 
 bool import_system_performance(SystemPerformance &sp) {
-
   std::filesystem::path path(environment::cacheDir);
   path /= "perf.json";
   std::ifstream file(path);
-  if (file.bad()) {
-    LOG_ERROR("error opening " << path);
+  if (file.fail()) {
+    LOG_INFO("couldn't open " << path);
     return false;
   }
   std::stringstream ss;
   ss << file.rdbuf();
-  LOG_INFO(ss.str());
   json j = json::parse(ss.str());
-  sp = j;
+  try {
+    sp = j;
+  } catch (nlohmann::detail::out_of_range &e) {
+    LOG_ERROR("error converting json to SystemPerformance: "
+              << e.what() << "(may be an old version)");
+  }
   return true;
 }

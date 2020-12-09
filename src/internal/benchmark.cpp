@@ -9,16 +9,12 @@ typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
-Benchmark::Result Benchmark::run() {
+Benchmark::Result Benchmark::run(const RunConfig &rc) {
 
   setup();
 
-  {
-    int iter = 0;
-    while (iter < minWarmupIter) {
-      run_iter();
-      ++iter;
-    }
+  for (int iter = 0; iter < rc.minWarmupSamples; ++iter) {
+    run_iter();
   }
 
   int64_t trial = 0;
@@ -27,10 +23,10 @@ Benchmark::Result Benchmark::run() {
     int64_t iter = 0;
     Statistics stats;
     Time trialStart = Clock::now();
-    while (iter < minSamples ||
-           (Duration(Clock::now() - trialStart).count() < maxTrialTime &&
-            iter < maxSamples)) {
-      IterResult res = run_iter();
+    while (iter < rc.minSamples ||
+           (Duration(Clock::now() - trialStart).count() < rc.maxTrialSecs &&
+            iter < rc.maxSamples)) {
+      Sample res = run_iter();
       ++iter;
       stats.insert(res.time);
     }
@@ -42,7 +38,7 @@ Benchmark::Result Benchmark::run() {
                     .trimean = stats.trimean(),
                     .iid = true};
     }
-    if (trial == maxTrials) {
+    if (trial == rc.maxTrials) {
       LOG_ERROR("benchmark ended without IID");
       return Result{.nTrials = trial,
                     .nIters = iter,
@@ -54,7 +50,7 @@ Benchmark::Result Benchmark::run() {
   teardown();
 }
 
-Benchmark::Result MpiBenchmark::run() {
+Benchmark::Result MpiBenchmark::run(const RunConfig &rc) {
   assert(comm_);
 
   int rank, size;
@@ -69,7 +65,7 @@ Benchmark::Result MpiBenchmark::run() {
     while (keepRunning) {
       run_iter();
       ++iter;
-      keepRunning = iter < minWarmupIter;
+      keepRunning = iter < rc.minWarmupSamples;
       MPI_Bcast(&keepRunning, 1, MPI_C_BOOL, 0, comm_);
     }
     MPI_Barrier(comm_);
@@ -87,15 +83,14 @@ Benchmark::Result MpiBenchmark::run() {
     int64_t iter = 0;
     Statistics stats;
     const Time trialStart = Clock::now();
-    Duration wholeTime{};
     bool runIter = true;
     while (runIter) {
-      IterResult res = run_iter();
+      Sample res = run_iter();
       ++iter;
       Duration trialDur = Clock::now() - trialStart;
       stats.insert(res.time);
-      runIter = iter < minSamples ||
-                (trialDur.count() < maxTrialTime && iter < maxSamples);
+      runIter = iter < rc.minSamples ||
+                (trialDur.count() < rc.maxTrialSecs && iter < rc.maxSamples);
       MPI_Bcast(&runIter, 1, MPI_C_BOOL, 0, comm_);
     }
     ++trial;
@@ -118,17 +113,18 @@ Benchmark::Result MpiBenchmark::run() {
 #endif
 
     bool runNextTrial = true;
-    bool iid;
+    bool iid = false;
     if (0 == rank && sp_800_90B(stats.raw())) {
       runNextTrial = false;
       iid = true;
     }
-    if (0 == rank && trial == maxTrials) {
+    if (0 == rank && trial == rc.maxTrials) {
       LOG_ERROR("benchmark ended without IID");
       runNextTrial = false;
       iid = false;
     }
     MPI_Bcast(&runNextTrial, 1, MPI_C_BOOL, 0, comm_);
+    MPI_Bcast(&iid, 1, MPI_C_BOOL, 0, comm_);
     if (!runNextTrial) {
       return Result{.nTrials = trial,
                     .nIters = iter,

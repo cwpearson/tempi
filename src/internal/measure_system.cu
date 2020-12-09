@@ -3,6 +3,7 @@
 #include "logging.hpp"
 #include "measure_system.hpp"
 #include "symbols.hpp"
+#include "topology.hpp"
 
 #include <mpi.h>
 
@@ -27,8 +28,8 @@ public:
 
   ~KernelLaunchBenchmark() { CUDA_RUNTIME(cudaStreamDestroy(stream)); }
 
-  Benchmark::IterResult run_iter() override {
-    IterResult res{};
+  Benchmark::Sample run_iter() override {
+    Sample res{};
 
     Time start = Clock::now();
     for (int i = 0; i < 32; ++i) {
@@ -48,6 +49,7 @@ class CudaMemcpyAsyncD2H : public Benchmark {
   cudaStream_t stream;
   char *src, *dst;
   size_t n_;
+  int nreps_;
 
 public:
   CudaMemcpyAsyncD2H(size_t n) : n_(n) {
@@ -64,18 +66,28 @@ public:
     delete[] dst;
   }
 
-  Benchmark::IterResult run_iter() override {
-    IterResult res{};
+  void setup() {
+    nreps_ = 1;
+    run_iter();                       // warmup
+    Benchmark::Sample s = run_iter(); // measure time
+
+    // target at least 200us
+    nreps_ = 200.0 * 1e-6 / s.time;
+    nreps_ = std::max(nreps_, 1);
+    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+  }
+
+  Benchmark::Sample run_iter() override {
+    Sample res{};
     Time start = Clock::now();
-    const int nreps = 10;
-    for (int i = 0; i < nreps; ++i) {
+    for (int i = 0; i < nreps_; ++i) {
       cudaMemcpyAsync(dst, src, n_, cudaMemcpyDeviceToHost, stream);
       cudaStreamSynchronize(stream);
     }
     Time stop = Clock::now();
     CUDA_RUNTIME(cudaGetLastError());
     Duration dur = stop - start;
-    res.time = dur.count() / double(nreps);
+    res.time = dur.count() / double(nreps_);
     return res;
   }
 };
@@ -91,6 +103,7 @@ public:
     CUDA_RUNTIME(cudaMalloc(&dst, n));
     src = new char[n];
     CUDA_RUNTIME(cudaHostRegister(src, n, cudaHostRegisterPortable));
+    // std::memset(src, -1, n); // cache host buffer
   }
 
   ~CudaMemcpyAsyncH2D() {
@@ -100,8 +113,8 @@ public:
     delete[] src;
   }
 
-  Benchmark::IterResult run_iter() override {
-    IterResult res{};
+  Benchmark::Sample run_iter() override {
+    Sample res{};
     Time start = Clock::now();
     const int nreps = 10;
     for (int i = 0; i < nreps; ++i) {
@@ -116,26 +129,39 @@ public:
   }
 };
 
-/* a cpu-to-cpu MPI ping-pong test
+/* a cpu-to-cpu MPI ping-pong test between ranks 0 and 1
  */
 class CpuCpuPingpong : public MpiBenchmark {
   std::vector<char> buf_;
+  int nreps_;
 
 public:
+  // zero buffer to put it in cache
   CpuCpuPingpong(size_t n, MPI_Comm comm) : buf_(n), MpiBenchmark(comm) {}
   ~CpuCpuPingpong() {}
 
-  Benchmark::IterResult run_iter() override {
+  void setup() {
+    int rank;
+    MPI_Comm_rank(comm_, &rank);
+    nreps_ = 1;
+    for (int i = 0; i < 4; ++i) {
+      Benchmark::Sample s = run_iter(); // measure time
+      nreps_ = 200e-6 / s.time;
+      nreps_ = std::max(nreps_, 1);
+    }
+    if (0 == rank) {
+      LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+    }
+    MPI_Bcast(&nreps_, 1, MPI_INT, 0, comm_);
+  }
+
+  Benchmark::Sample run_iter() override {
 
     int rank;
     MPI_Comm_rank(comm_, &rank);
-    int reps = 1000 / buf_.size();
-    if (reps < 2)
-      reps = 2;
+    MPI_Barrier(comm_);
     Time start = Clock::now();
-    for (int i = 0; i < reps; ++i) {
-
-      MPI_Barrier(comm_);
+    for (int i = 0; i < nreps_; ++i) {
       if (0 == rank) {
         libmpi.MPI_Send(buf_.data(), buf_.size(), MPI_BYTE, 1, 0, comm_);
       } else if (1 == rank) {
@@ -155,8 +181,69 @@ public:
     double time = dur.count(), maxTime;
     MPI_Allreduce(&time, &maxTime, 1, MPI_DOUBLE, MPI_MAX, comm_);
 
-    IterResult res{};
-    res.time = maxTime / double(reps);
+    Sample res{};
+    res.time = maxTime / double(nreps_);
+
+    return res;
+  }
+};
+
+/* a gpu-to-gpu MPI ping-pong test
+ */
+class GpuGpuPingpong : public MpiBenchmark {
+  char *buf_;
+  int nreps_;
+  size_t n_;
+
+  void setup() {
+    int rank;
+    MPI_Comm_rank(comm_, &rank);
+    nreps_ = 1;
+    for (int i = 0; i < 4; ++i) {
+      Benchmark::Sample s = run_iter(); // measure time
+      nreps_ = 200e-6 / s.time;
+      nreps_ = std::max(nreps_, 1);
+    }
+    if (0 == rank) {
+      LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+    }
+    MPI_Bcast(&nreps_, 1, MPI_INT, 0, comm_);
+  }
+
+public:
+  GpuGpuPingpong(size_t n, MPI_Comm comm) : n_(n), MpiBenchmark(comm) {
+    CUDA_RUNTIME(cudaMalloc(&buf_, n));
+  }
+  ~GpuGpuPingpong() { CUDA_RUNTIME(cudaFree(buf_)); }
+
+  Benchmark::Sample run_iter() override {
+
+    int rank;
+    MPI_Comm_rank(comm_, &rank);
+    MPI_Barrier(comm_);
+    Time start = Clock::now();
+    for (int i = 0; i < nreps_; ++i) {
+
+      if (0 == rank) {
+        libmpi.MPI_Send(buf_, n_, MPI_BYTE, 1, 0, comm_);
+      } else if (1 == rank) {
+        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 0, 0, comm_, MPI_STATUS_IGNORE);
+      }
+      if (0 == rank) {
+        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 1, 0, comm_, MPI_STATUS_IGNORE);
+      } else if (1 == rank) {
+        libmpi.MPI_Send(buf_, n_, MPI_BYTE, 0, 0, comm_);
+      }
+    }
+    Time stop = Clock::now();
+    Duration dur = stop - start;
+
+    double time = dur.count(), maxTime;
+    MPI_Allreduce(&time, &maxTime, 1, MPI_DOUBLE, MPI_MAX, comm_);
+
+    Sample res{};
+    res.time = maxTime / double(nreps_);
+
     return res;
   }
 };
@@ -170,17 +257,19 @@ bool load_benchmark_cache(MPI_Comm comm) {
   return false;
 }
 
-SystemPerformance measure_system_performance(MPI_Comm comm) {
+/* fill any missing entries in sp
+ */
+void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
 
-  SystemPerformance sp{};
+  using topology::node_of_rank;
 
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
-  if (rank == 0) {
+  if (rank == 0 && sp.cudaKernelLaunch == 0) {
     KernelLaunchBenchmark bm;
-    Benchmark::Result res = bm.run();
+    Benchmark::Result res = bm.run(Benchmark::RunConfig());
     std::cerr << "=== " << res.trimean << " " << res.nIters << " ===\n";
     sp.cudaKernelLaunch = res.trimean;
   }
@@ -190,14 +279,15 @@ SystemPerformance measure_system_performance(MPI_Comm comm) {
     std::cerr << "D2H\n";
     std::cerr << "bytes,s,niters\n";
   }
-  if (rank == 0) {
+  if (rank == 0 && sp.d2h.empty()) {
     for (int i = 1; i < 1024 * 1024; i *= 2) {
       CudaMemcpyAsyncD2H bm(i);
-      Benchmark::Result res = bm.run();
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
         std::cerr << i << "," << res.trimean << "," << res.nIters << "\n";
       }
-      sp.d2h.push_back(Bandwidth{.bytes = i, .time = res.trimean, .iid=res.iid});
+      sp.d2h.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
     }
   }
 
@@ -206,14 +296,58 @@ SystemPerformance measure_system_performance(MPI_Comm comm) {
     std::cerr << "H2D\n";
     std::cerr << "bytes,s,niters\n";
   }
-  if (rank == 0) {
+  if (rank == 0 && sp.h2d.empty()) {
     for (int i = 1; i < 1024 * 1024; i *= 2) {
       CudaMemcpyAsyncH2D bm(i);
-      Benchmark::Result res = bm.run();
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
         std::cerr << i << "," << res.trimean << "," << res.nIters << "\n";
       }
-      sp.h2d.push_back(Bandwidth{.bytes = i, .time = res.trimean, .iid=res.iid});
+      sp.h2d.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "intra-node CPU-CPU\n";
+    std::cerr << "bytes,s\n";
+  }
+  LOG_INFO(node_of_rank(comm, 0));
+  LOG_INFO(node_of_rank(comm, 1));
+  LOG_INFO("empty? " << sp.intraNodeCpuCpuPingpong.empty());
+  if (size >= 2 && (node_of_rank(comm, 0) == node_of_rank(comm, 1)) &&
+      sp.intraNodeCpuCpuPingpong.empty()) {
+    for (int i = 1; i < 1024 * 1024; i *= 2) {
+      CpuCpuPingpong bm(i, MPI_COMM_WORLD);
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
+      if (0 == rank) {
+        std::cerr << i << "," << res.trimean << "\n";
+      }
+
+      sp.intraNodeCpuCpuPingpong.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+    }
+  }
+  LOG_INFO("after intra-node CPU-CPU");
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "intra-node GPU-GPU\n";
+    std::cerr << "bytes,s\n";
+  }
+  if (size >= 2 && (node_of_rank(comm, 0) == node_of_rank(comm, 1)) &&
+      sp.intraNodeGpuGpuPingpong.empty()) {
+
+    for (int i = 1; i < 1024 * 1024; i *= 2) {
+      GpuGpuPingpong bm(i, MPI_COMM_WORLD);
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
+      if (0 == rank) {
+        std::cerr << i << "," << res.trimean << "\n";
+      }
+
+      sp.intraNodeGpuGpuPingpong.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
     }
   }
 
@@ -221,17 +355,39 @@ SystemPerformance measure_system_performance(MPI_Comm comm) {
   if (0 == rank) {
     std::cerr << "bytes,s\n";
   }
-  if (size >= 2) {
+  if (size >= 2 && (node_of_rank(comm, 0) != node_of_rank(comm, 1)) &&
+      sp.interNodeCpuCpuPingpong.empty()) {
     for (int i = 1; i < 1024 * 1024; i *= 2) {
       CpuCpuPingpong bm(i, MPI_COMM_WORLD);
-      Benchmark::Result res = bm.run();
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
         std::cerr << i << "," << res.trimean << "\n";
       }
 
-      sp.pingpong.push_back(Bandwidth{.bytes = i, .time = res.trimean, .iid=res.iid});
+      sp.interNodeCpuCpuPingpong.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
     }
+  } else {
+    LOG_WARN("skip interNodeCpuCpuPingpong");
   }
 
-  return sp;
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "bytes,s\n";
+  }
+  if (size >= 2 && (node_of_rank(comm, 0) != node_of_rank(comm, 1)) &&
+      sp.interNodeGpuGpuPingpong.empty()) {
+    for (int i = 1; i < 1024 * 1024; i *= 2) {
+      GpuGpuPingpong bm(i, MPI_COMM_WORLD);
+      Benchmark::Result res = bm.run(Benchmark::RunConfig());
+      if (0 == rank) {
+        std::cerr << i << "," << res.trimean << "\n";
+      }
+
+      sp.interNodeGpuGpuPingpong.push_back(
+          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+    }
+  } else {
+    LOG_WARN("skip interNodeGpuGpuPingpong");
+  }
 }
