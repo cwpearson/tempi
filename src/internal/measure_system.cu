@@ -184,7 +184,6 @@ SystemPerformance measure_system_performance(MPI_Comm comm) {
     std::cerr << "=== " << res.trimean << " " << res.nIters << " ===\n";
     sp.cudaKernelLaunch = res.trimean;
   }
-  return sp;
 
   MPI_Barrier(comm);
   if (0 == rank) {
