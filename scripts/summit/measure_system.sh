@@ -11,7 +11,7 @@ set -eou pipefail
 
 module reset
 module load gcc/9.3.0
-module load cuda/11.1.1
+module load cuda/11.0.3
 module unload darshan-runtime
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
