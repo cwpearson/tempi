@@ -11,7 +11,7 @@ set -eou pipefail
 
 module reset
 module load gcc/7.4.0
-module load cuda/11.1.1
+module load cuda/11.0.3
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
 OUT=$SCRATCH/bench_pack_kernels.csv

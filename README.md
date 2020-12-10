@@ -26,6 +26,13 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## Quick Start
 
+Requires C++17 (`variant` and `filesystem`).
+
+```
+#summit
+module load gcc/9.0.3 cuda/11.0.3
+```
+
 ```
 mkdir build
 cd build
@@ -48,7 +55,7 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 
 ## Features
 
-Performance fixes for CUDA+MPI code that requires no source cose changes
+Performance fixes for CUDA+MPI code that requires no source code changes
 - [ ] node remapping in `MPI_Dist_graph_create` using METIS.
 - [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
   - [ ] derived datatypes
@@ -61,8 +68,8 @@ Performance fixes for CUDA+MPI code that requires no source cose changes
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
   - [x] vector
   - [x] hvector
-  - [ ] subarray
-  - [ ] contiguous
+  - [x] subarray
+  - [x] contiguous
 - [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
   - [ ] derived datatypes
 

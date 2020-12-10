@@ -12,7 +12,7 @@ set -eou pipefail
 module reset
 module unload darshan-runtime
 module load gcc/7.4.0
-module load cuda/11.1.1
+module load cuda/11.0.3
 module load nsight-systems/2020.4.1.144
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results

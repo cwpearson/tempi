@@ -12,7 +12,7 @@ module reset
 module unload darshan-runtime
 module load spectrum-mpi/10.3.1.2-20200121
 module load gcc/7.4.0
-module load cuda/11.1.1
+module load cuda/11.0.3
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
 OUT=$SCRATCH/bench_mpi_pingpong_nd.csv
