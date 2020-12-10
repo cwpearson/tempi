@@ -165,6 +165,10 @@ Darshan is not explicitly included in the link step when building, so somehow it
 In any case, we can fix this by `module unload darshan-runtime`, so then our `MPI_Init` happens right after `libpami_cudahook.so`.
 Later, the lazy lookup will cause it to happen in `libmpiprofilesupport.so.3` and then `libmpi_ibm.so.3`.
 
+`module load gcc/9.3.0 cuda/11.0.3`
+We need gcc 9.3 for filesystem and variant support.
+Cuda 11.0.3 (11.0.221) is new enough to use gcc 9.3, but newer versions of cuda have a memory leak when used with spectrum mpi.
+
 ## OpenMPI
 
 `./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
