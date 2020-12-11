@@ -280,7 +280,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     std::cerr << "bytes,s,niters\n";
   }
   if (rank == 0 && sp.d2h.empty()) {
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       CudaMemcpyAsyncD2H bm(i);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
@@ -297,7 +297,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     std::cerr << "bytes,s,niters\n";
   }
   if (rank == 0 && sp.h2d.empty()) {
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       CudaMemcpyAsyncH2D bm(i);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
@@ -313,12 +313,9 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     std::cerr << "intra-node CPU-CPU\n";
     std::cerr << "bytes,s\n";
   }
-  LOG_INFO(node_of_rank(comm, 0));
-  LOG_INFO(node_of_rank(comm, 1));
-  LOG_INFO("empty? " << sp.intraNodeCpuCpuPingpong.empty());
   if (size >= 2 && (node_of_rank(comm, 0) == node_of_rank(comm, 1)) &&
       sp.intraNodeCpuCpuPingpong.empty()) {
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       CpuCpuPingpong bm(i, MPI_COMM_WORLD);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
@@ -329,7 +326,6 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
           Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
     }
   }
-  LOG_INFO("after intra-node CPU-CPU");
 
   MPI_Barrier(comm);
   if (0 == rank) {
@@ -339,7 +335,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   if (size >= 2 && (node_of_rank(comm, 0) == node_of_rank(comm, 1)) &&
       sp.intraNodeGpuGpuPingpong.empty()) {
 
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       GpuGpuPingpong bm(i, MPI_COMM_WORLD);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
@@ -353,11 +349,12 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
 
   MPI_Barrier(comm);
   if (0 == rank) {
+    std::cerr << "inter-node CPU-CPU\n";
     std::cerr << "bytes,s\n";
   }
   if (size >= 2 && (node_of_rank(comm, 0) != node_of_rank(comm, 1)) &&
       sp.interNodeCpuCpuPingpong.empty()) {
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       CpuCpuPingpong bm(i, MPI_COMM_WORLD);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
@@ -373,11 +370,12 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
 
   MPI_Barrier(comm);
   if (0 == rank) {
+    std::cerr << "inter-node GPU-GPU\n";
     std::cerr << "bytes,s\n";
   }
   if (size >= 2 && (node_of_rank(comm, 0) != node_of_rank(comm, 1)) &&
       sp.interNodeGpuGpuPingpong.empty()) {
-    for (int i = 1; i < 1024 * 1024; i *= 2) {
+    for (int i = 1; i <= 8 * 1024 * 1024; i *= 2) {
       GpuGpuPingpong bm(i, MPI_COMM_WORLD);
       Benchmark::Result res = bm.run(Benchmark::RunConfig());
       if (0 == rank) {
