@@ -19,7 +19,7 @@ macro(pmpi_test_exe exe)
 endmacro()
 
 pmpi_test_exe(iid iid.cpp)
-add_test(NAME iid COMMAND iid)
+add_test(NAME iid COMMAND COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 iid)
 
 pmpi_test_exe(numeric numeric.cpp)
 add_test(NAME numeric COMMAND numeric)
@@ -54,4 +54,4 @@ pmpi_test_exe(send send.cpp)
 add_test(NAME send COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 send)
 
 pmpi_test_exe(dist_graph_create_adjacent dist_graph_create_adjacent.cpp)
-add_test(NAME dist_graph_create_adjacent COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 send)
+add_test(NAME dist_graph_create_adjacent COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 dist_graph_create_adjacent)
