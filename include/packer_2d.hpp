@@ -15,12 +15,14 @@ public:
   Packer2D(unsigned off, unsigned blockLength, unsigned count, unsigned stride);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
+  void pack_async(void *outbuf, int *position, const void *inbuf,
+                  const int incount) const override;
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;
 
 private:
   void launch_pack(void *outbuf, int *position, const void *inbuf,
-            const int incount, cudaStream_t stream) const;
+                   const int incount, cudaStream_t stream) const;
   void launch_unpack(const void *inbuf, int *position, void *outbuf,
-              const int outcount, cudaStream_t stream) const;
+                     const int outcount, cudaStream_t stream) const;
 };

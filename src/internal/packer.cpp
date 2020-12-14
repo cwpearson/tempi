@@ -6,13 +6,13 @@
 
 Packer::LaunchInfo Packer::pack_launch_info(const void *inbuf) {
   (void) inbuf;
-  Packer::LaunchInfo ret{.stream = kernStream[0]};
+  Packer::LaunchInfo ret{.stream = kernStream};
   return ret;
 }
 
 Packer::LaunchInfo Packer::unpack_launch_info(const void *outbuf) {
   (void) outbuf;
-  Packer::LaunchInfo ret{.stream = kernStream[0]};
+  Packer::LaunchInfo ret{.stream = kernStream};
   return ret;
 }
 

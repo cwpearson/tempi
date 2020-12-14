@@ -56,7 +56,7 @@ extern "C" int MPI_Neighbor_alltoallv(PARAMS_MPI_Neighbor_alltoallv) {
     CUDA_RUNTIME(cudaPointerGetAttributes(&attr, sendbuf));
     if (nullptr != attr.devicePointer) {
       LOG_SPEW("Neighbor_alltoallv: sync packer");
-      CUDA_RUNTIME(cudaStreamSynchronize(kernStream[attr.device]));
+      CUDA_RUNTIME(cudaStreamSynchronize(kernStream));
     }
   }
 

@@ -12,10 +12,12 @@ class Packer3D : public Packer {
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
 
 public:
-  Packer3D(unsigned off, unsigned blockLength, unsigned count0, unsigned stride0,
-                unsigned count1, unsigned stride1);
+  Packer3D(unsigned off, unsigned blockLength, unsigned count0,
+           unsigned stride0, unsigned count1, unsigned stride1);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
+  void pack_async(void *outbuf, int *position, const void *inbuf,
+                  const int incount) const override;
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;
 

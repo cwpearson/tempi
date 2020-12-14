@@ -19,6 +19,7 @@ enum class AlltoallvMethod {
 };
 
 enum class DatatypeMethod {
+  AUTO,
   ONESHOT, // pack into mapped host buffer
   DEVICE   // pack into device buffer
 };

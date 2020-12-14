@@ -2,6 +2,7 @@
 #include "cuda_runtime.hpp"
 #include "logging.hpp"
 #include "measure_system.hpp"
+#include "numeric.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
 
@@ -13,6 +14,10 @@
 typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
+
+/*extern*/ SystemPerformance systemPerformance;
+
+void measure_system_init() { import_system_performance(systemPerformance); }
 
 static __global__ void kernel(int *a) {
   if (a) {
@@ -286,8 +291,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       if (0 == rank) {
         std::cerr << i << "," << res.trimean << "," << res.nIters << "\n";
       }
-      sp.d2h.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+      sp.d2h.push_back(IidTime{.time = res.trimean, .iid = res.iid});
     }
   }
 
@@ -303,8 +307,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       if (0 == rank) {
         std::cerr << i << "," << res.trimean << "," << res.nIters << "\n";
       }
-      sp.h2d.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+      sp.h2d.push_back(IidTime{.time = res.trimean, .iid = res.iid});
     }
   }
 
@@ -326,7 +329,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
 
       sp.intraNodeCpuCpuPingpong.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+          IidTime{.time = res.trimean, .iid = res.iid});
     }
   }
   LOG_INFO("after intra-node CPU-CPU");
@@ -347,7 +350,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
 
       sp.intraNodeGpuGpuPingpong.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+          IidTime{.time = res.trimean, .iid = res.iid});
     }
   }
 
@@ -365,7 +368,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
 
       sp.interNodeCpuCpuPingpong.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+          IidTime{.time = res.trimean, .iid = res.iid});
     }
   } else {
     LOG_WARN("skip interNodeCpuCpuPingpong");
@@ -385,7 +388,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
 
       sp.interNodeGpuGpuPingpong.push_back(
-          Bandwidth{.bytes = i, .time = res.trimean, .iid = res.iid});
+          IidTime{.time = res.trimean, .iid = res.iid});
     }
   } else {
     LOG_WARN("skip interNodeGpuGpuPingpong");

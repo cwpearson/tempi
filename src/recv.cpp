@@ -105,17 +105,19 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   auto pi = packerCache.find(datatype);
   if (packerCache.end() != pi) {
 
-    switch(environment::datatype) {
-      case DatatypeMethod::ONESHOT: {
-return recv_oneshot(attr.device, *(pi->second), ARGS_MPI_Recv);
-      }
-      case DatatypeMethod::DEVICE: {
-return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
-      }
-      default: {
-        LOG_ERROR("unexpected DatatypeMethod");
-        return MPI_ERR_UNKNOWN;
-      }
+    switch (environment::datatype) {
+    case DatatypeMethod::ONESHOT: {
+      LOG_SPEW("MPI_Recv: oneshot");
+      return recv_oneshot(attr.device, *(pi->second), ARGS_MPI_Recv);
+    }
+    case DatatypeMethod::DEVICE: {
+      LOG_SPEW("MPI_Recv: device");
+      return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
+    }
+    default: {
+      LOG_ERROR("unexpected DatatypeMethod");
+      return MPI_ERR_UNKNOWN;
+    }
     }
   }
 
@@ -136,5 +138,6 @@ return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
 
   // if all else fails, just call MPI_Recv
   LOG_SPEW("MPI_Recv: use library (fallthrough)");
+  LOG_SPEW("count=" << count << " source=" << source << " tag=" << tag);
   return libmpi.MPI_Recv(ARGS_MPI_Recv);
 }

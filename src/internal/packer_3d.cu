@@ -247,6 +247,13 @@ void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
 }
 #endif
 
+void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
+                          const int incount) const {
+  LaunchInfo info = pack_launch_info(inbuf);
+  launch_pack(outbuf, position, inbuf, incount, info.stream);
+}
+
+// same as async but synchronize after launch
 void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
                     const int incount) const {
   LaunchInfo info = pack_launch_info(inbuf);

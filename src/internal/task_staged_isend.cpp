@@ -74,8 +74,8 @@ void StagedIsend::progress() {
     LOG_SPEW("StagedIsend: INIT -> D2H");
     state_ = State::D2H;
     CUDA_RUNTIME(cudaMemcpyAsync(hostBuf_.data(), buf_, hostBuf_.size(),
-                                 cudaMemcpyDefault, commStream[device_]));
-    CUDA_RUNTIME(cudaEventRecord(event_, commStream[device_]));
+                                 cudaMemcpyDefault, commStream));
+    CUDA_RUNTIME(cudaEventRecord(event_, commStream));
     LOG_SPEW("StagedIsend: issused D2H copy");
     break;
   }

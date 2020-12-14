@@ -13,15 +13,12 @@ using json = nlohmann::json;
 #include <filesystem>
 #include <fstream>
 
-// === Bandwidth ===
-void to_json(json &j, const Bandwidth &p) {
+void to_json(json &j, const IidTime &p) {
   j["time"] = p.time;
-  j["bytes"] = p.bytes;
   j["iid"] = p.iid;
 }
-void from_json(const json &j, Bandwidth &p) {
+void from_json(const json &j, IidTime &p) {
   j.at("time").get_to(p.time);
-  j.at("bytes").get_to(p.bytes);
   j.at("iid").get_to(p.iid);
 }
 
@@ -64,6 +61,7 @@ bool export_system_performance(const SystemPerformance &sp) {
 bool import_system_performance(SystemPerformance &sp) {
   std::filesystem::path path(environment::cacheDir);
   path /= "perf.json";
+  LOG_DEBUG("open " << path);
   std::ifstream file(path);
   if (file.fail()) {
     LOG_INFO("couldn't open " << path);
@@ -76,7 +74,7 @@ bool import_system_performance(SystemPerformance &sp) {
     sp = j;
   } catch (nlohmann::detail::out_of_range &e) {
     LOG_ERROR("error converting json to SystemPerformance: "
-              << e.what() << "(may be an old version)");
+              << e.what() << "(delete and run bin/measure-performance)");
   }
   return true;
 }

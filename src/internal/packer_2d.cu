@@ -235,19 +235,11 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   (*position) += outcount * count_ * blockLength_;
 }
 
-#if 0
 void Packer2D::pack_async(void *outbuf, int *position, const void *inbuf,
-                               const int incount) const {
-  int device;
-  CUDA_RUNTIME(cudaGetDevice(&device));
+                          const int incount) const {
   LaunchInfo info = pack_launch_info(inbuf);
-  LOG_SPEW("Packer2D::pack on CUDA " << info.device);
-  CUDA_RUNTIME(cudaSetDevice(info.device));
   launch_pack(outbuf, position, inbuf, incount, info.stream);
-  LOG_SPEW("Packer2D::restore device " << device);
-  CUDA_RUNTIME(cudaSetDevice(device));
 }
-#endif
 
 // same as async but synchronize after launch
 void Packer2D::pack(void *outbuf, int *position, const void *inbuf,

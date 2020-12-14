@@ -38,7 +38,7 @@ void test_pack(MPI_Datatype ty, const int count) {
 
   // prefetch to host and zero
   CUDA_RUNTIME(cudaMallocManaged(&packTest, packedSize));
-  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, -1, kernStream[0]));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, -1, kernStream));
   packExp = new char[packedSize];
   for (size_t i = 0; i < packedSize; ++i) {
     ((char *)packTest)[i] = 0;
@@ -46,8 +46,8 @@ void test_pack(MPI_Datatype ty, const int count) {
   }
 
   // prefetch to host and initialize with byte offset
-  CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, -1, kernStream[0]));
-  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, -1, kernStream[0]));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, -1, kernStream));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, -1, kernStream));
   for (size_t i = 0; i < srcSize; ++i) {
     ((char *)src)[i] = i;
     ((char *)unpackTest)[i] = i;
@@ -67,8 +67,8 @@ void test_pack(MPI_Datatype ty, const int count) {
   {
     LOG_DEBUG("TEMPI MPI_Pack...");
     // prefetch to GPU to accelerate kernel
-    CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, 0, kernStream[0]));
-    CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, 0, kernStream[0]));
+    CUDA_RUNTIME(cudaMemPrefetchAsync(src, srcSize, 0, kernStream));
+    CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, 0, kernStream));
     environment::noPack = false;
     positionTest = 0;
     MPI_Pack(src, count, ty, packTest, packedSize, &positionTest,
@@ -77,7 +77,7 @@ void test_pack(MPI_Datatype ty, const int count) {
   }
 
   // prefetch to host to accelerate comparison
-  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, -1, kernStream[0]));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, -1, kernStream));
 
   LOG_DEBUG("positions: " << positionTest << " " << positionExp);
   REQUIRE(positionTest == positionExp); // output position is identical
@@ -93,8 +93,8 @@ void test_pack(MPI_Datatype ty, const int count) {
   }
 
   // prefetch to GPU to accelerate unpack
-  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, 0, kernStream[0]));
-  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, 0, kernStream[0]));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(packTest, packedSize, 0, kernStream));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, 0, kernStream));
 
   // unpack
   {
@@ -107,7 +107,7 @@ void test_pack(MPI_Datatype ty, const int count) {
   }
 
   // prefetch to host for comparison with original
-  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, -1, kernStream[0]));
+  CUDA_RUNTIME(cudaMemPrefetchAsync(unpackTest, srcSize, -1, kernStream));
 
   // compare with original
   REQUIRE(0 == memcmp(unpackTest, src, srcSize));

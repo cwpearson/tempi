@@ -5,6 +5,7 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 #include "worker.hpp"
+#include "measure_system.hpp"
 
 #include <mpi.h>
 
@@ -40,6 +41,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   topology_init();
   streams_init();
   worker_init();
+  measure_system_init();
 
   return err;
 }

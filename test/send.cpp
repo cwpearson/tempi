@@ -7,7 +7,6 @@
 #include "../include/env.hpp"
 
 int main(int argc, char **argv) {
-  environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
   int rank, size;
@@ -27,32 +26,36 @@ int main(int argc, char **argv) {
     cudaMalloc(&deviceSend, 1024 * 1024);
     cudaMalloc(&deviceRecv, 1024 * 1024);
 
-    nvtxRangePush("TEMPI");
     // host send / recv
+    std::cerr << "TEST: host send / recv\n";
     if (0 == rank) {
       MPI_Send(hostSend, 100, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
     } else {
       MPI_Recv(hostRecv, 100, MPI_FLOAT, 0, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // device send/recv
+    std::cerr << "TEST: device send / recv\n";
     if (0 == rank) {
       MPI_Send(deviceSend, 100, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
     } else {
       MPI_Recv(deviceRecv, 100, MPI_FLOAT, 0, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // device send/recv
+    std::cerr << "TEST: device send / recv\n";
     if (0 == rank) {
       MPI_Send(deviceSend, 1024 * 1024, MPI_BYTE, 1, 0, MPI_COMM_WORLD);
     } else {
       MPI_Recv(deviceRecv, 1024 * 1024, MPI_BYTE, 0, 0, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
     }
-
-    nvtxRangePop(); // TEMPI
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::cerr << "done tests\n";
 
     delete[] hostSend;
     delete[] hostRecv;
@@ -60,7 +63,6 @@ int main(int argc, char **argv) {
     cudaFree(deviceRecv);
   }
 
-  environment::noTempi = false;
   MPI_Finalize();
 
   return 0;
