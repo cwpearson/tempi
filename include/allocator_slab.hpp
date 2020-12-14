@@ -1,6 +1,7 @@
 #pragma once
 
 #include "logging.hpp"
+#include "numeric.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -84,7 +85,7 @@ private:
   // retrieve the pool that serves allocations of size `n`
   Pool &get_pool_for_size(size_t n) {
     // find the slabs for smallest 2^x >= n
-    const unsigned log2 = log2_gte(n);
+    const unsigned log2 = log2_ceil(n);
 
     if (log2 >= pools_.size()) {
       pools_.resize(log2 + 1);
@@ -93,20 +94,11 @@ private:
     return pools_[log2];
   }
 
-  /* return x | 2^x >= n
-   */
-  unsigned log2_gte(size_t n) const noexcept {
-    unsigned log2 = 64 - __builtin_clzll(n);
-    // if input is not a power of two, this will be too small
-    if (__builtin_popcount(n) != 1 && __builtin_popcount(n) != 0) {
-      ++log2;
-    }
-    return log2;
-  }
-
   /* return the size of the allocation backing a request for `n` bytes
    */
-  size_t alloc_size_for(size_t n) const noexcept { return 1ull << log2_gte(n); }
+  size_t alloc_size_for(size_t n) const noexcept {
+    return 1ull << log2_ceil(n);
+  }
 
   /* serve an allocation of size n
    */
