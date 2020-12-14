@@ -4,15 +4,18 @@
 
 int main(int argc, char **argv) {
 
-  {
-    std::vector<double> s = {-1, 0, 1, 2, 3, 4, 5};
+  MPI_Init(&argc, &argv);
 
+  {
+    std::cerr << "TEST: fixed vector\n";
+    std::vector<double> s = {-1, 0, 1, 2, 3, 4, 5};
     if (true == sp_800_90B(s)) {
       return -1;
     }
   }
 
   {
+    std::cerr << "TEST: random loops\n";
     std::random_device rd;
     std::mt19937 g(rd());
 
@@ -38,6 +41,8 @@ int main(int argc, char **argv) {
       std::cerr << "\n";
     }
   }
+
+  MPI_Finalize();
 
   return 0;
 }
