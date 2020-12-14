@@ -26,6 +26,8 @@ void from_json(const json &j, IidTime &p) {
 void to_json(json &j, const SystemPerformance &p) {
   j["intraNodeCpuCpuPingpong"] = p.intraNodeCpuCpuPingpong;
   j["intraNodeGpuGpuPingpong"] = p.intraNodeGpuGpuPingpong;
+  j["interNodeCpuCpuPingpong"] = p.interNodeCpuCpuPingpong;
+  j["interNodeGpuGpuPingpong"] = p.interNodeGpuGpuPingpong;
   j["d2h"] = p.d2h;
   j["h2d"] = p.h2d;
   j["cudaKernelLaunch"] = p.cudaKernelLaunch;
@@ -33,6 +35,8 @@ void to_json(json &j, const SystemPerformance &p) {
 void from_json(const json &j, SystemPerformance &p) {
   j.at("intraNodeCpuCpuPingpong").get_to(p.intraNodeCpuCpuPingpong);
   j.at("intraNodeGpuGpuPingpong").get_to(p.intraNodeGpuGpuPingpong);
+  j.at("interNodeCpuCpuPingpong").get_to(p.interNodeCpuCpuPingpong);
+  j.at("interNodeGpuGpuPingpong").get_to(p.interNodeGpuGpuPingpong);
   j.at("d2h").get_to(p.d2h);
   j.at("h2d").get_to(p.h2d);
   j.at("cudaKernelLaunch").get_to(p.cudaKernelLaunch);
