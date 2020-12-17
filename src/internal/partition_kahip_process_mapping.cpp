@@ -115,7 +115,7 @@ partition::Result partition::kahip_process_mapping(
     */
 
     // https://raw.githubusercontent.com/KaHIP/KaHIP/master/manual/kahip.pdf
-    process_mapping(&n, vwgt, xadj, adjcwgt, adjncy, hierarchy_parameter.data(),
+    process_mapping_enforcebalance(&n, vwgt, xadj, adjcwgt, adjncy, hierarchy_parameter.data(),
                     distance_parameter.data(), hierarchy_depth,
                     mode_partitioning, mode_mapping, &imbalance,
                     suppress_output, seed, &edgecut, &qap, part);
