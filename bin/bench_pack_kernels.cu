@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
   std::vector<int> counts{1, 2};
   // counts = {1};
 
-  std::cout << "s,one-shot,count,numblocks,stride,blocklengths,s,MiB/s";
+  std::cout << "s,one-shot,count,target,stride,blocklengths,s,MiB/s";
   std::cout << std::endl << std::flush;
 
   std::vector<int> blockLengths{1, 2, 4, 6, 8, 12, 16, 20, 32, 64, 128, 256};
