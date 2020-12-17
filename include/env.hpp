@@ -20,17 +20,25 @@ enum class AlltoallvMethod {
 
 enum class DatatypeMethod {
   AUTO,
-  ONESHOT, // pack into mapped host buffer
-  DEVICE   // pack into device buffer
+  ONESHOT, // pack into mapped host buffer and send
+  DEVICE,  // pack into device buffer and send
+  STAGED   // pack into device buffer, copy to host, and send
+};
+
+enum class ContiguousMethod {
+  AUTO,
+  NONE,  // use library
+  STAGED // copy to host, and send
 };
 
 namespace environment {
 extern bool noTempi; // disable all TEMPI globally
 extern bool noPack;
 extern bool noTypeCommit;
-extern PlacementMethod placement;
 extern AlltoallvMethod alltoallv;
 extern DatatypeMethod datatype;
+extern PlacementMethod placement;
+extern ContiguousMethod contiguous;
 extern std::string cacheDir;
 }; // namespace environment
 

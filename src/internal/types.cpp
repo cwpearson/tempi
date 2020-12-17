@@ -1,10 +1,11 @@
 #include "types.hpp"
 
+#include "env.hpp"
 #include "logging.hpp"
 #include "packer_1d.hpp"
 #include "packer_2d.hpp"
 #include "packer_3d.hpp"
-#include "packer_cache.hpp"
+#include "type_cache.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -453,8 +454,9 @@ Type simplify(const Type &type) {
 /* tries to create an optimal packer for a Type
   returns falsy if unable to
 */
-std::unique_ptr<Packer> plan_pack(Type &type) {
+std::unique_ptr<Packer> plan_pack(const StridedBlock &sb) {
 
+#if 0
   if (!type) {
     LOG_WARN("couldn't plan_pack strategy for unknown type");
     return nullptr;
@@ -463,27 +465,27 @@ std::unique_ptr<Packer> plan_pack(Type &type) {
   Type simp = simplify(type);
   LOG_SPEW("type.height=" << simp.height());
   StridedBlock strided = to_strided_block(simp);
+#endif
 
-  if (strided != StridedBlock()) {
-    if (1 == strided.ndims()) {
-      LOG_SPEW("select Packer1D for " << strided.str());
+  if (sb != StridedBlock()) {
+    if (1 == sb.ndims()) {
+      LOG_SPEW("select Packer1D for " << sb.str());
       std::unique_ptr<Packer> packer =
-          std::make_unique<Packer1D>(strided.start_, strided.counts[0]);
+          std::make_unique<Packer1D>(sb.start_, sb.counts[0]);
       return packer;
-    } else if (2 == strided.ndims()) {
-      LOG_SPEW("select Packer2D for " << strided.str());
-      std::unique_ptr<Packer> packer =
-          std::make_unique<Packer2D>(strided.start_, strided.counts[0],
-                                     strided.counts[1], strided.strides[1]);
+    } else if (2 == sb.ndims()) {
+      LOG_SPEW("select Packer2D for " << sb.str());
+      std::unique_ptr<Packer> packer = std::make_unique<Packer2D>(
+          sb.start_, sb.counts[0], sb.counts[1], sb.strides[1]);
       return packer;
-    } else if (3 == strided.ndims()) {
-      LOG_SPEW("select Packer3D for " << strided.str());
+    } else if (3 == sb.ndims()) {
+      LOG_SPEW("select Packer3D for " << sb.str());
       std::unique_ptr<Packer> packer = std::make_unique<Packer3D>(
-          strided.start_, strided.counts[0], strided.counts[1],
-          strided.strides[1], strided.counts[2], strided.strides[2]);
+          sb.start_, sb.counts[0], sb.counts[1], sb.strides[1], sb.counts[2],
+          sb.strides[2]);
       return packer;
     } else {
-      LOG_SPEW("no packer for " << strided.str());
+      LOG_SPEW("no packer for " << sb.str());
       return nullptr;
     }
   }
@@ -562,5 +564,43 @@ StridedBlock to_strided_block(const Type &type) {
 void release(MPI_Datatype ty) {
   LOG_SPEW("release MPI_Datatype " << uintptr_t(ty));
   traverseCache.erase(ty);
-  packerCache.erase(ty);
+  typeCache.erase(ty);
+}
+
+void types_init() {
+  for (MPI_Datatype datatype : {MPI_BYTE, MPI_FLOAT, MPI_DOUBLE}) {
+    TypeRecord record{};
+    Type type = traverse(datatype);
+    type = simplify(type);
+    StridedBlock sb = to_strided_block(type);
+    record.desc = sb;
+    // set a sender and reciever, leave null if can't
+    if (1 == sb.ndims()) {
+      switch (environment::contiguous) {
+      case ContiguousMethod::AUTO: {
+        LOG_SPEW("SendRecv1D for datatype=" << uintptr_t(datatype));
+        record.sender = std::make_unique<SendRecv1D>(sb);
+        record.recver = std::make_unique<SendRecv1D>(sb);
+        break;
+      }
+      case ContiguousMethod::STAGED: {
+        LOG_SPEW("SendRecv1DStaged for datatype=" << uintptr_t(datatype));
+        record.sender = std::make_unique<SendRecv1DStaged>(sb);
+        record.recver = std::make_unique<SendRecv1DStaged>(sb);
+        break;
+      }
+      case ContiguousMethod::NONE: {
+        LOG_SPEW("NULL sender for datatype=" << uintptr_t(datatype));
+        record.sender = nullptr;
+        record.recver = nullptr;
+        break;
+      }
+      }
+    } else {
+      LOG_WARN("NULL sender for " << uintptr_t(datatype));
+      record.sender = nullptr;
+      record.recver = nullptr;
+    }
+    typeCache[datatype] = std::move(record);
+  }
 }

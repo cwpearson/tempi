@@ -1,11 +1,12 @@
 #include "allocators.hpp"
 #include "env.hpp"
 #include "logging.hpp"
+#include "measure_system.hpp"
 #include "streams.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
+#include "types.hpp"
 #include "worker.hpp"
-#include "measure_system.hpp"
 
 #include <mpi.h>
 
@@ -41,6 +42,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   topology_init();
   streams_init();
   worker_init();
+  types_init();
   measure_system_init();
 
   return err;

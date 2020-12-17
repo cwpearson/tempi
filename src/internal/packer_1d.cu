@@ -5,10 +5,7 @@
 #include "logging.hpp"
 
 Packer1D::Packer1D(unsigned off, unsigned extent)
-    : offset_(off), extent_(extent) {
-  assert(extent_ > 0);
-  assert(offset_ > 0);
-}
+    : offset_(off), extent_(extent) {}
 
 void Packer1D::launch_pack(void *outbuf, int *position, const void *inbuf,
                            const int incount, cudaStream_t stream) const {

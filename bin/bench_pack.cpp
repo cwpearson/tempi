@@ -1,6 +1,6 @@
 #include "../include/cuda_runtime.hpp"
 #include "../include/env.hpp"
-#include "../include/packer_cache.hpp"
+#include "../include/type_cache.hpp"
 #include "../support/type.hpp"
 #include "statistics.hpp"
 
@@ -35,8 +35,8 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   int packedSize;
   MPI_Pack_size(count, ty, MPI_COMM_WORLD, &packedSize);
 
-  auto pi = packerCache.find(ty);
-  if (packerCache.end() == pi) {
+  auto pi = typeCache.find(ty);
+  if (typeCache.end() == pi) {
     return BenchResult{
         .size = typeSize * count, .packTime = 0, .unpackTime = 0};
   }
@@ -56,13 +56,13 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
     int pos = 0;
     MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
-    pi->second->pack(dst, &pos, src, count);
+    pi->second.packer->pack(dst, &pos, src, count);
     double stop = MPI_Wtime();
     packStats.insert(stop - start);
 
     pos = 0;
     start = MPI_Wtime();
-    pi->second->unpack(dst, &pos, src, count);
+    pi->second.packer->unpack(dst, &pos, src, count);
     stop = MPI_Wtime();
     unpackStats.insert(stop - start);
   }

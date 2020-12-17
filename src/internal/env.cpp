@@ -8,17 +8,19 @@ namespace environment {
 /*extern*/ bool noAlltoallv;
 /*extern*/ bool noPack;
 /*extern*/ bool noTypeCommit;
-/*extern*/ PlacementMethod placement;
 /*extern*/ AlltoallvMethod alltoallv;
+/*extern*/ ContiguousMethod contiguous;
 /*extern*/ DatatypeMethod datatype;
+/*extern*/ PlacementMethod placement;
 /*extern*/ std::string cacheDir;
 }; // namespace environment
 
 void read_environment() {
   using namespace environment;
-  placement = PlacementMethod::NONE; // default to library placement
   alltoallv = AlltoallvMethod::AUTO;
-  datatype = DatatypeMethod::ONESHOT;
+  contiguous = ContiguousMethod::AUTO;
+  datatype = DatatypeMethod::AUTO;
+  placement = PlacementMethod::NONE; // default to library placement
 
   noTempi = (nullptr != std::getenv("TEMPI_DISABLE"));
   noPack = (nullptr != std::getenv("TEMPI_NO_PACK"));
@@ -66,6 +68,19 @@ void read_environment() {
   if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
     datatype = DatatypeMethod::DEVICE;
   }
+  if (nullptr != std::getenv("TEMPI_DATATYPE_AUTO")) {
+    datatype = DatatypeMethod::AUTO;
+  }
+
+  if (nullptr != std::getenv("TEMPI_CONTIGUOUS_STAGED")) {
+    contiguous = ContiguousMethod::STAGED;
+  }
+  if (nullptr != std::getenv("TEMPI_CONTIGUOUS_AUTO")) {
+    contiguous = ContiguousMethod::AUTO;
+  }
+  if (nullptr != std::getenv("TEMPI_CONTIGUOUS_NONE")) {
+    contiguous = ContiguousMethod::NONE;
+  }
 
   {
     const char *cd = std::getenv("TEMPI_CACHE_DIR");
@@ -87,5 +102,4 @@ void read_environment() {
       }
     }
   }
-
 }

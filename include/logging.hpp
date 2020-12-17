@@ -52,7 +52,8 @@ inline int world_rank() {
 
 #if TEMPI_OUTPUT_LEVEL >= 0
 #define LOG_FATAL(x)                                                                                                   \
-  std::cerr << "FATAL[" << __FILE__ << ":" << __LINE__ << "]{" << world_rank() << "} " << x << "\n";              \
+  std::cerr << "FATAL[" << __FILE__ << ":" << __LINE__ << "]{" << world_rank() << "} " << x << "\n";                   \
+  MPI_Finalize();                                                                                                      \
   exit(1);
 #else
 #define LOG_FATAL(x) exit(1);

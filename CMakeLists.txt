@@ -155,6 +155,7 @@ set_property(TARGET tempi PROPERTY ENABLE_EXPORTS ON)
 
 target_compile_options(tempi PRIVATE
 $<$<COMPILE_LANGUAGE:CXX>:
+ -ffast-math;
  -Wall
  -Wextra
  -Wcast-align;
@@ -169,6 +170,7 @@ $<$<COMPILE_LANGUAGE:CXX>:
  -Wstrict-aliasing;
  -Wswitch-enum;
  -Wvla;
+ -ffast-math;
  >
 )
 
@@ -203,17 +205,26 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     $<$<COMPILE_LANGUAGE:CUDA>:
      -G
      -Xcompiler=-fno-omit-frame-pointer
+     -Xcompiler=-fasynchronous-unwind-tables
     >
     $<$<COMPILE_LANGUAGE:CXX>:
      -fno-omit-frame-pointer
      -g
+     -fasynchronous-unwind-tables
     >
   )
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
   target_compile_options(
     tempi
     INTERFACE
-    $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+    $<$<COMPILE_LANGUAGE:CUDA>:
+    -lineinfo;
+    -Xcompiler=-ffast-math;
+    >
+    $<$<COMPILE_LANGUAGE:CXX>:
+    -ffast-math;
+    >
+    
   )
   # always apply mtune
   target_compile_options(

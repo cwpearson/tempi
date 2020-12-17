@@ -4,15 +4,19 @@
 
 #include <mpi.h>
 
+#include <cassert>
 #include <iostream>
 #include <string>
 #include <vector>
 
 struct IidTime {
   double time;
-  bool iid;
+  bool iid; // was the benchmark iid
 };
 
+/* The system benchmark code and interpolation code must match how they treat
+ * this data
+ */
 struct SystemPerformance {
   double cudaKernelLaunch;
 
@@ -23,28 +27,24 @@ struct SystemPerformance {
   std::vector<IidTime> interNodeGpuGpuPingpong;
   std::vector<IidTime> d2h;
   std::vector<IidTime> h2d;
+
+  /*vec[i][j] is 2^(2i+6) bytes with stride 2^j*/
+  std::vector<std::vector<IidTime>> packDevice;
+  std::vector<std::vector<IidTime>> packHost;
+
+  double guess_global_pack(int64_t bytes, int64_t stride);
 };
 
 extern SystemPerformance systemPerformance;
 
 /* interpolate using a vector of bandwidth sorted by bytes
  */
-inline double interp_time(const std::vector<IidTime> a, int64_t bytes) {
-  uint8_t lb = log2_floor(bytes);
-  uint8_t ub = log2_ceil(bytes);
+double interp_time(const std::vector<IidTime> a, int64_t bytes);
 
-  // too large, just scale up the largest time
-  if (ub >= a.size()) {
-    return a.back().time * bytes / (1ull << (a.size() - 1));
-  } else if (lb == ub) {
-    return a[lb].time;
-  } else { // interpolate between points
-    float num = bytes - (1ull << lb);
-    float den = (1ull << ub) - (1ull << lb);
-    float sf = num / den;
-    return a[lb].time * (1 - sf) + a[ub].time * sf;
-  }
-}
+/* interpolate using a vector of bandwidth sorted by bytes
+ */
+double interp_2d(const std::vector<std::vector<IidTime>> a, int64_t bytes,
+                 int64_t stride);
 
 // fill empty entries in sp
 void measure_system_performance(SystemPerformance &sp, MPI_Comm comm);

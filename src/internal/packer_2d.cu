@@ -175,7 +175,9 @@ Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
 }
 
 void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
-                           const int incount, cudaStream_t stream) const {
+                           const int incount, cudaStream_t stream,
+                           cudaEvent_t kernelStart,
+                           cudaEvent_t kernelStop) const {
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
   if (uintptr_t(inbuf) % wordSize_) {
@@ -184,52 +186,57 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
 
   Dim3 gd = gd_;
   gd.z = incount;
-
+  // LOG_SPEW("wordSize_ = " << wordSize_);
+  if (kernelStart) {
+    CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
+  }
   if (4 == wordSize_) {
-    LOG_SPEW("wordSize_ = 4");
     pack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
   } else if (8 == wordSize_) {
-    LOG_SPEW("wordSize_ = 8");
     pack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
   } else if (2 == wordSize_) {
-    LOG_SPEW("wordSize_ = 2");
     pack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
   } else {
-    LOG_SPEW("wordSize == 1");
     pack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
+  }
+  if (kernelStop) {
+    CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }
   CUDA_RUNTIME(cudaGetLastError());
   (*position) += incount * count_ * blockLength_;
 }
 
 void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
-                             const int outcount, cudaStream_t stream) const {
+                             const int outcount, cudaStream_t stream,
+                             cudaEvent_t kernelStart,
+                             cudaEvent_t kernelStop) const {
   outbuf = static_cast<char *>(outbuf) + offset_;
 
   Dim3 gd = gd_;
   gd.z = outcount;
-
+  // LOG_SPEW("wordSize_ = " << wordSize_);
+  if (kernelStart) {
+    CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
+  }
   if (4 == wordSize_) {
-    LOG_SPEW("wordSize_ = 4");
     unpack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
-
   } else if (8 == wordSize_) {
-    LOG_SPEW("wordSize_ = 8");
     unpack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
   } else if (2 == wordSize_) {
-    LOG_SPEW("wordSize_ = 2");
     unpack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
   } else {
-    LOG_SPEW("wordSize == 1");
     unpack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
+  }
+  if (kernelStop) {
+    CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }
   CUDA_RUNTIME(cudaGetLastError());
   (*position) += outcount * count_ * blockLength_;

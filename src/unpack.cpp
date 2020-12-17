@@ -5,7 +5,7 @@
 
 #include "cuda_runtime.hpp"
 #include "env.hpp"
-#include "packer_cache.hpp"
+#include "type_cache.hpp"
 #include "symbols.hpp"
 
 #include <cuda_runtime.h>
@@ -24,8 +24,8 @@ extern "C" int MPI_Unpack(PARAMS_MPI_Unpack) {
   nvtxRangePush("MPI_Unpack");
   int err = MPI_ERR_UNKNOWN;
 
-  auto pi = packerCache.find(datatype);
-  if (packerCache.end() != pi) {
+  auto pi = typeCache.find(datatype);
+  if (typeCache.end() != pi) {
     // only optimize device-to-device unpack
     cudaPointerAttributes outAttrs = {}, inAttrs = {};
     CUDA_RUNTIME(cudaPointerGetAttributes(&outAttrs, outbuf));
@@ -40,7 +40,7 @@ extern "C" int MPI_Unpack(PARAMS_MPI_Unpack) {
       err = libmpi.MPI_Unpack(ARGS_MPI_Unpack);
       goto cleanup_and_exit;
     }
-    pi->second->unpack(inbuf, position, outbuf, outcount);
+    pi->second.packer->unpack(inbuf, position, outbuf, outcount);
     err = MPI_SUCCESS;
     goto cleanup_and_exit;
   } else {

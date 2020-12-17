@@ -50,8 +50,14 @@ add_test(NAME pack_unpack COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 
 pmpi_test_exe(isend isend.cu)
 add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isend)
 
+pmpi_test_exe(sender sender.cpp)
+add_test(NAME sender COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 sender)
+
 pmpi_test_exe(send send.cpp)
 add_test(NAME send COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 send)
+
+pmpi_test_exe(send_vector send_vector.cpp)
+add_test(NAME send_vector COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 send_vector)
 
 pmpi_test_exe(dist_graph_create_adjacent dist_graph_create_adjacent.cpp)
 add_test(NAME dist_graph_create_adjacent COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 4 dist_graph_create_adjacent)

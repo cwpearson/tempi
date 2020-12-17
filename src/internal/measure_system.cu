@@ -1,8 +1,10 @@
+#include "measure_system.hpp"
+
 #include "benchmark.hpp"
 #include "cuda_runtime.hpp"
 #include "logging.hpp"
-#include "measure_system.hpp"
 #include "numeric.hpp"
+#include "packer_2d.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
 
@@ -18,6 +20,83 @@ typedef std::chrono::time_point<Clock, Duration> Time;
 /*extern*/ SystemPerformance systemPerformance;
 
 void measure_system_init() { import_system_performance(systemPerformance); }
+
+double interp_time(const std::vector<IidTime> a, int64_t bytes) {
+
+  if (a.empty()) {
+    return std::numeric_limits<double>::infinity();
+  }
+
+  uint8_t lb = log2_floor(bytes);
+  uint8_t ub = log2_ceil(bytes);
+
+  // too large, just scale up the largest time
+  if (ub >= a.size()) {
+    return a.back().time * bytes / (1ull << (a.size() - 1));
+  } else if (lb == ub) {
+    return a[lb].time;
+  } else { // interpolate between points
+    float num = bytes - (1ull << lb);
+    float den = (1ull << ub) - (1ull << lb);
+    float sf = num / den;
+    return a[lb].time * (1 - sf) + a[ub].time * sf;
+  }
+}
+
+double interp_2d(const std::vector<std::vector<IidTime>> a, int64_t bytes,
+                 int64_t stride) {
+  assert(stride <= 512);
+
+  /*find the surrounding points for which we have measurements,
+    as well as indices into the measurement array for the points
+
+    x1,y1 is lower corner, x2,y2 is higher corner
+
+    the x coverage is complete,
+     so we only have to handle the case when y1/y2 is not in the array
+  */
+  uint8_t yi1 = (log2_floor(bytes) - 6) / 2;
+  int64_t y1 = 1ull << (yi1 * 2 + 6);
+  uint8_t yi2 = (y1 == bytes) ? yi1 : yi1 + 1;
+  int64_t y2 = 1ull << (yi2 * 2 + 6);
+
+  // std::cerr << "yi1,yi2=" << int(yi1) << "," << int(yi2) << "\n";
+
+  uint8_t xi1 = log2_floor(stride);
+  int64_t x1 = 1ull << xi1;
+  uint8_t xi2 = log2_ceil(stride);
+  int64_t x2 = 1ull << xi2;
+
+  int64_t x = stride;
+  int64_t y = bytes;
+
+  float sf_x;
+  if (xi2 == xi1) {
+    sf_x = 0.0;
+  } else {
+    sf_x = float(x - x1) / float(x2 - x1);
+  }
+  float sf_y;
+  if (yi2 == yi1) {
+    sf_y = 0.0;
+  } else {
+    sf_y = float(y - y1) / float(y2 - y1);
+  }
+
+  // message is too big, just scale the stride interpolation
+  if (yi2 >= a.size()) {
+    float base = (1 - sf_x) * a[a.size() - 1][xi1].time +
+                 sf_x * a[a.size() - 1][xi2].time;
+    float y_max = 1ull << ((a.size() - 1) * 2 + 6);
+    // std::cerr << base << "," << y_max << " " << bytes << "\n";
+    return base / y_max * bytes;
+  } else {
+    float f_x_y1 = (1 - sf_x) * a[yi1][xi1].time + sf_x * a[yi1][xi2].time;
+    float f_x_y2 = (1 - sf_x) * a[yi2][xi1].time + sf_x * a[yi2][xi2].time;
+    float f_x_y = (1 - sf_y) * f_x_y1 + sf_y * f_x_y2;
+    return f_x_y;
+  }
+}
 
 static __global__ void kernel(int *a) {
   if (a) {
@@ -253,14 +332,110 @@ public:
   }
 };
 
-bool load_benchmark_cache(MPI_Comm comm) {
-  int rank;
-  MPI_Comm_rank(comm, &rank);
-  if (rank == 0) {
-    LOG_ERROR("load_benchmark_cache unimpemented");
+class DevicePack2D : public Benchmark {
+  cudaStream_t stream;
+  cudaEvent_t start, stop;
+  char *src, *dst;
+  int64_t numBlocks_;
+  int64_t blockLength_;
+  int64_t stride_;
+  int nreps_;
+  Packer2D packer_;
+
+public:
+  DevicePack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
+      : packer_(0, blockLength, numBlocks, stride) {
+    CUDA_RUNTIME(cudaStreamCreate(&stream));
+    CUDA_RUNTIME(cudaEventCreate(&start));
+    CUDA_RUNTIME(cudaEventCreate(&stop));
+    CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
+    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
   }
-  return false;
-}
+
+  ~DevicePack2D() {
+    CUDA_RUNTIME(cudaStreamDestroy(stream));
+    CUDA_RUNTIME(cudaEventDestroy(start));
+    CUDA_RUNTIME(cudaEventDestroy(stop));
+    CUDA_RUNTIME(cudaFree(src));
+    CUDA_RUNTIME(cudaFree(dst));
+  }
+
+  void setup() {
+    nreps_ = 1;
+    run_iter();                       // warmup
+    Benchmark::Sample s = run_iter(); // measure time
+
+    // target at least 200us
+    nreps_ = 200.0 * 1e-6 / s.time;
+    nreps_ = std::max(nreps_, 1);
+    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+  }
+
+  Benchmark::Sample run_iter() override {
+    float ms;
+    int pos = 0;
+    packer_.launch_pack(dst, &pos, src, 1, stream, start, stop);
+    CUDA_RUNTIME(cudaEventSynchronize(stop));
+    CUDA_RUNTIME(cudaEventElapsedTime(&ms, start, stop));
+    Sample res{};
+    res.time = ms / 1024.0;
+    return res;
+  }
+};
+
+class PackHost2D : public Benchmark {
+  cudaStream_t stream;
+  cudaEvent_t start, stop;
+  char *src, *dst;
+  int64_t numBlocks_;
+  int64_t blockLength_;
+  int64_t stride_;
+  int nreps_;
+  Packer2D packer_;
+
+public:
+  PackHost2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
+      : packer_(0, blockLength, numBlocks, stride) {
+    CUDA_RUNTIME(cudaStreamCreate(&stream));
+    CUDA_RUNTIME(cudaEventCreate(&start));
+    CUDA_RUNTIME(cudaEventCreate(&stop));
+    CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
+    dst = new char[numBlocks * stride];
+    CUDA_RUNTIME(
+        cudaHostRegister(dst, numBlocks * stride, cudaHostRegisterPortable));
+  }
+
+  ~PackHost2D() {
+    CUDA_RUNTIME(cudaStreamDestroy(stream));
+    CUDA_RUNTIME(cudaEventDestroy(start));
+    CUDA_RUNTIME(cudaEventDestroy(stop));
+    CUDA_RUNTIME(cudaFree(src));
+    CUDA_RUNTIME(cudaHostUnregister(dst));
+    delete[] dst;
+  }
+
+  void setup() {
+    nreps_ = 1;
+    run_iter();                       // warmup
+    Benchmark::Sample s = run_iter(); // measure time
+
+    // target at least 200us
+    nreps_ = 200.0 * 1e-6 / s.time;
+    nreps_ = std::max(nreps_, 1);
+    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+  }
+
+  Benchmark::Sample run_iter() override {
+    float ms;
+    int pos = 0;
+    packer_.launch_pack(dst, &pos, src, 1, stream, start, stop);
+    CUDA_RUNTIME(cudaEventSynchronize(stop));
+    CUDA_RUNTIME(cudaEventElapsedTime(&ms, start, stop));
+    Sample res{};
+    res.time = ms / 1024.0;
+    return res;
+  }
+};
 
 /* fill any missing entries in sp
  */
@@ -272,6 +447,60 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "PackHost2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0) {
+
+    for (int i = 0; i < 9; ++i) {
+      sp.packHost.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        PackHost2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.packHost[i].push_back(IidTime{.time = res.trimean, .iid = res.iid});
+      }
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "DevicePack2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0) {
+    for (int i = 0; i < 9; ++i) {
+      sp.packDevice.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        DevicePack2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.packDevice[i].push_back(
+            IidTime{.time = res.trimean, .iid = res.iid});
+        ;
+      }
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "CUDA kernel\n";
+    std::cerr << "bytes,s,niters\n";
+  }
   if (rank == 0 && sp.cudaKernelLaunch == 0) {
     KernelLaunchBenchmark bm;
     Benchmark::Result res = bm.run(Benchmark::RunConfig());

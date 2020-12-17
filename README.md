@@ -26,7 +26,7 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## Quick Start
 
-Requires C++17 (`variant` and `filesystem`).
+Requires C++17 (`variant`, `filesystem`, and `optional`).
 
 ```
 #summit
@@ -56,15 +56,17 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ## Features
 
 Performance fixes for CUDA+MPI code that requires no source code changes
-- [ ] node remapping in `MPI_Dist_graph_create` using METIS.
+- [x] node remapping in `MPI_Dist_graph_create`
+  - [x] METIS
+  - [x] KaHIP
 - [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
   - [ ] derived datatypes
 - [x] (OLCF Summit) Small improvements to `MPI_Send` for large GPU-GPU messages.
 - [x] Fast `MPI_Pack` on 3D strided data types (disable with `TEMPI_NO_PACK`)
   - [x] vector
   - [x] hvector
-  - [ ] subarray
-  - [ ] contiguous
+  - [x] subarray
+  - [x] contiguous
 - [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
   - [x] vector
   - [x] hvector
@@ -75,6 +77,16 @@ Performance fixes for CUDA+MPI code that requires no source code changes
 
 Performance improvements that require `mpi-ext.h`:
 - [ ] coming soon...
+
+## Binaries
+
+| Path | numprocs | Description |
+|-|-|-|
+|`bin/measure-system` | 2 | Generate `perf.json` in `TEMPI_CACHE_DIR` |
+|`bin/bench-mpi-pack` | 1 |Benchmark `MPI_Pack` and `MPI_Unpack` for a variety of 2d objects |
+|`bin/bench-mpi-pingpong-1d` | 2 | Benchmark MPI_Send time for contiguous data using pingpong |
+|`bin/bench-mpi-pingpong-nd` | 2 | Benchmark MPI_Send time for 2d data using pingpong |
+|`bin/bench-halo-exchange NITERS X Y Z` | 1+ | Benchmark a 3D halo exchange for an XYZ grid |
 
 ## Design 
 
@@ -139,6 +151,8 @@ Internally, each rank is remapped onto one rank of the underlying library, and t
 
 In certain scenarios, the CPU-CPU performance of MPI point-to-point communications is substantially faster than the GPU-GPU equivalent.
 When that is the case, there is opportunity to accelerate the GPU-GPU communication.
+
+### Device, One-shot, or Staged datatype handling
 
 ## Knobs
 

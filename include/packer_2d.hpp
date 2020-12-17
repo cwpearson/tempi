@@ -20,9 +20,16 @@ public:
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;
 
-private:
+  /*public so can be used in benchmarking. If event is not null, record kernel
+   * time in event*/
   void launch_pack(void *outbuf, int *position, const void *inbuf,
-                   const int incount, cudaStream_t stream) const;
+                   const int incount, cudaStream_t stream,
+                   cudaEvent_t kernelStart = {},
+                   cudaEvent_t kernelStop = {}) const;
   void launch_unpack(const void *inbuf, int *position, void *outbuf,
-                     const int outcount, cudaStream_t stream) const;
+                     const int outcount, cudaStream_t stream,
+                     cudaEvent_t kernelStart = {},
+                     cudaEvent_t kernelStop = {}) const;
+
+private:
 };

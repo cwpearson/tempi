@@ -2,15 +2,16 @@
 #include "cuda_runtime.hpp"
 #include "env.hpp"
 #include "logging.hpp"
-#include "packer_cache.hpp"
 #include "symbols.hpp"
 #include "topology.hpp"
+#include "type_cache.hpp"
 
 #include <cuda_runtime.h>
 #include <mpi.h>
 
 #include <vector>
 
+#if 0
 static int recv_device(int device, Packer &packer, PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
 
@@ -38,7 +39,9 @@ static int recv_device(int device, Packer &packer, PARAMS_MPI_Recv) {
   deviceAllocator.deallocate(packBuf, packedBytes);
   return err;
 }
+#endif
 
+#if 0
 /* recv data into pinned buffer and unpack into GPU */
 static int recv_oneshot(int device, Packer &packer, PARAMS_MPI_Recv) {
   CUDA_RUNTIME(cudaSetDevice(device));
@@ -67,7 +70,9 @@ static int recv_oneshot(int device, Packer &packer, PARAMS_MPI_Recv) {
   hostAllocator.deallocate(packBuf, packedBytes);
   return err;
 }
+#endif
 
+#if 0
 static int staged(int numBytes, // pre-computed buffer size in bytes
                   PARAMS_MPI_Recv) {
 
@@ -86,6 +91,7 @@ static int staged(int numBytes, // pre-computed buffer size in bytes
 
   return err;
 }
+#endif
 
 extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   if (environment::noTempi) {
@@ -101,18 +107,25 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
     return libmpi.MPI_Recv(ARGS_MPI_Recv);
   }
 
-  // optimize packer
-  auto pi = packerCache.find(datatype);
-  if (packerCache.end() != pi) {
+  auto pi = typeCache.find(datatype);
+
+  // if sender is found
+  if (typeCache.end() != pi && pi->second.recver) {
+    LOG_SPEW("MPI_Recv: cached Recver");
+    return pi->second.recver->recv(ARGS_MPI_Recv);
+  }
+
+#if 0
+  if (typeCache.end() != pi) {
 
     switch (environment::datatype) {
     case DatatypeMethod::ONESHOT: {
       LOG_SPEW("MPI_Recv: oneshot");
-      return recv_oneshot(attr.device, *(pi->second), ARGS_MPI_Recv);
+      return recv_oneshot(attr.device, *(pi->second.packer), ARGS_MPI_Recv);
     }
     case DatatypeMethod::DEVICE: {
       LOG_SPEW("MPI_Recv: device");
-      return recv_device(attr.device, *(pi->second), ARGS_MPI_Recv);
+      return recv_device(attr.device, *(pi->second.packer), ARGS_MPI_Recv);
     }
     default: {
       LOG_ERROR("unexpected DatatypeMethod");
@@ -135,9 +148,9 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
     LOG_SPEW("MPI_Recv: staged");
     return staged(numBytes, ARGS_MPI_Recv);
   }
+  #endif
 
   // if all else fails, just call MPI_Recv
   LOG_SPEW("MPI_Recv: use library (fallthrough)");
-  LOG_SPEW("count=" << count << " source=" << source << " tag=" << tag);
   return libmpi.MPI_Recv(ARGS_MPI_Recv);
 }

@@ -11,7 +11,7 @@ set -eou pipefail
 module reset
 module unload darshan-runtime
 module load spectrum-mpi/10.3.1.2-20200121
-module load gcc/7.4.0
+module load gcc/9.0.3
 module load cuda/11.0.3
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
@@ -23,32 +23,38 @@ mkdir -p $SCRATCH
 
 echo "summit pingpong-1d" > $OUT
 
-echo "1nodes,2rankpernode,tempi" >> $OUT
+unset TEMPI_DISABLE
+export TEMPI_CONTIGUOUS_AUTO=""
+echo "1nodes,2rankpernode,auto" >> $OUT
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_AUTO
+export TEMPI_CONTIGUOUS_STAGED=""
+echo "1nodes,2rankpernode,staged" >> $OUT
+jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_STAGED
+export TEMPI_CONTIGUOUS_NONE=""
+echo "1nodes,2rankpernode,fallback" >> $OUT
+jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_NONE
 echo "1nodes,2rankpernode,notempi" >> $OUT
 export TEMPI_DISABLE=""
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
 unset TEMPI_DISABLE
 
-echo "2nodes,1rankpernode,tempi" >> $OUT
+unset TEMPI_DISABLE
+export TEMPI_CONTIGUOUS_AUTO=""
+echo "2nodes,1rankpernode,auto" >> $OUT
 jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_AUTO
+export TEMPI_CONTIGUOUS_STAGED=""
+echo "2nodes,1rankpernode,staged" >> $OUT
+jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_STAGED
+export TEMPI_CONTIGUOUS_NONE=""
+echo "2nodes,1rankpernode,fallback" >> $OUT
+jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
+unset TEMPI_CONTIGUOUS_NONE
 echo "2nodes,1rankpernode,notempi" >> $OUT
 export TEMPI_DISABLE=""
 jsrun --smpiargs="-gpu" -n 2 -r 1 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
 unset TEMPI_DISABLE
-
-#echo "2nodes,2rankpernode" >> $OUT
-#jsrun --smpiargs="-gpu" -n 4 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-
-#echo "2nodes,3rankpernode" >> $OUT
-#jsrun --smpiargs="-gpu" -n 6 -r 3 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-
-#echo "2nodes,4rankpernode" >> $OUT
-#jsrun --smpiargs="-gpu" -n 8 -r 4 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-
-#echo "2nodes,5rankpernode" >> $OUT
-#jsrun --smpiargs="-gpu" -n 10 -r 5 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-
-#echo "2nodes,6rankpernode" >> $OUT
-#jsrun --smpiargs="-gpu" -n 12 -r 6 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-

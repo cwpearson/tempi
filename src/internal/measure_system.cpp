@@ -31,6 +31,8 @@ void to_json(json &j, const SystemPerformance &p) {
   j["d2h"] = p.d2h;
   j["h2d"] = p.h2d;
   j["cudaKernelLaunch"] = p.cudaKernelLaunch;
+  j["packDevice"] = p.packDevice;
+  j["packHost"] = p.packHost;
 }
 void from_json(const json &j, SystemPerformance &p) {
   j.at("intraNodeCpuCpuPingpong").get_to(p.intraNodeCpuCpuPingpong);
@@ -40,6 +42,8 @@ void from_json(const json &j, SystemPerformance &p) {
   j.at("d2h").get_to(p.d2h);
   j.at("h2d").get_to(p.h2d);
   j.at("cudaKernelLaunch").get_to(p.cudaKernelLaunch);
+  j.at("packDevice").get_to(p.packDevice);
+  j.at("packHost").get_to(p.packHost);
 }
 
 bool export_system_performance(const SystemPerformance &sp) {
@@ -78,7 +82,7 @@ bool import_system_performance(SystemPerformance &sp) {
     sp = j;
   } catch (nlohmann::detail::out_of_range &e) {
     LOG_ERROR("error converting json to SystemPerformance: "
-              << e.what() << "(delete and run bin/measure-performance)");
+              << e.what() << " (delete and run bin/measure-performance)");
   }
   return true;
 }

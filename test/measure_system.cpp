@@ -32,6 +32,61 @@ int main(int argc, char **argv) {
     REQUIRE(r == 14);
   }
 
+  // clang-format off
+  std::vector<std::vector<IidTime>> a{
+             /*1*/        /*2*/        /*4*/
+    /*64*/  {{14, false}, {18, false}, {22, false}    },
+    /*256*/ {{16, false}, {20, false}, {24, false}    }
+    };
+  // clang-format on
+
+  {
+    double r = interp_2d(a, 64, 1);
+    REQUIRE(r == 14);
+  }
+  {
+    double r = interp_2d(a, 160, 1);
+
+    REQUIRE(r == 15);
+  }
+  {
+    double r = interp_2d(a, 256, 1);
+    REQUIRE(r == 16);
+  }
+  {
+    double r = interp_2d(a, 64, 2);
+    REQUIRE(r == 18);
+  }
+  {
+    double r = interp_2d(a, 256, 2);
+    REQUIRE(r == 20);
+  }
+  {
+    double r = interp_2d(a, 64, 2);
+    REQUIRE(r == 18);
+  }
+  {
+    double r = interp_2d(a, 64, 3);
+    REQUIRE(r == 20);
+  }
+  {
+    double r = interp_2d(a, 64, 4);
+    REQUIRE(r == 22);
+  }
+  {
+    double r = interp_2d(a, 160, 3);
+    REQUIRE(r == 21);
+  }
+
+  {
+    double r = interp_2d(a, 512, 1);
+    REQUIRE(r == 32);
+  }
+  {
+    double r = interp_2d(a, 512, 3);
+    REQUIRE(r == 44);
+  }
+
   MPI_Finalize();
 
   return 0;

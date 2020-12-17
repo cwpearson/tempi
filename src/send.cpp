@@ -1,15 +1,8 @@
 #include "send.hpp"
 #include "env.hpp"
-#include "logging.hpp"
 #include "symbols.hpp"
 
-
-#include <cuda_runtime.h>
 #include <mpi.h>
-
-#include <dlfcn.h>
-
-#include <vector>
 
 extern "C" int MPI_Send(PARAMS_MPI_Send) {
   if (environment::noTempi) {

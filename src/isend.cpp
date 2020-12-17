@@ -38,7 +38,7 @@ extern "C" int MPI_Isend(PARAMS_MPI_Isend) {
   }
 
   // use library MPI if we don't have a fast packer
-  if (datatype != MPI_FLOAT && !packerCache.count(datatype)) {
+  if (datatype != MPI_FLOAT && !typeCache.count(datatype)) {
     LOG_DEBUG("use library (no fast packer)");
     int err = fn(ARGS_MPI_Isend);
     nvtxRangePop();
