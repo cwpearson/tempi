@@ -89,22 +89,8 @@ include(ExternalProject)
 if(TEMPI_ENABLE_KAHIP)
   message(STATUS "define TEMPI_ENABLE_KAHIP")
   target_compile_definitions(tempi PRIVATE TEMPI_ENABLE_KAHIP)
-
-  ExternalProject_Add(kahip
-    GIT_REPOSITORY git@github.com:cwpearson/KaHIP.git
-    GIT_TAG "20ff5e3c52c7f8ba9cf89fe2d14f0f5f1f125236" # tempi brach
-    #GIT_TAG "b466cdf2ffb3c5c6124f0b212bf808cdcf5a1d7d" # balanced kaffpa
-    #GIT_TAG "08c8a02296ba02e9932dc25ba8e76876e18516d2" # balanced process mapping
-    GIT_SUBMODULES_RECURSE TRUE
-    CMAKE_ARGS
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-      -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/kahip-prefix
-      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-    )
-  add_dependencies(tempi kahip)
-  target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/include)
-  target_link_libraries(tempi PRIVATE ${CMAKE_BINARY_DIR}/kahip-prefix/lib/libinterface_static.a)
+  add_subdirectory(thirdparty/KaHIP EXCLUDE_FROM_ALL)
+  target_link_libraries(tempi PRIVATE interface_static)
 endif(TEMPI_ENABLE_KAHIP)
 
 if(TEMPI_ENABLE_METIS)
@@ -216,7 +202,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
 elseif (CMAKE_BUILD_TYPE MATCHES Release)
   target_compile_options(
     tempi
-    INTERFACE
+    PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
     -lineinfo;
     -Xcompiler=-ffast-math;

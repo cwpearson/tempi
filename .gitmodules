@@ -1,0 +1,3 @@
+[submodule "thirdparty/KaHIP"]
+	path = thirdparty/KaHIP
+	url = https://github.com/cwpearson/KaHIP.git

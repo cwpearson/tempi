@@ -32,10 +32,8 @@ export TEMPI_CONTIGUOUS_STAGED=""
 echo "1nodes,2rankpernode,staged" >> $OUT
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
 unset TEMPI_CONTIGUOUS_STAGED
-export TEMPI_CONTIGUOUS_NONE=""
 echo "1nodes,2rankpernode,fallback" >> $OUT
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-unset TEMPI_CONTIGUOUS_NONE
 echo "1nodes,2rankpernode,notempi" >> $OUT
 export TEMPI_DISABLE=""
 jsrun --smpiargs="-gpu" -n 2 -r 2 -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT

@@ -26,7 +26,7 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## Quick Start
 
-Requires C++17 (`variant`, `filesystem`, and `optional`).
+Requires C++17 (`variant`, `filesystem`, and `optional`) and CUDA-aware MPI.
 
 ```
 #summit
@@ -39,6 +39,15 @@ cd build
 cmake ..
 make
 make test
+```
+
+If some tests fail, ensure you are using a CUDA-aware MPI implementation.
+`cmake` will print the MPI implementation TEMPI is using.
+If you need to find a different MPI:
+
+```
+rm CMakeCache.txt
+cmake -DCMAKE_PREFIX_PATH=/path/to/mpi ..
 ```
 
 Add the library to your link step before the underlying MPI library.
@@ -61,13 +70,12 @@ Performance fixes for CUDA+MPI code that requires no source code changes
   - [x] KaHIP
 - [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
   - [ ] derived datatypes
-- [x] (OLCF Summit) Small improvements to `MPI_Send` for large GPU-GPU messages.
-- [x] Fast `MPI_Pack` on 3D strided data types (disable with `TEMPI_NO_PACK`)
+- [x] Fast `MPI_Pack` on strided data types (disable with `TEMPI_NO_PACK`)
   - [x] vector
   - [x] hvector
   - [x] subarray
   - [x] contiguous
-- [x] Fast `MPI_Send` on 3D strided data types (disable with `TEMPI_NO_SEND`)
+- [x] Fast `MPI_Send` on strided data types (disable with `TEMPI_NO_SEND`)
   - [x] vector
   - [x] hvector
   - [x] subarray
@@ -147,12 +155,15 @@ This is discovered during `MPI_Init` and can be queried quickly during other MPI
 When `MPI_Dist_graph_create_adjacent` is used, and `1` is passed for the `reorder` parameter, TEMPI uses METIS to group heavily-communicating ranks onto nodes.
 Internally, each rank is remapped onto one rank of the underlying library, and the substitution is made during all calls that use the communicator.
 
-### CPU-CPU vs GPU-GPU performance
+### IID System Parameter Measurements (`include/measure_system.hpp`)
 
-In certain scenarios, the CPU-CPU performance of MPI point-to-point communications is substantially faster than the GPU-GPU equivalent.
-When that is the case, there is opportunity to accelerate the GPU-GPU communication.
+TEMPI supports different implementation based on system properties.
+`bin/measure-system` records the profile in `$TEMPI_CACHE_DIR`, and the TEMPI library can use that record.
 
 ### Device, One-shot, or Staged datatype handling
+
+TEMPI integrates non-contiguous datatype handling with MPI_Send.
+Data can be packed in the GPU and sent directly (`DEVICE`), staged into the CPU and then sent (`STAGED`), or packed directly into the CPU with mapped memory (`ONE_SHOT`).
 
 ## Knobs
 
@@ -160,14 +171,23 @@ The system can be controlled by environment variables.
 These are the first thing read during `MPI_Init` (even if `TEMPI_DISABLE` is set, of course).
 Setting the corresponding variable to any value (even empty) will change behavior.
 
+The behavior of these can be seen in `src/internal/env.cpp`
+
 |Environment Variable|Effect when Set|
 |-|-|
+|`TEMPI_CACHE_DIR`|Where the system measurement results go `perf.json`. Defaults to `$XDG_CACHE_DIR`, then `$XDG_CACHE_HOME/tempi`, then `$HOME/.tempi`, then `/var/tmp`.|
 |`TEMPI_DISABLE`|Disable all TEMPI behavior. All calls will use underlying library directly.|
 |`TEMPI_NO_ALLTOALLV`|Use library `MPI_Alltoallv`|
 |`TEMPI_NO_PACK`|Use library `MPI_Pack`|
 |`TEMPI_NO_TYPE_COMMIT`|Use library `MPI_Type_commit`. Don't analyze MPI types for allowable optimizations.|
-|`TEMPI_PLACEMENT_RANDOM`|Enable random rank placement for `MPI_Dist_graph_create_adjacent`|
-|`TEMPI_PLACEMENT_METIS`|Enable rank placement using METIS for `MPI_Dist_graph_create_adjacent`|
+|`TEMPI_PLACEMENT_RANDOM`| Do random rank placement for `MPI_Dist_graph_create_adjacent`|
+|`TEMPI_PLACEMENT_METIS` | Do rank placement using METIS for `MPI_Dist_graph_create_adjacent`|
+|`TEMPI_PLACEMENT_KAHIP` | Do rank placement using KaHIP for `MPI_Dist_graph_create_adjacent`|
+|`TEMPI_DATATYPE_ONESHOT`| Pack noncontiguous datatypes into pinned CPU memory |
+|`TEMPI_DATATYPE_DEVICE` | Pack noncontiguous datatypes into GPU memory |
+|`TEMPI_DATATYPE_AUTO` |Use results of `bin/measure-system` to select between `DEVICE` and `ONESHOT`|
+|`TEMPI_CONTIGUOUS_STAGED` | Copy data to CPU, then send |
+|`TEMPI_CONTIGUOUS_AUTO` |Use results of `bin/measure-system` to enable `STAGED` for some transfer sizes|
 
 to unset an environment variable in bash: `unset <VAR>`
 
@@ -190,19 +210,18 @@ Later, the lazy lookup will cause it to happen in `libmpiprofilesupport.so.3` an
 We need gcc 9.3 for filesystem and variant support.
 Cuda 11.0.3 (11.0.221) is new enough to use gcc 9.3, but newer versions of cuda have a memory leak when used with spectrum mpi.
 
-## OpenMPI
-
-`./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
-
-
-
-**other notes**
-
 nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on. Disable with `nsys profile -t cuda,nvtx`.
 
 To control the compute mode, use bsub -alloc_flags gpudefault (see `olcf.ornl.gov/for-users/system-user-guides/summitdev-quickstart-guide/#gpu-specific-jobs`)
 
 To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/systems/summit_user_guide.html, "CUDA-Aware MPI")
+
+
+## OpenMPI
+
+OpenMPI can be built with CUDA support:
+
+`./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
 
 ## Contributing
 
@@ -215,5 +234,5 @@ To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/sy
 
 ## Notes
 
-* Necessitty of supporting our own optimized poin-to-point device communication?
+* Necessity of supporting our own optimized poin-to-point device communication?
   * OpenMPI 4.0.5: does a good job. repeated sends of the same buffer seem to re-use a single cuIpcOpenMemHandle. Has some upper limit of handles it keeps open, shutting when a new one needs to open (an LRU thing?). Probably matching recv needs to post before sender knows which Ipc handle to open. Recver never seems to create a mem handle though, so it's a bit of a mystery.

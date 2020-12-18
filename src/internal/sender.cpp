@@ -245,13 +245,10 @@ int SendRecvND::send(PARAMS_MPI_Send) {
 
   bool colocated = is_colocated(comm, dest);
   double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-  double s = staged.model(systemPerformance, colocated, bytes, blockLength_);
   double d = device.model(systemPerformance, colocated, bytes, blockLength_);
 
-  if (o < s && o < d) {
+  if (o < d) {
     return oneshot.send(ARGS_MPI_Send);
-  } else if (s < o && s < d) {
-    return staged.send(ARGS_MPI_Send);
   } else {
     return device.send(ARGS_MPI_Send);
   }
@@ -263,13 +260,10 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
 
   bool colocated = is_colocated(comm, source);
   double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-  double s = staged.model(systemPerformance, colocated, bytes, blockLength_);
   double d = device.model(systemPerformance, colocated, bytes, blockLength_);
 
-  if (o < s && o < d) {
+  if (o < d) {
     return oneshot.recv(ARGS_MPI_Recv);
-  } else if (s < o && s < d) {
-    return staged.recv(ARGS_MPI_Recv);
   } else {
     return device.recv(ARGS_MPI_Recv);
   }

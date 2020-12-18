@@ -28,7 +28,8 @@ public:
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
 
-  static double model(const SystemPerformance &sp, bool colocated, int64_t bytes);
+  static double model(const SystemPerformance &sp, bool colocated,
+                      int64_t bytes);
 };
 
 class SendRecv1DStaged : public Sender, public Recver {
@@ -78,6 +79,7 @@ public:
                int64_t blockLength);
 };
 
+/*not currently used*/
 class StagedND : public Sender, public Recver {
   std::unique_ptr<Packer> packer_;
 
@@ -92,11 +94,10 @@ public:
 class SendRecvND : public Sender, public Recver {
   OneshotND oneshot;
   DeviceND device;
-  StagedND staged;
   int64_t blockLength_;
 
 public:
-  SendRecvND(const StridedBlock &sb) : oneshot(sb), device(sb), staged(sb) {
+  SendRecvND(const StridedBlock &sb) : oneshot(sb), device(sb) {
     blockLength_ = sb.counts[0];
     blockLength_ = std::max(int64_t(1), blockLength_);
     blockLength_ = std::min(int64_t(512), blockLength_);
