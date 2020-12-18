@@ -41,6 +41,8 @@ make
 make test
 ```
 
+If some tests fail, ensure you are using a CUDA-aware MPI implementation.
+`cmake` will print the MPI implementation TEMPI is using.
 If you need to find a different MPI:
 
 ```
@@ -153,12 +155,15 @@ This is discovered during `MPI_Init` and can be queried quickly during other MPI
 When `MPI_Dist_graph_create_adjacent` is used, and `1` is passed for the `reorder` parameter, TEMPI uses METIS to group heavily-communicating ranks onto nodes.
 Internally, each rank is remapped onto one rank of the underlying library, and the substitution is made during all calls that use the communicator.
 
-### CPU-CPU vs GPU-GPU performance
+### IID System Parameter Measurements (`include/measure_system.hpp`)
 
-In certain scenarios, the CPU-CPU performance of MPI point-to-point communications is substantially faster than the GPU-GPU equivalent.
-When that is the case, there is opportunity to accelerate the GPU-GPU communication.
+TEMPI supports different implementation based on system properties.
+`bin/measure-system` records the profile in `$TEMPI_CACHE_DIR`, and the TEMPI library can use that record.
 
 ### Device, One-shot, or Staged datatype handling
+
+TEMPI integrates non-contiguous datatype handling with MPI_Send.
+Data can be packed in the GPU and sent directly (`DEVICE`), staged into the CPU and then sent (`STAGED`), or packed directly into the CPU with mapped memory (`ONE_SHOT`).
 
 ## Knobs
 
@@ -206,19 +211,18 @@ Later, the lazy lookup will cause it to happen in `libmpiprofilesupport.so.3` an
 We need gcc 9.3 for filesystem and variant support.
 Cuda 11.0.3 (11.0.221) is new enough to use gcc 9.3, but newer versions of cuda have a memory leak when used with spectrum mpi.
 
-## OpenMPI
-
-`./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
-
-
-
-**other notes**
-
 nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on. Disable with `nsys profile -t cuda,nvtx`.
 
 To control the compute mode, use bsub -alloc_flags gpudefault (see `olcf.ornl.gov/for-users/system-user-guides/summitdev-quickstart-guide/#gpu-specific-jobs`)
 
 To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/systems/summit_user_guide.html, "CUDA-Aware MPI")
+
+
+## OpenMPI
+
+OpenMPI can be built with CUDA support:
+
+`./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
 
 ## Contributing
 
