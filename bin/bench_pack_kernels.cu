@@ -91,27 +91,27 @@ BenchResult bench(const BenchArgs &args, // message datatype
 
     CUDA_RUNTIME(cudaEventRecord(start, stream));
     if (32 == wordSize) {
-      pack_bytes_aligned<32><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<32><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     } else if (16 == wordSize) {
-      pack_bytes_aligned<16><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<16><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     } else if (8 == wordSize) {
-      pack_bytes_aligned<8><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<8><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     } else if (4 == wordSize) {
-      pack_bytes_aligned<4><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<4><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     } else if (2 == wordSize) {
-      pack_bytes_aligned<2><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<2><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     } else {
-      pack_bytes_aligned<1><<<dimGrid, dimBlock, 0, stream>>>(
+      pack_bytes_v2<1><<<dimGrid, dimBlock, 0, stream>>>(
           dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
           objExt);
     }

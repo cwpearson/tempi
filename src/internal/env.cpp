@@ -68,9 +68,6 @@ void read_environment() {
   if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
     datatype = DatatypeMethod::DEVICE;
   }
-  if (nullptr != std::getenv("TEMPI_DATATYPE_STAGED")) {
-    datatype = DatatypeMethod::STAGED;
-  }
   if (nullptr != std::getenv("TEMPI_DATATYPE_AUTO")) {
     datatype = DatatypeMethod::AUTO;
   }

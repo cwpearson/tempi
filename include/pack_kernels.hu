@@ -29,7 +29,7 @@ __device__ void warp_memcpy_aligned(void *__restrict__ dst,
 
 template <unsigned W>
 __global__ void
-pack_bytes_aligned(void *__restrict__ outbuf, const void *__restrict__ inbuf,
+pack_bytes_v2(void *__restrict__ outbuf, const void *__restrict__ inbuf,
                    const unsigned incount, const unsigned count0,
                    const unsigned count1, const unsigned stride1,
                    const unsigned extent) {
