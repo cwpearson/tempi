@@ -248,21 +248,18 @@ public:
     for (int i = 0; i < nreps_; ++i) {
       if (0 == rank) {
         libmpi.MPI_Send(buf_.data(), buf_.size(), MPI_BYTE, 1, 0, comm_);
-      } else if (1 == rank) {
-        libmpi.MPI_Recv(buf_.data(), buf_.size(), MPI_BYTE, 0, 0, comm_,
-                        MPI_STATUS_IGNORE);
-      }
-      if (0 == rank) {
         libmpi.MPI_Recv(buf_.data(), buf_.size(), MPI_BYTE, 1, 0, comm_,
                         MPI_STATUS_IGNORE);
       } else if (1 == rank) {
+        libmpi.MPI_Recv(buf_.data(), buf_.size(), MPI_BYTE, 0, 0, comm_,
+                        MPI_STATUS_IGNORE);
         libmpi.MPI_Send(buf_.data(), buf_.size(), MPI_BYTE, 0, 0, comm_);
       }
     }
     Time stop = Clock::now();
     Duration dur = stop - start;
 
-    double time = dur.count(), maxTime;
+    double time = dur.count() / 2, maxTime;
     MPI_Allreduce(&time, &maxTime, 1, MPI_DOUBLE, MPI_MAX, comm_);
 
     Sample res{};
@@ -310,19 +307,16 @@ public:
 
       if (0 == rank) {
         libmpi.MPI_Send(buf_, n_, MPI_BYTE, 1, 0, comm_);
-      } else if (1 == rank) {
-        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 0, 0, comm_, MPI_STATUS_IGNORE);
-      }
-      if (0 == rank) {
         libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 1, 0, comm_, MPI_STATUS_IGNORE);
       } else if (1 == rank) {
+        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 0, 0, comm_, MPI_STATUS_IGNORE);
         libmpi.MPI_Send(buf_, n_, MPI_BYTE, 0, 0, comm_);
       }
     }
     Time stop = Clock::now();
     Duration dur = stop - start;
 
-    double time = dur.count(), maxTime;
+    double time = dur.count() / 2, maxTime;
     MPI_Allreduce(&time, &maxTime, 1, MPI_DOUBLE, MPI_MAX, comm_);
 
     Sample res{};
@@ -447,54 +441,6 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
-  MPI_Barrier(comm);
-  if (0 == rank) {
-    std::cerr << "PackHost2D\n";
-    std::cerr << "bytes,blockLength,s,niters\n";
-  }
-  if (rank == 0) {
-
-    for (int i = 0; i < 9; ++i) {
-      sp.packHost.push_back({});
-      for (int j = 0; j < 9; ++j) {
-        int64_t bytes = 1ull << (2 * i + 6);
-        int64_t blockLength = 1ull << j;
-        // no blocklength larger than bytes
-        blockLength = min(bytes, blockLength);
-        int64_t numBlocks = bytes / blockLength;
-        PackHost2D bm(numBlocks, blockLength, 512);
-        Benchmark::Result res = bm.run(Benchmark::RunConfig());
-        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
-                  << res.nIters << "\n";
-        sp.packHost[i].push_back(IidTime{.time = res.trimean, .iid = res.iid});
-      }
-    }
-  }
-
-  MPI_Barrier(comm);
-  if (0 == rank) {
-    std::cerr << "DevicePack2D\n";
-    std::cerr << "bytes,blockLength,s,niters\n";
-  }
-  if (rank == 0) {
-    for (int i = 0; i < 9; ++i) {
-      sp.packDevice.push_back({});
-      for (int j = 0; j < 9; ++j) {
-        int64_t bytes = 1ull << (2 * i + 6);
-        int64_t blockLength = 1ull << j;
-        // no blocklength larger than bytes
-        blockLength = min(bytes, blockLength);
-        int64_t numBlocks = bytes / blockLength;
-        DevicePack2D bm(numBlocks, blockLength, 512);
-        Benchmark::Result res = bm.run(Benchmark::RunConfig());
-        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
-                  << res.nIters << "\n";
-        sp.packDevice[i].push_back(
-            IidTime{.time = res.trimean, .iid = res.iid});
-        ;
-      }
-    }
-  }
 
   MPI_Barrier(comm);
   if (0 == rank) {
@@ -619,5 +565,53 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     }
   } else {
     LOG_WARN("skip interNodeGpuGpuPingpong");
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "PackHost2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0 && sp.packHost.empty()) {
+    for (int i = 0; i < 9; ++i) {
+      sp.packHost.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        PackHost2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.packHost[i].push_back(IidTime{.time = res.trimean, .iid = res.iid});
+      }
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "DevicePack2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0 && sp.packDevice.empty()) {
+    for (int i = 0; i < 9; ++i) {
+      sp.packDevice.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        DevicePack2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.packDevice[i].push_back(
+            IidTime{.time = res.trimean, .iid = res.iid});
+        ;
+      }
+    }
   }
 }
