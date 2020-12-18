@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
       MPI_Type_free(&ty);
 
       std::cout << ",";
-      std::cout << result.packTime;
+      std::cout << result.packTime * 1e6;
       std::cout << std::flush;
     }
     std::cout << std::endl << std::flush;
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
       MPI_Type_free(&ty);
 
       std::cout << ",";
-      std::cout << result.unpackTime;
+      std::cout << result.unpackTime * 1e6;
       std::cout << std::flush;
     }
     std::cout << std::endl << std::flush;
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
       MPI_Type_free(&ty);
 
       std::cout << ",";
-      std::cout << result.packTime;
+      std::cout << result.packTime * 1e6;
       std::cout << std::flush;
     }
     std::cout << std::endl << std::flush;
@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
       MPI_Type_free(&ty);
 
       std::cout << ",";
-      std::cout << result.unpackTime;
+      std::cout << result.unpackTime * 1e6;
       std::cout << std::flush;
     }
     std::cout << std::endl << std::flush;
