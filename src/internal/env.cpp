@@ -18,7 +18,8 @@ namespace environment {
 void read_environment() {
   using namespace environment;
   alltoallv = AlltoallvMethod::AUTO;
-  contiguous = ContiguousMethod::AUTO;
+  contiguous =
+      ContiguousMethod::NONE; // default to library handling of contiguous types
   datatype = DatatypeMethod::AUTO;
   placement = PlacementMethod::NONE; // default to library placement
 
@@ -61,12 +62,14 @@ void read_environment() {
   if (nullptr != std::getenv("TEMPI_PLACEMENT_RANDOM")) {
     placement = PlacementMethod::RANDOM;
   }
-
   if (nullptr != std::getenv("TEMPI_DATATYPE_ONESHOT")) {
     datatype = DatatypeMethod::ONESHOT;
   }
   if (nullptr != std::getenv("TEMPI_DATATYPE_DEVICE")) {
     datatype = DatatypeMethod::DEVICE;
+  }
+  if (nullptr != std::getenv("TEMPI_DATATYPE_STAGED")) {
+    datatype = DatatypeMethod::STAGED;
   }
   if (nullptr != std::getenv("TEMPI_DATATYPE_AUTO")) {
     datatype = DatatypeMethod::AUTO;
@@ -77,9 +80,6 @@ void read_environment() {
   }
   if (nullptr != std::getenv("TEMPI_CONTIGUOUS_AUTO")) {
     contiguous = ContiguousMethod::AUTO;
-  }
-  if (nullptr != std::getenv("TEMPI_CONTIGUOUS_NONE")) {
-    contiguous = ContiguousMethod::NONE;
   }
 
   {

@@ -29,9 +29,7 @@ unset TEMPI_CONTIGUOUS_STAGED
 
 echo "fallback" >> $OUT
 unset TEMPI_DISABLE
-export TEMPI_CONTIGUOUS_NONE=""
 $MPIRUN ../../build/bin/bench-mpi-pingpong-1d | tee -a $OUT
-unset TEMPI_CONTIGUOUS_NONE
 
 echo "notempi" >> $OUT
 export TEMPI_DISABLE=""
