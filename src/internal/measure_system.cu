@@ -129,6 +129,33 @@ public:
   }
 };
 
+/* The time to call CudaMemcpyAsync
+*/
+class CudaMemcpyAsync : public Benchmark {
+  cudaStream_t stream;
+
+public:
+  CudaMemcpyAsync() { CUDA_RUNTIME(cudaStreamCreate(&stream)); }
+
+  ~CudaMemcpyAsync() { CUDA_RUNTIME(cudaStreamDestroy(stream)); }
+
+  Benchmark::Sample run_iter() override {
+    Sample res{};
+
+    Time start = Clock::now();
+    for (int i = 0; i < 32; ++i) {
+      kernel<<<1, 1, 0, stream>>>(nullptr);
+    }
+    Time stop = Clock::now();
+    Duration dur = stop - start;
+    CUDA_RUNTIME(cudaStreamSynchronize(stream));
+
+    res.time = dur.count() / 32.0;
+
+    return res;
+  }
+};
+
 class CudaMemcpyAsyncD2H : public Benchmark {
   cudaStream_t stream;
   char *src, *dst;
