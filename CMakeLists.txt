@@ -266,7 +266,7 @@ find_library(NVIDIAML_LIB nvidia-ml
             )
 message(STATUS "nvidia-ml found: ${NVIDIAML_LIB}")
 target_link_libraries(tempi PUBLIC ${NVTOOLSEXT_LIB})
-
+target_link_libraries(tempi PUBLIC stdc++fs)
 
 ## find an MPI header to include, but we don't need to link against MPI.
 target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
