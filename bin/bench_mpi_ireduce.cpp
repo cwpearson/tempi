@@ -7,6 +7,7 @@
 #include <mpi.h>
 #include <nvToolsExt.h>
 
+#include <cassert>
 #include <chrono>
 #include <sstream>
 
@@ -15,13 +16,11 @@ typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
 struct BenchResult {
-  double pingPongTime;
+  double reduceTime;
 };
 
-BenchResult bench(size_t numBytes,
-                  bool tempi, // use tempi or not
-                  const int nIters, const int mpi_reduction_api_idx,
-                  const int mpi_op_idx) {
+BenchResult bench(size_t numBytes, const int nIters,
+                  const int mpiReducationApiIdx, const int mpiOpIdx) {
 
   // number of overlapping messages
   int tags = 10;
@@ -29,21 +28,20 @@ BenchResult bench(size_t numBytes,
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  // configure TEMPI
-  environment::noTempi = !tempi;
-
   // create device allocations
-  std::vector<void *> srcs(tags, {});
-  std::vector<void *> dsts(tags, {});
+  std::vector<char *> srcs(tags, {});
+  std::vector<char *> dsts(tags, {});
   CUDA_RUNTIME(cudaSetDevice(0));
   for (int i = 0; i < tags; ++i) {
     CUDA_RUNTIME(cudaMalloc(&srcs[i], numBytes));
     CUDA_RUNTIME(cudaMalloc(&dsts[i], numBytes));
+    // srcs[i] = new char[numBytes];
+    // dsts[i] = new char[numBytes];
   }
   std::vector<MPI_Request> reqs(tags);
 
   MPI_Op mpi_op_selected;
-  switch (mpi_op_idx) {
+  switch (mpiOpIdx) {
   case 0: {
     mpi_op_selected = MPI_MAX;
     break;
@@ -99,20 +97,20 @@ BenchResult bench(size_t numBytes,
   Statistics stats;
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
-    int position = 0;
     auto start = Clock::now();
     for (int i = 0; i < tags; ++i) {
-      if (mpi_reduction_api_idx == 0) {
+      if (mpiReducationApiIdx == 0) {
         MPI_Ireduce(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected, 0,
                     MPI_COMM_WORLD, &reqs[i]);
-      } else if (mpi_reduction_api_idx == 1) {
+      } else if (mpiReducationApiIdx == 1) {
         MPI_Iallreduce(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected,
                        MPI_COMM_WORLD, &reqs[i]);
-      } else if (mpi_reduction_api_idx == 2) {
+      } else if (mpiReducationApiIdx == 2) {
         MPI_Iscan(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected,
                   MPI_COMM_WORLD, &reqs[i]);
       }
     }
+    assert(reqs.data());
     MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
     auto stop = Clock::now();
     Duration dur = stop - start;
@@ -123,14 +121,15 @@ BenchResult bench(size_t numBytes,
   for (int i = 0; i < tags; ++i) {
     CUDA_RUNTIME(cudaFree(srcs[i]));
     CUDA_RUNTIME(cudaFree(dsts[i]));
+    // delete[] srcs[i];
+    // delete[] dsts[i];
   }
 
-  return BenchResult{.pingPongTime = stats.trimean()};
+  return BenchResult{.reduceTime = stats.trimean()};
 }
 
 int main(int argc, char **argv) {
 
-  environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
   // run on only ranks 0 and 1
@@ -141,74 +140,63 @@ int main(int argc, char **argv) {
     if (0 == rank) {
       LOG_FATAL("needs at least 2 ranks");
     } else {
+      MPI_Finalize();
       exit(-1);
     }
   }
-  if (!(0 == rank || 1 == rank)) {
-    goto finalize;
+
+  int nIters = 10;
+
+  BenchResult result;
+
+  std::vector<int> ns = {1,     2,       4,     8,       16,      32,   64,
+                         128,   256,     512,   1024,    1 << 11, 4096, 1 << 13,
+                         16384, 1 << 15, 65536, 1 << 17, 1 << 20};
+
+  std::vector<bool> tempis = {true, false};
+
+  constexpr std::array<int, 3> mpi_reduction_apis = {0, 1, 2};
+  constexpr std::array<int, 12> mpi_reduction_ops = {0, 1, 2, 3, 4,  5,
+                                                     6, 7, 8, 9, 10, 11};
+
+  if (0 == rank) {
+    std::cout << "api,op,n,MiB/s\n";
   }
 
-  { // prevent init bypass
-    int nIters = 10;
+  for (int mpiReducationApiIdx : mpi_reduction_apis) {
+    for (int mpi_reduction_op_idx : mpi_reduction_ops) {
+      for (int n : ns) {
 
-    BenchResult result;
+        std::string s;
+        s = std::to_string(mpiReducationApiIdx) + "|" +
+            std::to_string(mpi_reduction_op_idx) + "|" + std::to_string(n);
 
-    std::vector<int> ns = {1,       2,       4,       8,       16,
-                           32,      64,      128,     256,     512,
-                           1024,    1 << 11, 4096,    1 << 13, 16384,
-                           1 << 15, 65536,   1 << 17, 1 << 20};
+        if (0 == rank) {
+          std::cout << s;
+          std::cout << "," << mpiReducationApiIdx;
+          std::cout << "," << mpi_reduction_op_idx;
+          std::cout << "," << n;
+          std::cout << std::flush;
+        }
 
-    std::vector<bool> tempis = {true, false};
+        nvtxRangePush(s.c_str());
+        result = bench(n, nIters, mpiReducationApiIdx, mpi_reduction_op_idx);
+        nvtxRangePop();
+        if (0 == rank) {
+          std::cout << ","
+                    << double(size) * double(n) / 1024 / 1024 /
+                           result.reduceTime;
+          std::cout << std::flush;
+        }
 
-    constexpr std::array<int, 3> mpi_reduction_apis = {0, 1, 2};
-    constexpr std::array<int, 12> mpi_reduction_ops = {0, 1, 2, 3, 4,  5,
-                                                       6, 7, 8, 9, 10, 11};
-
-    if (0 == rank) {
-      std::cout << "n,tempi, MiB/s\n";
-    }
-
-    for (int mpi_reduction_api_idx : mpi_reduction_apis) {
-      for (int mpi_reduction_op_idx : mpi_reduction_ops) {
-        for (bool tempi : tempis) {
-          for (int n : ns) {
-
-            std::string s;
-            s = std::to_string(mpi_reduction_api_idx) +
-                std::to_string(mpi_reduction_op_idx) + std::to_string(n) + "/" +
-                std::to_string(tempi);
-
-            if (0 == rank) {
-              std::cout << s;
-              std::cout << "," << mpi_reduction_api_idx;
-              std::cout << "," << mpi_reduction_op_idx;
-              std::cout << "," << n;
-              std::cout << "," << tempi;
-              std::cout << std::flush;
-            }
-
-            nvtxRangePush(s.c_str());
-            result = bench(n, tempi, nIters, mpi_reduction_api_idx,
-                           mpi_reduction_op_idx);
-            nvtxRangePop();
-            if (0 == rank) {
-              std::cout << ","
-                        << 2 * double(n) / 1024 / 1024 / result.pingPongTime;
-              std::cout << std::flush;
-            }
-
-            if (0 == rank) {
-              std::cout << "\n";
-              std::cout << std::flush;
-            }
-          }
+        if (0 == rank) {
+          std::cout << "\n";
+          std::cout << std::flush;
         }
       }
     }
   }
-  LOG_DEBUG("at the end");
-finalize:
-  environment::noTempi = false; // restore this to the same as Init
+
   MPI_Finalize();
   return 0;
 }
