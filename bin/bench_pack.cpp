@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
   if (environment::noTempi) {
     nIters = 5;
   } else {
-    nIters = 200;
+    nIters = 1000;
   }
 
   std::vector<bool> stages{
@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
                            65536, 262144, 1048576, 1048576 * 4};
   std::vector<int> contigs{1, 2, 4, 8, 12, 16, 20, 24, 32, 64, 128, 256};
 
-  int stride = 256;
+  int stride = 512;
   bool stage;
 
   // zero-copy pack time

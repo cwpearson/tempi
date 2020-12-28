@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
   if (environment::noTempi) {
     nIters = 5;
   } else {
-    nIters = 200;
+    nIters = 1000;
   }
   std::string s;
 
@@ -138,14 +138,14 @@ int main(int argc, char **argv) {
                  "(MiB/s), bandwidth agg (MiB/s)\n";
   }
 
-  totals = {1024, 1024 * 1024};
+  totals = {1024, 1024 * 1024, 4 * 1024 * 1024};
   std::vector<int64_t> counts{1,2};
   std::vector<Factory2D> factories2d{
       Factory2D{make_2d_byte_vector, "2d_byte_vector"}
       //Factory2D{make_2d_byte_hvector, "2d_byte_hvector"},
       //Factory2D{make_2d_byte_subarray, "2d_byte_subarray"}
       };
-  std::vector<int> strides{16,256};
+  std::vector<int> strides{512};
 
   for (int total : totals) {
     for (int count : counts) {
