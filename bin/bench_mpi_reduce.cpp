@@ -17,9 +17,6 @@ struct BenchResult {
 BenchResult bench(size_t numBytes, const int nIters,
                   const int mpiReductionApiIdx, const int mpiOpIdx) {
 
-  // number of overlapping messages
-  int tags = 10;
-
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -87,20 +84,19 @@ BenchResult bench(size_t numBytes, const int nIters,
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
     double start = MPI_Wtime();
-    for (int i = 0; i < tags; ++i) {
-      if (mpiReductionApiIdx == 0) {
-        MPI_Reduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected, 0,
-                   MPI_COMM_WORLD);
-      } else if (mpiReductionApiIdx == 1) {
-        MPI_Allreduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected,
-                      MPI_COMM_WORLD);
-      } else if (mpiReductionApiIdx == 2) {
-        MPI_Scan(src, dst, numBytes, MPI_BYTE, mpi_op_selected, MPI_COMM_WORLD);
-      }
+    if (mpiReductionApiIdx == 0) {
+      MPI_Reduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected, 0,
+                 MPI_COMM_WORLD);
+    } else if (mpiReductionApiIdx == 1) {
+      MPI_Allreduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected,
+                    MPI_COMM_WORLD);
+    } else if (mpiReductionApiIdx == 2) {
+      MPI_Scan(src, dst, numBytes, MPI_BYTE, mpi_op_selected, MPI_COMM_WORLD);
     }
     double stop = MPI_Wtime();
     double elapsed = stop - start;
-    MPI_Allreduce(MPI_IN_PLACE, &elapsed, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &elapsed, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
     stats.insert(elapsed);
   }
   nvtxRangePop();
@@ -136,18 +132,17 @@ int main(int argc, char **argv) {
                          128,   256,     512,   1024,    1 << 11, 4096, 1 << 13,
                          16384, 1 << 15, 65536, 1 << 17, 1 << 20};
 
-  std::vector<bool> tempis = {true, false};
-
-  constexpr std::array<int, 3> mpi_reduction_apis = {0, 1, 2};
-  constexpr std::array<int, 12> mpi_reduction_ops = {0, 1, 2, 3, 4,  5,
-                                                     6, 7, 8, 9, 10, 11};
+  std::vector<int> mpiReductionApis{0, 1, 2};
+  std::vector<int> mpiReductionOps{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+  // mpiReductionApis = {0};
+  // mpiReductionOps = {0};
 
   if (0 == rank) {
     std::cout << "api,op,n,MiB/s\n";
   }
 
-  for (int mpiReductionApiIdx : mpi_reduction_apis) {
-    for (int mpi_reduction_op_idx : mpi_reduction_ops) {
+  for (int mpiReductionApiIdx : mpiReductionApis) {
+    for (int mpi_reduction_op_idx : mpiReductionOps) {
       for (int n : ns) {
 
         std::string s;
