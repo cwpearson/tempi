@@ -29,7 +29,7 @@ add_tempi_executable(bench-mpi-pingpong-1d bench_mpi_pingpong_1d.cpp)
 add_tempi_executable(bench-mpi-pingpong-nd bench_mpi_pingpong_nd.cpp)
 add_tempi_executable(bench-mpi-isend bench_mpi_isend.cpp)
 add_tempi_executable(bench-halo-exchange bench_halo_exchange.cpp)
-add_tempi_executable(bench-mpi-ireduce bench_mpi_ireduce.cpp)
+add_tempi_executable(bench-mpi-reduce bench_mpi_reduce.cpp)
 
 add_tempi_executable(bench-type-commit bench_type_commit.cpp)
 add_tempi_executable(bench-alltoallv-random-sparse bench_alltoallv_random_sparse.cpp)
