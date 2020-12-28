@@ -8,19 +8,14 @@
 #include <nvToolsExt.h>
 
 #include <cassert>
-#include <chrono>
 #include <sstream>
-
-typedef std::chrono::system_clock Clock;
-typedef std::chrono::duration<double> Duration;
-typedef std::chrono::time_point<Clock, Duration> Time;
 
 struct BenchResult {
   double reduceTime;
 };
 
 BenchResult bench(size_t numBytes, const int nIters,
-                  const int mpiReducationApiIdx, const int mpiOpIdx) {
+                  const int mpiReductionApiIdx, const int mpiOpIdx) {
 
   // number of overlapping messages
   int tags = 10;
@@ -29,16 +24,10 @@ BenchResult bench(size_t numBytes, const int nIters,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   // create device allocations
-  std::vector<char *> srcs(tags, {});
-  std::vector<char *> dsts(tags, {});
+  char *src{}, *dst{};
   CUDA_RUNTIME(cudaSetDevice(0));
-  for (int i = 0; i < tags; ++i) {
-    CUDA_RUNTIME(cudaMalloc(&srcs[i], numBytes));
-    CUDA_RUNTIME(cudaMalloc(&dsts[i], numBytes));
-    // srcs[i] = new char[numBytes];
-    // dsts[i] = new char[numBytes];
-  }
-  std::vector<MPI_Request> reqs(tags);
+  CUDA_RUNTIME(cudaMalloc(&src, numBytes));
+  CUDA_RUNTIME(cudaMalloc(&dst, numBytes));
 
   MPI_Op mpi_op_selected;
   switch (mpiOpIdx) {
@@ -97,33 +86,27 @@ BenchResult bench(size_t numBytes, const int nIters,
   Statistics stats;
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
-    auto start = Clock::now();
+    double start = MPI_Wtime();
     for (int i = 0; i < tags; ++i) {
-      if (mpiReducationApiIdx == 0) {
-        MPI_Ireduce(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected, 0,
-                    MPI_COMM_WORLD, &reqs[i]);
-      } else if (mpiReducationApiIdx == 1) {
-        MPI_Iallreduce(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected,
-                       MPI_COMM_WORLD, &reqs[i]);
-      } else if (mpiReducationApiIdx == 2) {
-        MPI_Iscan(srcs[i], dsts[i], numBytes, MPI_BYTE, mpi_op_selected,
-                  MPI_COMM_WORLD, &reqs[i]);
+      if (mpiReductionApiIdx == 0) {
+        MPI_Reduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected, 0,
+                   MPI_COMM_WORLD);
+      } else if (mpiReductionApiIdx == 1) {
+        MPI_Allreduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected,
+                      MPI_COMM_WORLD);
+      } else if (mpiReductionApiIdx == 2) {
+        MPI_Scan(src, dst, numBytes, MPI_BYTE, mpi_op_selected, MPI_COMM_WORLD);
       }
     }
-    assert(reqs.data());
-    MPI_Waitall(tags, reqs.data(), MPI_STATUS_IGNORE);
-    auto stop = Clock::now();
-    Duration dur = stop - start;
-    stats.insert(dur.count());
+    double stop = MPI_Wtime();
+    double elapsed = stop - start;
+    MPI_Allreduce(MPI_IN_PLACE, &elapsed, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    stats.insert(elapsed);
   }
   nvtxRangePop();
 
-  for (int i = 0; i < tags; ++i) {
-    CUDA_RUNTIME(cudaFree(srcs[i]));
-    CUDA_RUNTIME(cudaFree(dsts[i]));
-    // delete[] srcs[i];
-    // delete[] dsts[i];
-  }
+  CUDA_RUNTIME(cudaFree(src));
+  CUDA_RUNTIME(cudaFree(dst));
 
   return BenchResult{.reduceTime = stats.trimean()};
 }
@@ -163,24 +146,24 @@ int main(int argc, char **argv) {
     std::cout << "api,op,n,MiB/s\n";
   }
 
-  for (int mpiReducationApiIdx : mpi_reduction_apis) {
+  for (int mpiReductionApiIdx : mpi_reduction_apis) {
     for (int mpi_reduction_op_idx : mpi_reduction_ops) {
       for (int n : ns) {
 
         std::string s;
-        s = std::to_string(mpiReducationApiIdx) + "|" +
+        s = std::to_string(mpiReductionApiIdx) + "|" +
             std::to_string(mpi_reduction_op_idx) + "|" + std::to_string(n);
 
         if (0 == rank) {
           std::cout << s;
-          std::cout << "," << mpiReducationApiIdx;
+          std::cout << "," << mpiReductionApiIdx;
           std::cout << "," << mpi_reduction_op_idx;
           std::cout << "," << n;
           std::cout << std::flush;
         }
 
         nvtxRangePush(s.c_str());
-        result = bench(n, nIters, mpiReducationApiIdx, mpi_reduction_op_idx);
+        result = bench(n, nIters, mpiReductionApiIdx, mpi_reduction_op_idx);
         nvtxRangePop();
         if (0 == rank) {
           std::cout << ","
