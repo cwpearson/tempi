@@ -223,6 +223,17 @@ OpenMPI can be built with CUDA support:
 
 `./configure --prefix=<> --with-cuda=/usr/local/cuda && make && make install`
 
+## mvapich2-gdr 2.3.5
+
+download one of the recent user requested debs. Older ones will want older gfortran libraries and things that might be hard.
+
+http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-gdr-mcast.cuda11.0.mofed5.0.gnu9.3.0-2.3.5-1.el7.x86_64.rpm
+
+`rpm2cpio mvapich... | cpio -id`
+
+modify the paths in lib64/pkgconfig, mpicc, and mpic++ script with the actual install location
+
+
 ## Contributing
 
 * Underlying MPI functions are declared in `include/symbols.hpp` and discovered in `src/internal/symbols.cpp`. Any MPI functions that will be overridden should be added there.
