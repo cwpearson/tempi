@@ -9,7 +9,7 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## MPI Derived Types
 
-|Summit MPI_Pack|Summit MPI_Send|
+|MPI_Pack|Summit MPI_Send|
 |-|-|
 |![](static/summit-mpi-pack-types.png)|![](static/summit-mpi-send-types.png)|
 
@@ -216,6 +216,20 @@ To control the compute mode, use bsub -alloc_flags gpudefault (see `olcf.ornl.go
 
 To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/systems/summit_user_guide.html, "CUDA-Aware MPI")
 
+## NCSA Hal
+
+We require cmake 3.18, so you have to **install it yourself** and then get it into your path. you may have to  `module unload cmake` to get the HAL cmake out of your path.
+
+We require at least some C++17 support for `src/internal/types.cpp` and `include/types.hpp`.
+Therefore, we need
+
+`module load at/12.0`
+
+This causes some ieee float128 errors, so we also need
+
+`export CUDAFLAGS=-Xcompiler=-mno-float128`
+
+before `cmake ..`
 
 ## OpenMPI
 
