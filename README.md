@@ -249,7 +249,7 @@ modify the paths in lib64/pkgconfig, mpicc, and mpic++ script with the actual in
 
 ## References
 
-on [TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
+[TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
 ```
 @misc{pearson2021tempi,
       title={TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes}, 
