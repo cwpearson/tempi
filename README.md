@@ -247,6 +247,19 @@ http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-g
 
 modify the paths in lib64/pkgconfig, mpicc, and mpic++ script with the actual install location
 
+## References
+
+on [TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
+```
+@misc{pearson2021tempi,
+      title={TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes}, 
+      author={Carl Pearson and Kun Wu and I-Hsin Chung and Jinjun Xiong and Wen-Mei Hwu},
+      year={2021},
+      eprint={2012.14363},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+```
 
 ## Contributing
 
