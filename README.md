@@ -239,13 +239,16 @@ OpenMPI can be built with CUDA support:
 
 ## mvapich2-gdr 2.3.5
 
-download one of the recent user requested debs. Older ones will want older gfortran libraries and things that might be hard.
+Seems to integrate some recent work, but also may rely on Mellanox OFED.
+
+Download one of the recent debs.
+Older ones will want older gfortran libraries and things that might be hard.
 
 http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-gdr-mcast.cuda11.0.mofed5.0.gnu9.3.0-2.3.5-1.el7.x86_64.rpm
 
 `rpm2cpio mvapich... | cpio -id`
 
-modify the paths in lib64/pkgconfig, mpicc, and mpic++ script with the actual install location
+Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the actual install location and CUDA paths.
 
 ## References
 
