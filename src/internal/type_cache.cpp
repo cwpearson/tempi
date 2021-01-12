@@ -1,3 +1,3 @@
 #include "type_cache.hpp"
 
-/*extern*/ std::map<MPI_Datatype, TypeRecord> typeCache;
+/*extern*/ std::unordered_map<MPI_Datatype, TypeRecord> typeCache;

@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
   if (environment::noTempi) {
     nIters = 5;
   } else {
-    nIters = 200;
+    nIters = 500;
   }
 
   std::vector<bool> stage{

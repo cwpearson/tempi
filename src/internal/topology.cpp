@@ -8,9 +8,9 @@
 
 #include <algorithm>
 #include <cassert>
-#include <map>
 #include <string>
 #include <vector>
+#include <map>
 
 // topology topos for a communicator
 struct Topology {
@@ -19,9 +19,9 @@ struct Topology {
 };
 
 // ranks colocated with this rank for each communicator
-std::map<MPI_Comm, Topology> topos;
-/*extern*/ std::map<MPI_Comm, Placement> placements;
-/*extern*/ std::map<MPI_Comm, Degree> degrees;
+std::unordered_map<MPI_Comm, Topology> topos;
+/*extern*/ std::unordered_map<MPI_Comm, Placement> placements;
+/*extern*/ std::unordered_map<MPI_Comm, Degree> degrees;
 
 namespace topology {
 

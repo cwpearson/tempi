@@ -7,8 +7,8 @@
 
 #include <mpi.h>
 
-#include <map>
 #include <memory>
+#include <unordered_map>
 
 /* interface for all senders */
 class Sender {
@@ -101,13 +101,21 @@ class SendRecvND : public Sender, public Recver {
   struct Args {
     bool colocated;
     int64_t bytes;
+    struct Hasher { // unordered_map key
+      size_t operator()(const Args &a) const noexcept {
+        return std::hash<bool>()(a.colocated) ^ std::hash<int64_t>()(a.bytes);
+      }
+    };
+    bool operator==(const Args &rhs) const { // unordered_map key
+      return colocated == rhs.colocated && bytes == rhs.bytes;
+    }
     bool operator<(const Args &rhs) const noexcept; // map key
   };
 
   // which sender to use
   enum class Method { DEVICE, ONESHOT };
 
-  std::map<Args, Method> modelChoiceCache_;
+  std::unordered_map<Args, Method, Args::Hasher> modelChoiceCache_;
 
 public:
   SendRecvND(const StridedBlock &sb) : oneshot(sb), device(sb) {

@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 // how application ranks are mapped to library ranks
@@ -11,14 +11,14 @@ struct Placement {
   std::vector<int> libRank; // library rank for each application rank
 };
 
-extern std::map<MPI_Comm, Placement> placements;
+extern std::unordered_map<MPI_Comm, Placement> placements;
 
 struct Degree {
   int indegree;
   int outdegree;
 };
 
-extern std::map<MPI_Comm, Degree> degrees;
+extern std::unordered_map<MPI_Comm, Degree> degrees;
 
 void topology_init();
 

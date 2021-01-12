@@ -10,7 +10,7 @@
 
 #include <mpi.h>
 
-#include <map>
+#include <unordered_map>
 #include <memory>
 
 struct TypeRecord {
@@ -21,4 +21,4 @@ struct TypeRecord {
   int64_t mpiPackSize; // result of MPI_Pack_size
 };
 
-extern std::map<MPI_Datatype, TypeRecord> typeCache;
+extern std::unordered_map<MPI_Datatype, TypeRecord> typeCache;
