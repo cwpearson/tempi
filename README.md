@@ -9,7 +9,7 @@ Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
 ## MPI Derived Types
 
-|Summit MPI_Pack|Summit MPI_Send|
+|MPI_Pack|Summit MPI_Send|
 |-|-|
 |![](static/summit-mpi-pack-types.png)|![](static/summit-mpi-send-types.png)|
 
@@ -216,6 +216,20 @@ To control the compute mode, use bsub -alloc_flags gpudefault (see `olcf.ornl.go
 
 To enable GPUDirect, do `jsrun --smpiargs="-gpu" ...` (see docs.olcf.ornl.gov/systems/summit_user_guide.html, "CUDA-Aware MPI")
 
+## NCSA Hal
+
+We require cmake 3.18, so you have to **install it yourself** and then get it into your path. you may have to  `module unload cmake` to get the HAL cmake out of your path.
+
+We require at least some C++17 support for `src/internal/types.cpp` and `include/types.hpp`.
+Therefore, we need
+
+`module load at/12.0`
+
+This causes some ieee float128 errors, so we also need
+
+`export CUDAFLAGS=-Xcompiler=-mno-float128`
+
+before `cmake ..`
 
 ## OpenMPI
 
@@ -225,14 +239,30 @@ OpenMPI can be built with CUDA support:
 
 ## mvapich2-gdr 2.3.5
 
-download one of the recent user requested debs. Older ones will want older gfortran libraries and things that might be hard.
+Seems to integrate some recent work, but also may rely on Mellanox OFED.
+
+Download one of the recent debs.
+Older ones will want older gfortran libraries and things that might be hard.
 
 http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-gdr-mcast.cuda11.0.mofed5.0.gnu9.3.0-2.3.5-1.el7.x86_64.rpm
 
 `rpm2cpio mvapich... | cpio -id`
 
-modify the paths in lib64/pkgconfig, mpicc, and mpic++ script with the actual install location
+Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the actual install location and CUDA paths.
 
+## References
+
+[TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
+```
+@misc{pearson2021tempi,
+      title={TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes}, 
+      author={Carl Pearson and Kun Wu and I-Hsin Chung and Jinjun Xiong and Wen-Mei Hwu},
+      year={2021},
+      eprint={2012.14363},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+```
 
 ## Contributing
 
