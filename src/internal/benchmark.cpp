@@ -9,13 +9,32 @@ typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
+void Benchmark::estimate_nreps() {
+  nreps_ = 1;
+  for (int i = 0; i < 4; ++i) {
+    Benchmark::Sample s = run_iter(); // measure time
+    nreps_ = 200e-6 / s.time;         // measure for 200us
+    nreps_ = std::max(nreps_, 1);
+  }
+}
+
+void MpiBenchmark::estimate_nreps() {
+  Benchmark::estimate_nreps();
+  int rank;
+  MPI_Comm_rank(comm_, &rank);
+  MPI_Bcast(&nreps_, 1, MPI_INT, 0, comm_);
+  if (0 == rank) {
+    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
+  }
+}
+
 Benchmark::Result Benchmark::run(const RunConfig &rc) {
 
+  // initialize benchmark resources
   setup();
 
-  for (int iter = 0; iter < rc.minWarmupSamples; ++iter) {
-    run_iter();
-  }
+  // warmup / estimate number of reps
+  estimate_nreps();
 
   int64_t trial = 0;
 
@@ -58,24 +77,8 @@ Benchmark::Result MpiBenchmark::run(const RunConfig &rc) {
   MPI_Comm_size(comm_, &size);
 
   setup();
-
-  {
-    int iter = 0;
-    bool keepRunning = true;
-    while (keepRunning) {
-      run_iter();
-      ++iter;
-      keepRunning = iter < rc.minWarmupSamples;
-      MPI_Bcast(&keepRunning, 1, MPI_C_BOOL, 0, comm_);
-    }
-    MPI_Barrier(comm_);
-
-#if 0
-    std::cerr << rank << ":: "
-              << "warmup:"
-              << " iter: " << iter << "\n";
-#endif
-  }
+  estimate_nreps();
+  assert(nreps_ > 0);
 
   int64_t trial = 0;
   while (true) {

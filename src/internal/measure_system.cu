@@ -130,7 +130,7 @@ public:
 };
 
 /* The time to call CudaMemcpyAsync
-*/
+ */
 class CudaMemcpyAsync : public Benchmark {
   cudaStream_t stream;
 
@@ -160,7 +160,6 @@ class CudaMemcpyAsyncD2H : public Benchmark {
   cudaStream_t stream;
   char *src, *dst;
   size_t n_;
-  int nreps_;
 
 public:
   CudaMemcpyAsyncD2H(size_t n) : n_(n) {
@@ -244,30 +243,13 @@ public:
  */
 class CpuCpuPingpong : public MpiBenchmark {
   std::vector<char> buf_;
-  int nreps_;
 
 public:
   // zero buffer to put it in cache
   CpuCpuPingpong(size_t n, MPI_Comm comm) : buf_(n), MpiBenchmark(comm) {}
   ~CpuCpuPingpong() {}
 
-  void setup() {
-    int rank;
-    MPI_Comm_rank(comm_, &rank);
-    nreps_ = 1;
-    for (int i = 0; i < 4; ++i) {
-      Benchmark::Sample s = run_iter(); // measure time
-      nreps_ = 200e-6 / s.time;
-      nreps_ = std::max(nreps_, 1);
-    }
-    if (0 == rank) {
-      LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
-    }
-    MPI_Bcast(&nreps_, 1, MPI_INT, 0, comm_);
-  }
-
   Benchmark::Sample run_iter() override {
-
     int rank;
     MPI_Comm_rank(comm_, &rank);
     MPI_Barrier(comm_);
@@ -300,23 +282,7 @@ public:
  */
 class GpuGpuPingpong : public MpiBenchmark {
   char *buf_;
-  int nreps_;
   size_t n_;
-
-  void setup() {
-    int rank;
-    MPI_Comm_rank(comm_, &rank);
-    nreps_ = 1;
-    for (int i = 0; i < 4; ++i) {
-      Benchmark::Sample s = run_iter(); // measure time
-      nreps_ = 200e-6 / s.time;
-      nreps_ = std::max(nreps_, 1);
-    }
-    if (0 == rank) {
-      LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
-    }
-    MPI_Bcast(&nreps_, 1, MPI_INT, 0, comm_);
-  }
 
 public:
   GpuGpuPingpong(size_t n, MPI_Comm comm) : n_(n), MpiBenchmark(comm) {
@@ -360,7 +326,6 @@ class DevicePack2D : public Benchmark {
   int64_t numBlocks_;
   int64_t blockLength_;
   int64_t stride_;
-  int nreps_;
   Packer2D packer_;
 
 public:
@@ -379,17 +344,6 @@ public:
     CUDA_RUNTIME(cudaEventDestroy(stop));
     CUDA_RUNTIME(cudaFree(src));
     CUDA_RUNTIME(cudaFree(dst));
-  }
-
-  void setup() {
-    nreps_ = 1;
-    run_iter();                       // warmup
-    Benchmark::Sample s = run_iter(); // measure time
-
-    // target at least 200us
-    nreps_ = 200.0 * 1e-6 / s.time;
-    nreps_ = std::max(nreps_, 1);
-    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
   }
 
   Benchmark::Sample run_iter() override {
@@ -411,7 +365,6 @@ class PackHost2D : public Benchmark {
   int64_t numBlocks_;
   int64_t blockLength_;
   int64_t stride_;
-  int nreps_;
   Packer2D packer_;
 
 public:
@@ -435,17 +388,6 @@ public:
     delete[] dst;
   }
 
-  void setup() {
-    nreps_ = 1;
-    run_iter();                       // warmup
-    Benchmark::Sample s = run_iter(); // measure time
-
-    // target at least 200us
-    nreps_ = 200.0 * 1e-6 / s.time;
-    nreps_ = std::max(nreps_, 1);
-    LOG_DEBUG("estimate nreps_=" << nreps_ << " for 200us");
-  }
-
   Benchmark::Sample run_iter() override {
     float ms;
     int pos = 0;
@@ -467,7 +409,6 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
-
 
   MPI_Barrier(comm);
   if (0 == rank) {
