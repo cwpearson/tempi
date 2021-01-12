@@ -7,6 +7,7 @@
 
 #include <mpi.h>
 
+#include <map>
 #include <memory>
 
 /* interface for all senders */
@@ -95,6 +96,18 @@ class SendRecvND : public Sender, public Recver {
   OneshotND oneshot;
   DeviceND device;
   int64_t blockLength_;
+
+  // argument pack to sender
+  struct Args {
+    bool colocated;
+    int64_t bytes;
+    bool operator<(const Args &rhs) const noexcept; // map key
+  };
+
+  // which sender to use
+  enum class Method { DEVICE, ONESHOT };
+
+  std::map<Args, Method> modelChoiceCache_;
 
 public:
   SendRecvND(const StridedBlock &sb) : oneshot(sb), device(sb) {

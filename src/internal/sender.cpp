@@ -239,32 +239,72 @@ double StagedND::model(const SystemPerformance &sp, bool colocated,
   return pack + d2h + send + h2d + unpack;
 }
 
+bool SendRecvND::Args::operator<(const Args &rhs) const noexcept {
+  if (colocated < rhs.colocated) {
+    return true;
+  } else {
+    return bytes < rhs.bytes;
+  }
+}
+
 int SendRecvND::send(PARAMS_MPI_Send) {
   int bytes;
   MPI_Pack_size(count, datatype, comm, &bytes);
-
   bool colocated = is_colocated(comm, dest);
-  double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-  double d = device.model(systemPerformance, colocated, bytes, blockLength_);
 
-  if (o < d) {
-    return oneshot.send(ARGS_MPI_Send);
+  Args args{.colocated = colocated, .bytes = bytes};
+  auto it = modelChoiceCache_.find(args);
+  Method method;
+  if (modelChoiceCache_.end() == it) {
+    double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
+    double d = device.model(systemPerformance, colocated, bytes, blockLength_);
+    if (o < d) {
+      method = Method::ONESHOT;
+    } else {
+      method = Method::DEVICE;
+    }
+    modelChoiceCache_[args] = method;
   } else {
+    method = it->second;
+  }
+
+  switch (method) {
+  case Method::DEVICE:
     return device.send(ARGS_MPI_Send);
+  case Method::ONESHOT:
+    return oneshot.send(ARGS_MPI_Send);
+  default:
+    LOG_FATAL("unexpected send method");
   }
 }
 
 int SendRecvND::recv(PARAMS_MPI_Recv) {
   int bytes;
   MPI_Pack_size(count, datatype, comm, &bytes);
-
   bool colocated = is_colocated(comm, source);
-  double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-  double d = device.model(systemPerformance, colocated, bytes, blockLength_);
 
-  if (o < d) {
-    return oneshot.recv(ARGS_MPI_Recv);
+  Args args{.colocated = colocated, .bytes = bytes};
+  auto it = modelChoiceCache_.find(args);
+  Method method;
+  if (modelChoiceCache_.end() == it) {
+    double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
+    double d = device.model(systemPerformance, colocated, bytes, blockLength_);
+    if (o < d) {
+      method = Method::ONESHOT;
+    } else {
+      method = Method::DEVICE;
+    }
+    modelChoiceCache_[args] = method;
   } else {
+    method = it->second;
+  }
+
+  switch (method) {
+  case Method::DEVICE:
     return device.recv(ARGS_MPI_Recv);
+  case Method::ONESHOT:
+    return oneshot.recv(ARGS_MPI_Recv);
+  default:
+    LOG_FATAL("unexpected recv method");
   }
 }

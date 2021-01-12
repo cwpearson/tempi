@@ -10,7 +10,7 @@ export MV2_GPUDIRECT_GDRCOPY_LIB=$HOME/software/gdrcopy-2.1/lib64/libgdrapi.so
 
 # MPIRUN="$HOME/software/openmpi-4.0.5/bin/mpirun -n 1"
 MPIRUN="$HOME/software/mvapich2-2.3.4/bin/mpirun -n 1"
-# MPIRUN="$HOME/software/mvapich2-gdr-2.3.5/bin/mpirun -np 1"
+MPIRUN="$HOME/software/mvapich2-gdr-2.3.5/bin/mpirun -n 1"
 
 DIR=$HOME/sync_work/tempi_results/deneb
 OUT=$DIR/bench_mpi_pack.csv
