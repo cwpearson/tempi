@@ -271,6 +271,9 @@ target_link_libraries(tempi PUBLIC stdc++fs)
 ## find an MPI header to include, but we don't need to link against MPI.
 target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
 
+## Add a symlink for the mpiexec of the mpi we built against
+add_custom_target(mpiexec_link ALL COMMAND ${CMAKE_COMMAND} -E create_symlink ${MPIEXEC_EXECUTABLE} mpiexec)
+
 ## add thirdparty
 target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
