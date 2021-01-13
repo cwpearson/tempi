@@ -1,3 +1,8 @@
+##          Copyright Carl Pearson 2020 - 2021.
+## Distributed under the Boost Software License, Version 1.0.
+##    (See accompanying file LICENSE or copy at
+##    https://www.boost.org/LICENSE_1_0.txt)
+
 # 3.8+ for project(LANGUAGES CUDA)
 # 3.9+ for OpenMP::OpenMP_CXX
 # 3.10+ findopenmp gained support for language-specific components

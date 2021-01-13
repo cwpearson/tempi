@@ -1,3 +1,8 @@
+//          Copyright Carl Pearson 2020 - 2021.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE or copy at
+//    https://www.boost.org/LICENSE_1_0.txt)
+
 /*
 https://csrc.nist.gov/csrc/media/events/random-bit-generation-workshop-2016/documents/presentations/sessionii-3-meltem-sonmez-turan-presentation.pdf
 */
@@ -42,8 +47,7 @@ inline std::vector<int64_t> to_fixed(const std::vector<double> &s) {
   return ret;
 }
 
-template <typename T>
-double avg(const std::vector<T> &s) {
+template <typename T> double avg(const std::vector<T> &s) {
   double a = 0;
   for (T e : s) {
     a += e;

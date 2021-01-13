@@ -7,31 +7,24 @@ Experimental performance enhancmenets for CUDA+MPI codes.
 Some improvements require no code modification, only linking the scampi library before your true MPI library.
 Other improvements also require `#include tempi/mpi-ext.h` to utilize.
 
-## MPI Derived Types
+## MPI Derived Type PingPong on OLCF Summit
 
-|MPI_Pack|Summit MPI_Send|
-|-|-|
-|![](static/summit-mpi-pack-types.png)|![](static/summit-mpi-send-types.png)|
+2D objects
 
-|deneb MPI_Pack|deneb MPI_Send|
-|-|-|
-|![](static/deneb-mpi-pack-types.png)|![](static/deneb-mpi-send-types.png)|
+![](static/summit-pingpong-2d.png)
 
-## MPI Communications
+## MPI Pack Speedup
 
-|Summit MPI_Alltoallv|Summit MPI_Send|
-|-|-|
-|![](static/summit-mpi-alltoallv.png)|![](static/summit-mpi-send.png)|
+2D objects, vs MVAPICH 2.3.4 (mv), OpenMPI 4.0.5 (op), and Spectrum MPI 10.3.1.2 (sp)
 
+![](static/mpi-pack-speedup.png)
 
 ## Quick Start
 
-Requires C++17 (`variant`, `filesystem`, and `optional`) and CUDA-aware MPI.
+* C++17 (`variant`, `filesystem`, and `optional`) and CUDA-aware MPI.
+* nvcc with `-std=c++14`
 
-```
-#summit
-module load gcc/9.0.3 cuda/11.0.3
-```
+Please see system-specific advice at the bottom of this file.
 
 ```
 mkdir build
@@ -65,11 +58,6 @@ target_link_libraries(my-exe PRIVATE ${MPI_CXX_LIBRARIES})
 ## Features
 
 Performance fixes for CUDA+MPI code that requires no source code changes
-- [x] node remapping in `MPI_Dist_graph_create`
-  - [x] METIS
-  - [x] KaHIP
-- [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
-  - [ ] derived datatypes
 - [x] Fast `MPI_Pack` on strided data types (disable with `TEMPI_NO_PACK`)
   - [x] vector
   - [x] hvector
@@ -80,11 +68,28 @@ Performance fixes for CUDA+MPI code that requires no source code changes
   - [x] hvector
   - [x] subarray
   - [x] contiguous
+- [x] node remapping in `MPI_Dist_graph_create`
+  - [x] METIS
+  - [x] KaHIP
+- [x] (OLCF Summit) Fast `MPI_Alltoallv` on basic data types (disable with `TEMPI_NO_ALLTOALLV`)
+  - [ ] derived datatypes
 - [ ] Fast `MPI_Neighbor_alltoallv` on basic data types
   - [ ] derived datatypes
 
-Performance improvements that require `mpi-ext.h`:
-- [ ] coming soon...
+## References
+
+[TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
+```
+@misc{pearson2021tempi,
+      title={TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes}, 
+      author={Carl Pearson and Kun Wu and I-Hsin Chung and Jinjun Xiong and Wen-Mei Hwu},
+      year={2021},
+      eprint={2012.14363},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+```
+You will probably be most interested in `src/internal/types.cpp`,`src/internal/sender.cpp`
 
 ## Binaries
 
@@ -139,31 +144,56 @@ As we do not extend the MPI interface, there is no include files to add to your 
 Different MPI derived datatypes can describe the same pattern of bytes to be `MPI_Pack`ed or `MPI_Send`ed.
 TEMPI makes an effort to canonicalize those types in order to determine whether optimized GPU routines apply.
 
-### Slab allocator  (`include/allocator_slab.hpp`)
+* `src/internal/types.cpp`
+* `src/type_commit.cpp`
+
+### Device, One-shot, or Staged MPI_Send
+
+TEMPI integrates non-contiguous datatype handling with MPI_Send.
+Data can be packed in the GPU and sent directly (`DEVICE`), staged into the CPU and then sent (`STAGED`), or packed directly into the CPU with mapped memory (`ONE_SHOT`).
+
+* `src/internal/packer_1d.cu`
+* `src/internal/packer_2d.cu`
+* `src/internal/packer_3d.cu`
+* `src/internal/sender.cpp`
+
+### Topology Discovery
+
+Some optimizations rely on knowing which MPI ranks are on the same node.
+This is discovered during `MPI_Init` and can be queried quickly during other MPI functions.
+
+* `include/topology.hpp`
+
+### Slab allocator
 
 Some optimizations require reorganizing data into temporary device buffers.
 The size of those buffers is not known until runtime.
 We use a primitive slab allocator to minimize the number of `cudaMalloc` or `cudaHostRegister`.
 
-### Topology Discovery (`include/topology.hpp`)
-
-Some optimizations rely on knowing which MPI ranks are on the same node.
-This is discovered during `MPI_Init` and can be queried quickly during other MPI functions.
+* `include/allocator_slab.hpp`
+* `src/internal/allocators.hpp`
 
 ### Rank Placement
 
-When `MPI_Dist_graph_create_adjacent` is used, and `1` is passed for the `reorder` parameter, TEMPI uses METIS to group heavily-communicating ranks onto nodes.
+When `MPI_Dist_graph_create_adjacent` is used, and `1` is passed for the `reorder` parameter, TEMPI uses METIS or KaHIP to group heavily-communicating ranks onto nodes.
 Internally, each rank is remapped onto one rank of the underlying library, and the substitution is made during all calls that use the communicator.
 
-### IID System Parameter Measurements (`include/measure_system.hpp`)
+* `include/topology.hpp`/`src/internal/topology.cpp`
+* `src/internal/partition_kahip.cpp`
+* `src/internal/partition_metis.cpp`
+* `src/internal/partition_kahip_process_mapping.cpp`
+
+### IID System Parameter Measurements
 
 TEMPI supports different implementation based on system properties.
 `bin/measure-system` records the profile in `$TEMPI_CACHE_DIR`, and the TEMPI library can use that record.
+IID testing is inspired by the SP 800 90B NIST standard.
 
-### Device, One-shot, or Staged datatype handling
+* `src/internal/types.cpp`
+* `src/internal/iid.cpp`
 
-TEMPI integrates non-contiguous datatype handling with MPI_Send.
-Data can be packed in the GPU and sent directly (`DEVICE`), staged into the CPU and then sent (`STAGED`), or packed directly into the CPU with mapped memory (`ONE_SHOT`).
+
+
 
 ## Knobs
 
@@ -193,7 +223,10 @@ to unset an environment variable in bash: `unset <VAR>`
 
 ## OLCF Summit
 
-`module unload darshan-runtime`
+```
+module unload darshan-runtime
+module load gcc/9.0.3 cuda/11.0.3
+```
 
 Summit wants to find MPI_Init in darshan (`jsrun -E LD_DEBUG=symbols`).
 
@@ -206,11 +239,12 @@ Darshan is not explicitly included in the link step when building, so somehow it
 In any case, we can fix this by `module unload darshan-runtime`, so then our `MPI_Init` happens right after `libpami_cudahook.so`.
 Later, the lazy lookup will cause it to happen in `libmpiprofilesupport.so.3` and then `libmpi_ibm.so.3`.
 
-`module load gcc/9.3.0 cuda/11.0.3`
 We need gcc 9.3 for filesystem and variant support.
 Cuda 11.0.3 (11.0.221) is new enough to use gcc 9.3, but newer versions of cuda have a memory leak when used with spectrum mpi.
 
-nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on. Disable with `nsys profile -t cuda,nvtx`.
+
+nsight-systems 2020.3.1.71 can crash with the osrt or mpi profiler turned on.
+ Disable with `nsys profile -t cuda,nvtx`.
 
 To control the compute mode, use bsub -alloc_flags gpudefault (see `olcf.ornl.gov/for-users/system-user-guides/summitdev-quickstart-guide/#gpu-specific-jobs`)
 
@@ -250,19 +284,7 @@ http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-g
 
 Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the actual install location and CUDA paths.
 
-## References
 
-[TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes (preprint)](https://arxiv.org/abs/2012.14363)
-```
-@misc{pearson2021tempi,
-      title={TEMPI: An Interposed MPI Library with a Canonical Representation of CUDA-aware Datatypes}, 
-      author={Carl Pearson and Kun Wu and I-Hsin Chung and Jinjun Xiong and Wen-Mei Hwu},
-      year={2021},
-      eprint={2012.14363},
-      archivePrefix={arXiv},
-      primaryClass={cs.DC}
-}
-```
 
 ## Contributing
 
@@ -277,3 +299,8 @@ Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the act
 
 * Necessity of supporting our own optimized poin-to-point device communication?
   * OpenMPI 4.0.5: does a good job. repeated sends of the same buffer seem to re-use a single cuIpcOpenMemHandle. Has some upper limit of handles it keeps open, shutting when a new one needs to open (an LRU thing?). Probably matching recv needs to post before sender knows which Ipc handle to open. Recver never seems to create a mem handle though, so it's a bit of a mystery.
+
+## License
+
+Boost software license 1.0
+Please see the `LICENSE` file.

@@ -1,3 +1,10 @@
+//          Copyright Carl Pearson 2020 - 2021.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE or copy at
+//    https://www.boost.org/LICENSE_1_0.txt)
+
+
+
 /*
  The implementation defines what the output of MPI_Pack is: it is allowed to
  prefix or postfix packed data with additional information. And future calls to

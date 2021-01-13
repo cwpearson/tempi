@@ -1,3 +1,10 @@
+##          Copyright Carl Pearson 2020 - 2021.
+## Distributed under the Boost Software License, Version 1.0.
+##    (See accompanying file LICENSE or copy at
+##    https://www.boost.org/LICENSE_1_0.txt)
+
+
+
 add_library(tempi_bin OBJECT benchmark.cpp method.cpp)
 tempi_add_output_level_defines(tempi_bin)
 target_include_directories(tempi_bin SYSTEM PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
