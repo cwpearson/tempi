@@ -3,9 +3,7 @@
 tem·pi */ˈtempē/*
 - plural form of tempo: the rate of speed or motion of an activity
 
-Experimental performance enhancmenets for CUDA+MPI codes.
-Some improvements require no code modification, only linking the scampi library before your true MPI library.
-Other improvements also require `#include tempi/mpi-ext.h` to utilize.
+Experimental performance enhancements for CUDA+MPI codes.
 
 ## MPI Derived Type PingPong on OLCF Summit
 
