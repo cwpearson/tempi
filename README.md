@@ -284,8 +284,6 @@ http://mvapich.cse.ohio-state.edu/download/mvapich/gdr/2.3.5/mofed5.0/mvapich2-g
 
 Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the actual install location and CUDA paths.
 
-
-
 ## Contributing
 
 * Underlying MPI functions are declared in `include/symbols.hpp` and discovered in `src/internal/symbols.cpp`. Any MPI functions that will be overridden should be added there.
@@ -294,11 +292,6 @@ Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the act
   * Reading environment variable configuration is in `include/env.hpp` and `src/internal/env.cpp`.
 * Support code for benchmarking and testing is in `support/`. This code should only be used in test and benchmarking binaries, never in the implementation.
 * Testing code is in `test/`
-
-## Notes
-
-* Necessity of supporting our own optimized poin-to-point device communication?
-  * OpenMPI 4.0.5: does a good job. repeated sends of the same buffer seem to re-use a single cuIpcOpenMemHandle. Has some upper limit of handles it keeps open, shutting when a new one needs to open (an LRU thing?). Probably matching recv needs to post before sender knows which Ipc handle to open. Recver never seems to create a mem handle though, so it's a bit of a mystery.
 
 ## License
 
