@@ -55,6 +55,9 @@ add_test(NAME pack_unpack COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 
 pmpi_test_exe(isend isend.cu)
 add_test(NAME isend COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isend)
 
+pmpi_test_exe(isend_contiguous isend_contiguous.cu)
+add_test(NAME isend_contiguous COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 isend_contiguous)
+
 pmpi_test_exe(sender sender.cpp)
 add_test(NAME sender COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 2 sender)
 

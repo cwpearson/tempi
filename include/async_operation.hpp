@@ -27,4 +27,7 @@ MPI_Request *start_irecv(Packer &packer, PARAMS_MPI_Irecv);
 // returns an MPI error code
 int try_progress();
 
+// any operations needed during finalize
+void finalize();
+
 }; // namespace async

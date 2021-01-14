@@ -4,6 +4,7 @@
 //    https://www.boost.org/LICENSE_1_0.txt)
 
 #include "allocators.hpp"
+#include "async_operation.hpp"
 #include "env.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
@@ -31,7 +32,7 @@ extern "C" int MPI_Finalize() {
     LOG_SPEW("Host Allocator Requests:        " << stats.numRequests);
     LOG_SPEW("Host Allocator Releases:        " << stats.numReleases);
     LOG_SPEW("Host Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
-                                                        1024);
+                                                       1024);
     LOG_SPEW("Host Allocator allocs:          " << stats.numAllocs);
   }
   {
@@ -39,11 +40,12 @@ extern "C" int MPI_Finalize() {
     LOG_SPEW("Device Allocator Requests:        " << stats.numRequests);
     LOG_SPEW("Device Allocator Releases:        " << stats.numReleases);
     LOG_SPEW("Device Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
-                                                          1024);
+                                                         1024);
     LOG_SPEW("Device Allocator allocs:          " << stats.numAllocs);
   }
 #endif
 
+  async::finalize();
   worker_finalize();
   streams_finalize();
   allocators::finalize();

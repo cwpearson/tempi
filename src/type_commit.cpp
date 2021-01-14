@@ -63,7 +63,7 @@ extern "C" int MPI_Type_commit(PARAMS_MPI_Type_commit) {
         break;
       }
       case ContiguousMethod::NONE: {
-        LOG_SPEW("null for datatype=" << uintptr_t(*datatype));
+        LOG_SPEW("null sender/recver for datatype=" << uintptr_t(*datatype));
         record.sender = nullptr;
         record.recver = nullptr;
         break;

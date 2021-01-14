@@ -21,7 +21,7 @@ int irecv::impl(PARAMS_MPI_Irecv) {
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
   if (nullptr == attr.devicePointer) {
-    LOG_SPEW("send::impl: use library (host memory)");
+    LOG_SPEW("irecv::impl: use library (host memory)");
     return libmpi.MPI_Irecv(ARGS_MPI_Irecv);
   }
 

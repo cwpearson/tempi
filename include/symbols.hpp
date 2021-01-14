@@ -34,12 +34,6 @@ typedef int (*Func_MPI_Irecv_init)(PARAMS_MPI_Irecv_init);
 #define ARGS_MPI_Isend buf, count, datatype, dest, tag, comm, request
 typedef int (*Func_MPI_Isend)(PARAMS_MPI_Isend);
 
-#define PARAMS_MPI_Isend_init                                                  \
-  const void *buf, int count, MPI_Datatype datatype, int dest, int tag,        \
-      MPI_Comm comm, MPI_Request *request
-#define ARGS_MPI_Isend_init buf, count, datatype, dest, tag, comm, request
-typedef int (*Func_MPI_Isend_init)(PARAMS_MPI_Isend_init);
-
 #define PARAMS_MPI_Get_library_version char *version, int *resultlen
 #define ARGS_MPI_Get_library_version version, resultlen
 typedef int (*Func_MPI_Get_library_version)(PARAMS_MPI_Get_library_version);
@@ -94,7 +88,11 @@ typedef int (*Func_MPI_Recv)(PARAMS_MPI_Recv);
 #define ARGS_MPI_Send buf, count, datatype, dest, tag, comm
 typedef int (*Func_MPI_Send)(PARAMS_MPI_Send);
 
-//
+#define PARAMS_MPI_Send_init                                                   \
+  const void *buf, int count, MPI_Datatype datatype, int dest, int tag,        \
+      MPI_Comm comm, MPI_Request *request
+#define ARGS_MPI_Send_init buf, count, datatype, dest, tag, comm, request
+typedef int (*Func_MPI_Send_init)(PARAMS_MPI_Send_init);
 
 #define PARAMS_MPI_Comm_split_type                                             \
   MPI_Comm comm, int split_type, int key, MPI_Info info, MPI_Comm *newcomm
@@ -127,6 +125,14 @@ typedef int (*Func_MPI_Comm_free)(PARAMS_MPI_Comm_free);
   comm, maxindegree, sources, sourceweights, maxoutdegree, destinations,       \
       destweights
 typedef int (*Func_MPI_Dist_graph_neighbors)(PARAMS_MPI_Dist_graph_neighbors);
+
+#define PARAMS_MPI_Start MPI_Request *request
+#define ARGS_MPI_Start request
+typedef int (*Func_MPI_Start)(PARAMS_MPI_Start);
+
+#define PARAMS_MPI_Test MPI_Request *request, int *flag, MPI_Status *status
+#define ARGS_MPI_Test request, flag, status
+typedef int (*Func_MPI_Test)(PARAMS_MPI_Test);
 
 #define PARAMS_MPI_Type_commit MPI_Datatype *datatype
 #define ARGS_MPI_Type_commit datatype
@@ -169,11 +175,13 @@ struct MpiFunc {
   Func_MPI_Irecv MPI_Irecv;
   Func_MPI_Irecv_init MPI_Irecv_init;
   Func_MPI_Isend MPI_Isend;
-  Func_MPI_Isend_init MPI_Isend_init;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
   Func_MPI_Pack MPI_Pack;
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;
+  Func_MPI_Send_init MPI_Send_init;
+  Func_MPI_Start MPI_Start;
+  Func_MPI_Test MPI_Test;
   Func_MPI_Type_commit MPI_Type_commit;
   Func_MPI_Type_free MPI_Type_free;
   Func_MPI_Unpack MPI_Unpack;

@@ -21,7 +21,7 @@ int isend::impl(PARAMS_MPI_Isend) {
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
   if (nullptr == attr.devicePointer) {
-    LOG_SPEW("send::impl: use library (host memory)");
+    LOG_SPEW("isend::impl: use library (host memory)");
     return libmpi.MPI_Isend(ARGS_MPI_Isend);
   }
 

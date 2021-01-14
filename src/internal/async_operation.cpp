@@ -55,14 +55,17 @@ public:
     MPI_Type_get_extent(datatype, &lb, &extent);
     packedSize_ = extent * count;
     packedBuf_ = hostAllocator.allocate(packedSize_);
+    LOG_SPEW("buffer is @" << uintptr_t(packedBuf_));
 
     // issue pack operation
     int position = 0;
     packer.pack_async(packedBuf_, &position, buf, count, event_);
+    LOG_SPEW("Isend():: issued pack");
 
     // initialize Isend and request
-    libmpi.MPI_Isend_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
-                          request_);
+    libmpi.MPI_Send_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
+                         request_);
+    LOG_SPEW("Isend():: init'ed Send");
   }
   ~Isend() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
@@ -78,7 +81,7 @@ public:
       cudaError_t err = cudaEventQuery(event_);
       if (cudaSuccess == err) {
         state_ = State::MPI;
-        return MPI_Start(request_);
+        return libmpi.MPI_Start(request_);
       } else if (cudaErrorNotReady == err) {
         return MPI_SUCCESS; // still waiting on CUDA
       } else {
@@ -100,7 +103,7 @@ public:
     while (state_ != State::MPI) {
       wake();
     }
-    return MPI_Wait(request_, status);
+    return libmpi.MPI_Wait(request_, status);
   }
 
   virtual bool needs_wake() override { return state_ != State::MPI; }
@@ -142,6 +145,7 @@ public:
     // issue MPI_Irecv
     libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                      request_);
+    LOG_SPEW("Irecv(): issued Irecv");
   }
   ~Irecv() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
@@ -156,7 +160,7 @@ public:
     case State::MPI: {
       // TODO: handle status
       int flag;
-      int err = MPI_Test(request_, &flag, MPI_STATUS_IGNORE);
+      int err = libmpi.MPI_Test(request_, &flag, MPI_STATUS_IGNORE);
       if (flag) {
         // issue unpack operation
         int position = 0;
@@ -181,7 +185,7 @@ public:
     while (state_ != State::MPI) {
       wake();
     }
-    return MPI_Wait(request_, status);
+    return libmpi.MPI_Wait(request_, status);
   }
 
   virtual bool needs_wake() override { return state_ != State::MPI; }
@@ -207,7 +211,12 @@ int wait(MPI_Request *request, MPI_Status *status) {
 
   auto ii = active.find(request);
   if (active.end() != ii) {
-    return ii->second->wait(status);
+    LOG_SPEW("async::wait() on managed request " << uintptr_t(request));
+    int err = ii->second->wait(status);
+    active.erase(ii);
+    LOG_SPEW("async::wait() cleaned up request "
+             << uintptr_t(request) << "(" << active.size() << " remaining)");
+    return err;
   } else {
     return libmpi.MPI_Wait(request, status);
   }
@@ -223,6 +232,14 @@ int try_progress() {
     }
   }
   return MPI_SUCCESS;
+}
+
+void finalize() {
+  if (!active.empty()) {
+    LOG_ERROR("there were "
+              << active.size()
+              << " managed async operations unterminated at finalize");
+  }
 }
 
 }; // namespace async

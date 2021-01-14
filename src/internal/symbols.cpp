@@ -11,7 +11,14 @@
 
 /* extern */ MpiFunc libmpi;
 
-#define DLSYM(A) libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));
+#define DLSYM(A)                                                               \
+  {                                                                            \
+    libmpi.A = nullptr;                                                        \
+    libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));               \
+    if (!libmpi.A) {                                                           \
+      LOG_FATAL("unabled to load " << #A);                                     \
+    }                                                                          \
+  }
 
 void init_symbols() {
   DLSYM(MPI_Allgather);
@@ -27,13 +34,14 @@ void init_symbols() {
   DLSYM(MPI_Init);
   DLSYM(MPI_Init_thread);
   DLSYM(MPI_Irecv);
-  DLSYM(MPI_Irecv_init);
   DLSYM(MPI_Isend);
-  DLSYM(MPI_Isend_init);
   DLSYM(MPI_Neighbor_alltoallv);
   DLSYM(MPI_Pack);
   DLSYM(MPI_Recv);
   DLSYM(MPI_Send);
+  DLSYM(MPI_Send_init);
+  DLSYM(MPI_Start);
+  DLSYM(MPI_Test);
   DLSYM(MPI_Type_commit);
   DLSYM(MPI_Type_free);
   DLSYM(MPI_Unpack);
