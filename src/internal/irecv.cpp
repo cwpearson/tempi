@@ -17,15 +17,14 @@ int irecv::impl(PARAMS_MPI_Irecv) {
 
   source = topology::library_rank(comm, source);
 
-  // let other operations try to make progress
-  async::try_progress();
-
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
   if (nullptr == attr.devicePointer) {
     LOG_SPEW("irecv::impl: use library (host memory)");
-    return libmpi.MPI_Irecv(ARGS_MPI_Irecv);
+    int err = libmpi.MPI_Irecv(ARGS_MPI_Irecv);
+    async::try_progress();
+    return err;
   }
 
   // if the type has a packer, create a managed request
@@ -33,9 +32,12 @@ int irecv::impl(PARAMS_MPI_Irecv) {
   if (typeCache.end() != pi && pi->second.packer) {
     Packer &packer = *(pi->second.packer);
     *request = *async::start_irecv(packer, ARGS_MPI_Irecv);
+    async::try_progress();
     return MPI_SUCCESS;
   }
 
   LOG_SPEW("irecv::impl: use library (fallthrough)");
-  return libmpi.MPI_Irecv(ARGS_MPI_Irecv);
+  int err = libmpi.MPI_Irecv(ARGS_MPI_Irecv);
+  async::try_progress();
+  return err;
 }

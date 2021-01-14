@@ -49,7 +49,7 @@ public:
   Isend(Packer &packer, PARAMS_MPI_Isend)
       : packer_(packer), request_(request), state_(State::CUDA),
         packedBuf_(nullptr), packedSize_(0) {
-
+    nvtxMark("Isend()");
     event_ = events::request();
 
     // allocate intermediate space
@@ -135,7 +135,7 @@ public:
   Irecv(Packer &packer, PARAMS_MPI_Irecv)
       : packer_(packer), request_(request), buf_(buf), count_(count),
         state_(State::MPI), packedBuf_(nullptr), packedSize_(0) {
-
+    nvtxMark("Irecv()");
     event_ = events::request();
 
     // allocate intermediate space
@@ -144,6 +144,7 @@ public:
     packedSize_ = extent * count;
     packedBuf_ = hostAllocator.allocate(packedSize_);
 
+    nvtxMark("Irecv() issue MPI_Irecv");
     // issue MPI_Irecv
     libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                      request_);

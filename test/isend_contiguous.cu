@@ -37,7 +37,16 @@ int main(int argc, char **argv) {
   MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
 
   // device send/recv
-  std::cerr << "DEVICE\n";
+  std::cerr << "DEVICE 1\n";
+  nvtxRangePush("device");
+  MPI_Isend(deviceSend, 1, ty, rank, 0, MPI_COMM_WORLD, &reqSend);
+  MPI_Irecv(deviceRecv, 1, ty, rank, 0, MPI_COMM_WORLD, &reqRecv);
+  MPI_Wait(&reqSend, MPI_STATUS_IGNORE);
+  MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
+  nvtxRangePop();
+
+  // device send/recv
+  std::cerr << "DEVICE 2\n";
   nvtxRangePush("device");
   MPI_Isend(deviceSend, 1, ty, rank, 0, MPI_COMM_WORLD, &reqSend);
   MPI_Irecv(deviceRecv, 1, ty, rank, 0, MPI_COMM_WORLD, &reqRecv);

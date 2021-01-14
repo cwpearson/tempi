@@ -8,6 +8,8 @@
 #include "cuda_runtime.hpp"
 #include "logging.hpp"
 
+#include <nvToolsExt.h>
+
 #include <functional>
 #include <memory>
 #include <unordered_set>
@@ -18,14 +20,7 @@ class EventPool {
   unsigned int flags_;
 
 public:
-  EventPool(unsigned int flags) : flags_(flags) {
-
-    while (available.size() < 5) { // 5 events initially
-      cudaEvent_t event;
-      CUDA_RUNTIME(cudaEventCreateWithFlags(&event, flags_));
-      available.push_back(event);
-    }
-  }
+  EventPool(unsigned int flags) : flags_(flags) {}
   ~EventPool() { clear(); }
   void clear() {
     for (cudaEvent_t event : available) {
@@ -43,17 +38,23 @@ public:
     used.clear();
   }
 
-  cudaEvent_t request() {
-    if (available.empty()) {
+  void ensure_available(unsigned n) {
+    while (available.size() < n) {
+      LOG_SPEW("create new event");
       cudaEvent_t event;
       CUDA_RUNTIME(cudaEventCreateWithFlags(&event, flags_));
       available.push_back(event);
     }
+  }
+
+  cudaEvent_t request() {
+    ensure_available(1);
     cudaEvent_t event = available.back();
     available.pop_back();
     used.insert(event);
     return event;
   }
+
   void release(cudaEvent_t event) {
     used.erase(event);
     available.push_back(event);
@@ -65,8 +66,16 @@ EventPool pool(cudaEventDisableTiming | cudaEventBlockingSync |
 
 namespace events {
 
-void init() {}
-void finalize() { pool.clear(); }
+void init() {
+  nvtxRangePush("event::init()");
+  pool.ensure_available(5);
+  nvtxRangePop();
+}
+void finalize() {
+  nvtxRangePush("event::finalize()");
+  pool.clear();
+  nvtxRangePop();
+}
 
 cudaEvent_t request() { return pool.request(); }
 void release(cudaEvent_t event) { pool.release(event); }

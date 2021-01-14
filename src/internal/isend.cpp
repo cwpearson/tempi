@@ -17,15 +17,14 @@ int isend::impl(PARAMS_MPI_Isend) {
 
   dest = topology::library_rank(comm, dest);
 
-  // let other operations try to make progress
-  async::try_progress();
-
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
   if (nullptr == attr.devicePointer) {
     LOG_SPEW("isend::impl: use library (host memory)");
-    return libmpi.MPI_Isend(ARGS_MPI_Isend);
+    int err = libmpi.MPI_Isend(ARGS_MPI_Isend);
+    async::try_progress();
+    return err;
   }
 
   // if the type has a packer, use the managed request
@@ -33,10 +32,13 @@ int isend::impl(PARAMS_MPI_Isend) {
   if (typeCache.end() != pi && pi->second.packer) {
     Packer &packer = *(pi->second.packer);
     *request = *async::start_isend(packer, ARGS_MPI_Isend);
+    async::try_progress();
     return MPI_SUCCESS;
   }
 
   // if all else fails, just do MPI_Send
   LOG_SPEW("isend::impl: use library (fallthrough)");
-  return libmpi.MPI_Isend(ARGS_MPI_Isend);
+  int err = libmpi.MPI_Isend(ARGS_MPI_Isend);
+  async::try_progress();
+  return err;
 }
