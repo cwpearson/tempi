@@ -248,9 +248,21 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
 }
 
 void Packer2D::pack_async(void *outbuf, int *position, const void *inbuf,
-                          const int incount) const {
+                          const int incount, cudaEvent_t event) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
+}
+
+void Packer2D::unpack_async(const void *inbuf, int *position, void *outbuf,
+                            const int outcount, cudaEvent_t event) const {
+  LaunchInfo info = unpack_launch_info(outbuf);
+  launch_unpack(inbuf, position, outbuf, outcount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
 }
 
 // same as async but synchronize after launch

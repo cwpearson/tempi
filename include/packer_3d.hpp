@@ -22,9 +22,11 @@ public:
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
   void pack_async(void *outbuf, int *position, const void *inbuf,
-                  const int incount) const override;
+                  const int incount, cudaEvent_t event = 0) const override;
   void unpack(const void *inbuf, int *position, void *outbuf,
               const int outcount) const override;
+  void unpack_async(const void *inbuf, int *position, void *outbuf,
+                    const int outcount, cudaEvent_t event = 0) const override;
 
 private:
   void launch_pack(void *outbuf, int *position, const void *inbuf,

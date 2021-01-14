@@ -61,7 +61,7 @@ Performance fixes for CUDA+MPI code that requires no source code changes
   - [x] hvector
   - [x] subarray
   - [x] contiguous
-- [x] Fast `MPI_Send` on strided data types (disable with `TEMPI_NO_SEND`)
+- [x] Fast `MPI_Send/MPI_Isend` on strided data types
   - [x] vector
   - [x] hvector
   - [x] subarray

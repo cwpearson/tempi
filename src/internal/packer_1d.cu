@@ -23,7 +23,6 @@ void Packer1D::launch_pack(void *outbuf, int *position, const void *inbuf,
   // cudaMemcpy is not synchronous for d2d
   CUDA_RUNTIME(
       cudaMemcpyAsync(outbuf, inbuf, nBytes, cudaMemcpyDefault, stream));
-  CUDA_RUNTIME(cudaStreamSynchronize(stream));
   (*position) += incount * extent_;
 }
 
@@ -38,14 +37,25 @@ void Packer1D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   // cudaMemcpy is not synchronous for d2d
   CUDA_RUNTIME(
       cudaMemcpyAsync(outbuf, inbuf, nBytes, cudaMemcpyDefault, stream));
-  CUDA_RUNTIME(cudaStreamSynchronize(stream));
   (*position) += outcount * extent_;
 }
 
 void Packer1D::pack_async(void *outbuf, int *position, const void *inbuf,
-                          const int incount) const {
+                          const int incount, cudaEvent_t event) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
+}
+
+void Packer1D::unpack_async(const void *inbuf, int *position, void *outbuf,
+                            const int outcount, cudaEvent_t event) const {
+  LaunchInfo info = unpack_launch_info(outbuf);
+  launch_unpack(inbuf, position, outbuf, outcount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
 }
 
 // same as async but synchronize after launch
@@ -60,4 +70,5 @@ void Packer1D::unpack(const void *inbuf, int *position, void *outbuf,
                       const int outcount) const {
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
+  CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
 }

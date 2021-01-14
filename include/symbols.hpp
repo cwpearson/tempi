@@ -16,11 +16,29 @@ typedef int (*Func_MPI_Init)(PARAMS_MPI_Init);
 #define ARGS_MPI_Init_thread argc, argv, required, provided
 typedef int (*Func_MPI_Init_thread)(PARAMS_MPI_Init_thread);
 
+#define PARAMS_MPI_Irecv                                                       \
+  void *buf, int count, MPI_Datatype datatype, int source, int tag,            \
+      MPI_Comm comm, MPI_Request *request
+#define ARGS_MPI_Irecv buf, count, datatype, source, tag, comm, request
+typedef int (*Func_MPI_Irecv)(PARAMS_MPI_Irecv);
+
+#define PARAMS_MPI_Irecv_init                                                  \
+  void *buf, int count, MPI_Datatype datatype, int source, int tag,            \
+      MPI_Comm comm, MPI_Request *request
+#define ARGS_MPI_Irecv_init buf, count, datatype, source, tag, comm, request
+typedef int (*Func_MPI_Irecv_init)(PARAMS_MPI_Irecv_init);
+
 #define PARAMS_MPI_Isend                                                       \
   const void *buf, int count, MPI_Datatype datatype, int dest, int tag,        \
       MPI_Comm comm, MPI_Request *request
 #define ARGS_MPI_Isend buf, count, datatype, dest, tag, comm, request
 typedef int (*Func_MPI_Isend)(PARAMS_MPI_Isend);
+
+#define PARAMS_MPI_Isend_init                                                  \
+  const void *buf, int count, MPI_Datatype datatype, int dest, int tag,        \
+      MPI_Comm comm, MPI_Request *request
+#define ARGS_MPI_Isend_init buf, count, datatype, dest, tag, comm, request
+typedef int (*Func_MPI_Isend_init)(PARAMS_MPI_Isend_init);
 
 #define PARAMS_MPI_Get_library_version char *version, int *resultlen
 #define ARGS_MPI_Get_library_version version, resultlen
@@ -131,6 +149,10 @@ typedef int (*Func_MPI_Pack)(PARAMS_MPI_Pack);
   inbuf, insize, position, outbuf, outcount, datatype, comm
 typedef int (*Func_MPI_Unpack)(PARAMS_MPI_Unpack);
 
+#define PARAMS_MPI_Wait MPI_Request *request, MPI_Status *status
+#define ARGS_MPI_Wait request, status
+typedef int (*Func_MPI_Wait)(PARAMS_MPI_Wait);
+
 struct MpiFunc {
   Func_MPI_Allgather MPI_Allgather;
   Func_MPI_Alltoallv MPI_Alltoallv;
@@ -144,7 +166,10 @@ struct MpiFunc {
   Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;
+  Func_MPI_Irecv MPI_Irecv;
+  Func_MPI_Irecv_init MPI_Irecv_init;
   Func_MPI_Isend MPI_Isend;
+  Func_MPI_Isend_init MPI_Isend_init;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
   Func_MPI_Pack MPI_Pack;
   Func_MPI_Recv MPI_Recv;
@@ -152,6 +177,7 @@ struct MpiFunc {
   Func_MPI_Type_commit MPI_Type_commit;
   Func_MPI_Type_free MPI_Type_free;
   Func_MPI_Unpack MPI_Unpack;
+  Func_MPI_Wait MPI_Wait;
 };
 
 extern MpiFunc libmpi;

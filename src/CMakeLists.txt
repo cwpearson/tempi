@@ -10,7 +10,7 @@ ${CMAKE_CURRENT_LIST_DIR}/dist_graph_create_adjacent.cpp
 ${CMAKE_CURRENT_LIST_DIR}/dist_graph_neighbors.cpp
 ${CMAKE_CURRENT_LIST_DIR}/finalize.cpp
 ${CMAKE_CURRENT_LIST_DIR}/init.cpp
-${CMAKE_CURRENT_LIST_DIR}/isend.cpp
+${CMAKE_CURRENT_LIST_DIR}/irecv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/isend.cpp
 ${CMAKE_CURRENT_LIST_DIR}/neighbor_alltoallv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
@@ -23,9 +23,12 @@ ${CMAKE_CURRENT_LIST_DIR}/wait.cpp
 
 ${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/async_operation.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/benchmark.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/iid.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/irecv.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/isend.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp

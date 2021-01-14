@@ -11,8 +11,7 @@
 
 /* extern */ MpiFunc libmpi;
 
-#define DLSYM(A) \
-libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));
+#define DLSYM(A) libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));
 
 void init_symbols() {
   DLSYM(MPI_Allgather);
@@ -27,7 +26,10 @@ void init_symbols() {
   DLSYM(MPI_Get_library_version);
   DLSYM(MPI_Init);
   DLSYM(MPI_Init_thread);
+  DLSYM(MPI_Irecv);
+  DLSYM(MPI_Irecv_init);
   DLSYM(MPI_Isend);
+  DLSYM(MPI_Isend_init);
   DLSYM(MPI_Neighbor_alltoallv);
   DLSYM(MPI_Pack);
   DLSYM(MPI_Recv);
@@ -35,4 +37,5 @@ void init_symbols() {
   DLSYM(MPI_Type_commit);
   DLSYM(MPI_Type_free);
   DLSYM(MPI_Unpack);
+  DLSYM(MPI_Wait);
 }

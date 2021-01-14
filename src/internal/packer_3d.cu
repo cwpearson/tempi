@@ -253,9 +253,21 @@ void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
 #endif
 
 void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
-                          const int incount) const {
+                          const int incount, cudaEvent_t event) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
+}
+
+void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
+                            const int outcount, cudaEvent_t event) const {
+  LaunchInfo info = unpack_launch_info(outbuf);
+  launch_unpack(inbuf, position, outbuf, outcount, info.stream);
+  if (event) {
+    CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+  }
 }
 
 // same as async but synchronize after launch
@@ -265,21 +277,6 @@ void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
 }
-
-#if 0
-void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
-                           const int outcount) const {
-
-  int device;
-  CUDA_RUNTIME(cudaGetDevice(&device));
-  LaunchInfo info = unpack_launch_info(outbuf);
-  LOG_SPEW("Packer3D::unpack on CUDA " << info.device);
-  CUDA_RUNTIME(cudaSetDevice(info.device));
-  launch_unpack(inbuf, position, outbuf, outcount, info.stream);
-  LOG_SPEW("Packer3D::restore device " << device);
-  CUDA_RUNTIME(cudaSetDevice(device));
-}
-#endif
 
 void Packer3D::unpack(const void *inbuf, int *position, void *outbuf,
                       const int outcount) const {

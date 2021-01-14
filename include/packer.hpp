@@ -22,12 +22,19 @@ public:
   static LaunchInfo pack_launch_info(const void *inbuf);
   static LaunchInfo unpack_launch_info(const void *outbuf);
 
-  // launch unpack operation into the TEMPI stream for outbuf
-  virtual void pack_async(void *outbuf,  // write here
-                          int *position, // current position in outbuf (bytes),
-                          const void *inbuf,
-                          const int incount // [in] number of input data items
+  // launch pack operation into the TEMPI stream for outbuf
+  virtual void pack_async(
+      void *outbuf,  // write here
+      int *position, // current position in outbuf (bytes),
+      const void *inbuf,
+      const int incount,    // [in] number of input data items
+      cudaEvent_t event = 0 // optional event to record after pack operation
   ) const = 0;
+
+  // launch unpack operation into the TEMPI stream for outbuf
+  virtual void unpack_async(const void *inbuf, int *position, void *outbuf,
+                            const int outcount,
+                            cudaEvent_t event = 0) const = 0;
 
   // return once object is packed into outbuf
   virtual void pack(void *outbuf,  // write here

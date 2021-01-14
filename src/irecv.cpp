@@ -3,14 +3,14 @@
 //    (See accompanying file LICENSE or copy at
 //    https://www.boost.org/LICENSE_1_0.txt)
 
-#include "async_operation.hpp"
+#include "irecv.hpp"
 #include "env.hpp"
 #include "logging.hpp"
 #include "symbols.hpp"
 
-extern "C" int MPI_Wait(PARAMS_MPI_Wait) {
+extern "C" int MPI_Irecv(PARAMS_MPI_Irecv) {
   if (environment::noTempi) {
-    return libmpi.MPI_Wait(ARGS_MPI_Wait);
+    return libmpi.MPI_Irecv(ARGS_MPI_Irecv);
   }
-  return async::wait(ARGS_MPI_Wait);
+  return irecv::impl(ARGS_MPI_Irecv);
 }
