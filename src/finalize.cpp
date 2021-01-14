@@ -6,6 +6,7 @@
 #include "allocators.hpp"
 #include "async_operation.hpp"
 #include "env.hpp"
+#include "events.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
 #include "worker.hpp"
@@ -46,6 +47,7 @@ extern "C" int MPI_Finalize() {
 #endif
 
   async::finalize();
+  events::finalize();
   worker_finalize();
   streams_finalize();
   allocators::finalize();

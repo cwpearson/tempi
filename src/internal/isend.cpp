@@ -17,6 +17,9 @@ int isend::impl(PARAMS_MPI_Isend) {
 
   dest = topology::library_rank(comm, dest);
 
+  // let other operations try to make progress
+  async::try_progress();
+
   // use library MPI for memory we can't reach on the device
   cudaPointerAttributes attr = {};
   CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));

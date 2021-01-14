@@ -2,8 +2,11 @@
 
 #include "allocators.hpp"
 #include "cuda_runtime.hpp"
+#include "events.hpp"
 #include "logging.hpp"
 #include "symbols.hpp"
+
+#include <nvToolsExt.h>
 
 #include <map>
 #include <memory>
@@ -47,8 +50,7 @@ public:
       : packer_(packer), request_(request), state_(State::CUDA),
         packedBuf_(nullptr), packedSize_(0) {
 
-    // TODO, this could be slow. should probably have a TEMPI cudaEvent_t cache
-    CUDA_RUNTIME(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+    event_ = events::request();
 
     // allocate intermediate space
     MPI_Aint lb, extent;
@@ -69,17 +71,18 @@ public:
   }
   ~Isend() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
-    assert(event_);
-    CUDA_RUNTIME(cudaEventDestroy(event_));
+    events::release(event_);
   }
 
   MPI_Request *request() { return request_; };
 
   virtual int wake() override {
+    nvtxMark("Isend::wake()");
     switch (state_) {
     case State::CUDA: {
       cudaError_t err = cudaEventQuery(event_);
       if (cudaSuccess == err) {
+        nvtxMark("Isend:: CUDA->MPI");
         state_ = State::MPI;
         return libmpi.MPI_Start(request_);
       } else if (cudaErrorNotReady == err) {
@@ -133,8 +136,7 @@ public:
       : packer_(packer), request_(request), buf_(buf), count_(count),
         state_(State::MPI), packedBuf_(nullptr), packedSize_(0) {
 
-    // TODO, this could be slow. should probably have a TEMPI cudaEvent_t cache
-    CUDA_RUNTIME(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+    event_ = events::request();
 
     // allocate intermediate space
     MPI_Aint lb, extent;
@@ -150,18 +152,20 @@ public:
   ~Irecv() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
     assert(event_);
-    CUDA_RUNTIME(cudaEventDestroy(event_));
+    events::release(event_);
   }
 
   MPI_Request *request() { return request_; };
 
   virtual int wake() override {
+    nvtxMark("Irecv::wake()");
     switch (state_) {
     case State::MPI: {
       // TODO: handle status
       int flag;
       int err = libmpi.MPI_Test(request_, &flag, MPI_STATUS_IGNORE);
       if (flag) {
+        nvtxMark("Irecv:: MPI -> CUDA");
         // issue unpack operation
         int position = 0;
         packer_.unpack_async(packedBuf_, &position, buf_, count_, event_);
@@ -182,13 +186,14 @@ public:
   }
 
   virtual int wait(MPI_Status *status) override {
-    while (state_ != State::MPI) {
+    while (state_ != State::CUDA) {
       wake();
     }
-    return libmpi.MPI_Wait(request_, status);
+    CUDA_RUNTIME(cudaEventSynchronize(event_));
+    return MPI_SUCCESS;
   }
 
-  virtual bool needs_wake() override { return state_ != State::MPI; }
+  virtual bool needs_wake() override { return state_ != State::CUDA; }
 };
 
 namespace async {
@@ -223,6 +228,7 @@ int wait(MPI_Request *request, MPI_Status *status) {
 }
 
 int try_progress() {
+  nvtxRangePush("try progress");
   for (auto &kv : active) {
     if (kv.second->needs_wake()) {
       int err = kv.second->wake();
@@ -231,6 +237,7 @@ int try_progress() {
       }
     }
   }
+  nvtxRangePop();
   return MPI_SUCCESS;
 }
 
