@@ -6,10 +6,20 @@
 #include "logging.hpp"
 #include "symbols.hpp"
 
-#include <nvToolsExt.h>
-
 #include <map>
 #include <memory>
+
+// #define USE_NVTX
+#ifdef USE_NVTX
+#include <nvToolsExt.h>
+#define NVTX_MARK(x) nvtxMark(x)
+#define NVTX_RANGE_PUSH(x) nvtxRangePush(x)
+#define NVTX_RANGE_POP() nvtxRangePop()
+#else
+#define NVTX_MARK(x)
+#define NVTX_RANGE_PUSH(x)
+#define NVTX_RANGE_POP()
+#endif
 
 class AsyncOperation {
 public:
@@ -49,7 +59,7 @@ public:
   Isend(Packer &packer, PARAMS_MPI_Isend)
       : packer_(packer), request_(request), state_(State::CUDA),
         packedBuf_(nullptr), packedSize_(0) {
-    nvtxMark("Isend()");
+    NVTX_MARK("Isend()");
     event_ = events::request();
 
     // allocate intermediate space
@@ -77,12 +87,12 @@ public:
   MPI_Request *request() { return request_; };
 
   virtual int wake() override {
-    nvtxMark("Isend::wake()");
+    NVTX_MARK("Isend::wake()");
     switch (state_) {
     case State::CUDA: {
       cudaError_t err = cudaEventQuery(event_);
       if (cudaSuccess == err) {
-        nvtxMark("Isend:: CUDA->MPI");
+        NVTX_MARK("Isend:: CUDA->MPI");
         state_ = State::MPI;
         return libmpi.MPI_Start(request_);
       } else if (cudaErrorNotReady == err) {
@@ -135,7 +145,7 @@ public:
   Irecv(Packer &packer, PARAMS_MPI_Irecv)
       : packer_(packer), request_(request), buf_(buf), count_(count),
         state_(State::MPI), packedBuf_(nullptr), packedSize_(0) {
-    nvtxMark("Irecv()");
+    NVTX_MARK("Irecv()");
     event_ = events::request();
 
     // allocate intermediate space
@@ -144,7 +154,7 @@ public:
     packedSize_ = extent * count;
     packedBuf_ = hostAllocator.allocate(packedSize_);
 
-    nvtxMark("Irecv() issue MPI_Irecv");
+    NVTX_MARK("Irecv() issue MPI_Irecv");
     // issue MPI_Irecv
     libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                      request_);
@@ -159,14 +169,14 @@ public:
   MPI_Request *request() { return request_; };
 
   virtual int wake() override {
-    nvtxMark("Irecv::wake()");
+    NVTX_MARK("Irecv::wake()");
     switch (state_) {
     case State::MPI: {
       // TODO: handle status
       int flag;
       int err = libmpi.MPI_Test(request_, &flag, MPI_STATUS_IGNORE);
       if (flag) {
-        nvtxMark("Irecv:: MPI -> CUDA");
+        NVTX_MARK("Irecv:: MPI -> CUDA");
         // issue unpack operation
         int position = 0;
         packer_.unpack_async(packedBuf_, &position, buf_, count_, event_);
@@ -229,7 +239,7 @@ int wait(MPI_Request *request, MPI_Status *status) {
 }
 
 int try_progress() {
-  nvtxRangePush("try progress");
+  NVTX_RANGE_PUSH("try progress");
   for (auto &kv : active) {
     if (kv.second->needs_wake()) {
       int err = kv.second->wake();
@@ -238,7 +248,7 @@ int try_progress() {
       }
     }
   }
-  nvtxRangePop();
+  NVTX_RANGE_POP();
   return MPI_SUCCESS;
 }
 
