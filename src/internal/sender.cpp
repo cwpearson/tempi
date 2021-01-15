@@ -285,12 +285,9 @@ int SendRecvND::send(PARAMS_MPI_Send) {
 }
 
 int SendRecvND::recv(PARAMS_MPI_Recv) {
-
-  using counters::CACHE_HIT;
-  using counters::CACHE_MISS;
-  using counters::WALL_TIME;
-
+#ifdef TEMPI_ENABLE_COUNTERS
   double start = MPI_Wtime();
+#endif
   int bytes;
   MPI_Pack_size(count, datatype, comm, &bytes);
   bool colocated = is_colocated(comm, source);
@@ -298,7 +295,7 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
   auto it = modelChoiceCache_.find(args);
   Method method;
   if (modelChoiceCache_.end() == it) {
-    counters::modeling[CACHE_MISS]++;
+    TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
     double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
     double d = device.model(systemPerformance, colocated, bytes, blockLength_);
     if (o < d) {
@@ -308,10 +305,10 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
     }
     modelChoiceCache_[args] = method;
   } else {
-    counters::modeling[CACHE_HIT]++;
+    TEMPI_COUNTER_OP(modeling, CACHE_HIT, ++);
     method = it->second;
   }
-  counters::modeling[WALL_TIME] += MPI_Wtime() - start;
+  TEMPI_COUNTER_OP(modeling, WALL_TIME, += MPI_Wtime() - start);
 
   switch (method) {
   case Method::DEVICE:

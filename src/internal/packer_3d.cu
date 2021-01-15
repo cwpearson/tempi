@@ -274,8 +274,7 @@ void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
 // same as async but synchronize after launch
 void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
                     const int incount) const {
-  using counters::NUM_PACKS;
-  counters::pack3d[NUM_PACKS]++;
+  TEMPI_COUNTER_OP(pack3d, NUM_PACKS, ++);
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
@@ -283,8 +282,7 @@ void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
 
 void Packer3D::unpack(const void *inbuf, int *position, void *outbuf,
                       const int outcount) const {
-  using counters::NUM_UNPACKS;
-  counters::pack3d[NUM_UNPACKS]++;
+  TEMPI_COUNTER_OP(pack3d, NUM_UNPACKS, ++);
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));

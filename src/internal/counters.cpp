@@ -12,17 +12,19 @@
 
 namespace counters {
 
-/*extern*/ std::unordered_map<counters, double> modeling;
-/*extern*/ std::unordered_map<counters, double> pack3d;
+/*extern*/ std::unordered_map<Key, double> modeling;
+/*extern*/ std::unordered_map<Key, double> pack3d;
 
 void init() {}
 
 void finalize() {
-  LOG_INFO("modeling::cache_miss: " << modeling[CACHE_MISS]);
-  LOG_INFO("modeling::cache_hit:  " << modeling[CACHE_HIT]);
-  LOG_INFO("modeling::wall_time:  " << modeling[WALL_TIME]);
-  LOG_INFO("pack3d::num_packs:    " << pack3d[NUM_PACKS]);
-  LOG_INFO("pack3d::num_unpacks:  " << pack3d[NUM_UNPACKS]);
+#ifdef TEMPI_ENABLE_COUNTERS
+  LOG_DEBUG("modeling::cache_miss: " << TEMPI_COUNTER(modeling, CACHE_MISS));
+  LOG_DEBUG("modeling::cache_hit:  " << TEMPI_COUNTER(modeling, CACHE_HIT));
+  LOG_DEBUG("modeling::wall_time:  " << TEMPI_COUNTER(modeling, WALL_TIME));
+  LOG_DEBUG("pack3d::num_packs:    " << TEMPI_COUNTER(pack3d, NUM_PACKS));
+  LOG_DEBUG("pack3d::num_unpacks:  " << TEMPI_COUNTER(pack3d, NUM_UNPACKS));
+#endif
 }
 
 } // namespace counters
