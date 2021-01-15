@@ -12,6 +12,7 @@
 
 #include <cuda_runtime.h>
 
+#include "counters.hpp"
 #include "cuda_runtime.hpp"
 
 template <class T> class host_allocator {
@@ -28,6 +29,7 @@ public:
   host_allocator(const host_allocator &) {}
 
   pointer allocate(size_type n, const void * = 0) {
+    TEMPI_COUNTER_OP(hostAllocator, NUM_ALLOCS, ++);
     if (!n) {
       return nullptr;
     }
@@ -47,6 +49,7 @@ public:
   }
 
   void deallocate(void *p, size_type) {
+    TEMPI_COUNTER_OP(hostAllocator, NUM_DEALLOCS, ++);
     if (p) {
       cudaError_t err = cudaHostUnregister(p);
       if (cudaSuccess != err) {

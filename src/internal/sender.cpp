@@ -254,14 +254,17 @@ bool SendRecvND::Args::operator<(const Args &rhs) const noexcept {
 }
 
 int SendRecvND::send(PARAMS_MPI_Send) {
+#ifdef TEMPI_ENABLE_COUNTERS
+  double start = MPI_Wtime();
+#endif
   int bytes;
   MPI_Pack_size(count, datatype, comm, &bytes);
   bool colocated = is_colocated(comm, dest);
-
   Args args{.colocated = colocated, .bytes = bytes};
   auto it = modelChoiceCache_.find(args);
   Method method;
   if (modelChoiceCache_.end() == it) {
+    TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
     double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
     double d = device.model(systemPerformance, colocated, bytes, blockLength_);
     if (o < d) {
@@ -271,8 +274,10 @@ int SendRecvND::send(PARAMS_MPI_Send) {
     }
     modelChoiceCache_[args] = method;
   } else {
+    TEMPI_COUNTER_OP(modeling, CACHE_HIT, ++);
     method = it->second;
   }
+  TEMPI_COUNTER_OP(modeling, WALL_TIME, += MPI_Wtime() - start);
 
   switch (method) {
   case Method::DEVICE:

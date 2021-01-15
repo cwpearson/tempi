@@ -13,6 +13,7 @@
 
 #include "cuda_runtime.hpp"
 #include "logging.hpp"
+#include "counters.hpp"
 
 /*! \brief a CUDA device allocator
 
@@ -32,6 +33,7 @@ public:
   device_allocator(const device_allocator &) {}
 
   pointer allocate(size_type n, const void * = 0) {
+    TEMPI_COUNTER_OP(deviceAllocator, NUM_ALLOCS, ++);
     T *t{};
     cudaError_t err = cudaMalloc(&t, n * sizeof(T));
     if (cudaSuccess != err) {
@@ -41,6 +43,7 @@ public:
   }
 
   void deallocate(void *p, size_type) {
+    TEMPI_COUNTER_OP(deviceAllocator, NUM_DEALLOCS, ++);
     if (p) {
       cudaError_t err = cudaFree(p);
       if (cudaSuccess != err) {

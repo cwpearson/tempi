@@ -28,25 +28,6 @@ extern "C" int MPI_Finalize() {
   // disabled now
   TEMPI_DISABLE_GUARD;
 
-#if TEMPI_OUTPUT_LEVEL >= 4
-  {
-    auto stats = hostAllocator.stats();
-    LOG_SPEW("Host Allocator Requests:        " << stats.numRequests);
-    LOG_SPEW("Host Allocator Releases:        " << stats.numReleases);
-    LOG_SPEW("Host Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
-                                                       1024);
-    LOG_SPEW("Host Allocator allocs:          " << stats.numAllocs);
-  }
-  {
-    auto stats = deviceAllocator.stats();
-    LOG_SPEW("Device Allocator Requests:        " << stats.numRequests);
-    LOG_SPEW("Device Allocator Releases:        " << stats.numReleases);
-    LOG_SPEW("Device Allocator Max Usage (MiB): " << stats.maxUsage / 1024 /
-                                                         1024);
-    LOG_SPEW("Device Allocator allocs:          " << stats.numAllocs);
-  }
-#endif
-
   async::finalize();
   events::finalize();
   worker_finalize();

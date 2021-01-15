@@ -23,21 +23,6 @@ public:
   typedef const T &const_reference;
   typedef T value_type;
 
-  struct Stats {
-    uint64_t numRequests;
-    uint64_t numReleases;
-
-    uint64_t numAllocs;
-    uint64_t numDeallocs;
-
-    uint64_t currUsage;
-    uint64_t maxUsage;
-  };
-
-  Stats stats_;
-
-  const Stats &stats() { return stats_; }
-
 private:
   /*! \brief a pool of allocations of a particular size
    */
@@ -126,9 +111,9 @@ private:
       const size_t allocSize = alloc_size_for(n);
       void *newPtr = allocator.allocate(allocSize);
       LOG_SPEW("calling allocator for " << allocSize << "B");
-      ++stats_.numAllocs;
-      stats_.currUsage += allocSize;
-      stats_.maxUsage = std::max(stats_.maxUsage, stats_.currUsage);
+      // ++stats_.numAllocs;
+      // stats_.currUsage += allocSize;
+      // stats_.maxUsage = std::max(stats_.maxUsage, stats_.currUsage);
       pool.avail.push_back(false);
       pool.ptrs.push_back(newPtr);
       return newPtr;
@@ -136,7 +121,7 @@ private:
   }
 
 public:
-  SlabAllocator() : stats_({}) {}
+  SlabAllocator() {}
   SlabAllocator(const SlabAllocator &) {}
 
   /* free all memory in the pools
@@ -154,7 +139,7 @@ public:
   ~SlabAllocator() { release_all(); }
 
   pointer allocate(size_type n, const void * = 0) {
-    ++stats_.numRequests;
+    // ++stats_.numRequests;
     return (pointer)alloc_request(n);
   }
 
@@ -162,7 +147,7 @@ public:
     if (0 == n) {
       return;
     }
-    ++stats_.numReleases;
+    // ++stats_.numReleases;
     // retrieve the pool this allocation must have come from
     Pool &pool = get_pool_for_size(n);
 

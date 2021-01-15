@@ -5,16 +5,42 @@
 
 #pragma once
 
-#include <unordered_map>
+#define TEMPI_ENABLE_COUNTERS
 
-// #define TEMPI_ENABLE_COUNTERS
+#include <cstdint>
 
 namespace counters {
 
-enum class Key { CACHE_MISS, CACHE_HIT, WALL_TIME, NUM_PACKS, NUM_UNPACKS };
+struct Allocator {
+    uint64_t numRequests;
+    uint64_t numReleases;
+    uint64_t NUM_ALLOCS;
+    uint64_t NUM_DEALLOCS;
+    uint64_t currUsage;
+    uint64_t maxUsage;
+};
 
-extern std::unordered_map<Key, double> modeling;
-extern std::unordered_map<Key, double> pack3d;
+struct Modeling {
+    unsigned CACHE_MISS;
+    unsigned CACHE_HIT;
+    double WALL_TIME;
+};
+
+struct Pack2d {
+    unsigned NUM_PACKS;
+    unsigned NUM_UNPACKS;
+};
+
+struct Pack3d {
+    unsigned NUM_PACKS;
+    unsigned NUM_UNPACKS;
+};
+
+extern Modeling modeling;
+extern Pack2d pack2d;
+extern Pack3d pack3d;
+extern Allocator deviceAllocator;
+extern Allocator hostAllocator;
 
 void init();
 void finalize();
@@ -24,8 +50,8 @@ void finalize();
 
 
 #ifdef TEMPI_ENABLE_COUNTERS
-#define TEMPI_COUNTER(group, key) counters::group[counters::Key::key]
-#define TEMPI_COUNTER_OP(group, key, op) counters::group[counters::Key::key]op
+#define TEMPI_COUNTER(group, key) counters::group.key
+#define TEMPI_COUNTER_OP(group, key, op) (counters::group.key)op
 #else
 #define TEMPI_COUNTER(group, key)
 #define TEMPI_COUNTER_OP(group, key, op)

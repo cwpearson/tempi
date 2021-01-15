@@ -5,6 +5,7 @@
 
 #include "packer_2d.hpp"
 
+#include "counters.hpp"
 #include "cuda_runtime.hpp"
 #include "dim3.hpp"
 #include "logging.hpp"
@@ -183,6 +184,7 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
                            const int incount, cudaStream_t stream,
                            cudaEvent_t kernelStart,
                            cudaEvent_t kernelStop) const {
+  TEMPI_COUNTER_OP(pack2d, NUM_PACKS, ++);
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
   if (uintptr_t(inbuf) % wordSize_) {
@@ -219,6 +221,7 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
                              const int outcount, cudaStream_t stream,
                              cudaEvent_t kernelStart,
                              cudaEvent_t kernelStop) const {
+  TEMPI_COUNTER_OP(pack2d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
 
   Dim3 gd = gd_;

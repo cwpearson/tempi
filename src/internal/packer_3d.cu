@@ -175,7 +175,7 @@ Packer3D::Packer3D(unsigned off, unsigned blockLength, unsigned count1,
 
 void Packer3D::launch_pack(void *outbuf, int *position, const void *inbuf,
                            const int incount, cudaStream_t stream) const {
-
+  TEMPI_COUNTER_OP(pack3d, NUM_PACKS, ++);
   LOG_SPEW("launch_pack offset=" << offset_);
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
@@ -210,7 +210,7 @@ void Packer3D::launch_pack(void *outbuf, int *position, const void *inbuf,
 
 void Packer3D::launch_unpack(const void *inbuf, int *position, void *outbuf,
                              const int outcount, cudaStream_t stream) const {
-
+  TEMPI_COUNTER_OP(pack3d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
 
   if (4 == wordSize_) {
@@ -274,7 +274,6 @@ void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
 // same as async but synchronize after launch
 void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
                     const int incount) const {
-  TEMPI_COUNTER_OP(pack3d, NUM_PACKS, ++);
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
@@ -282,7 +281,6 @@ void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
 
 void Packer3D::unpack(const void *inbuf, int *position, void *outbuf,
                       const int outcount) const {
-  TEMPI_COUNTER_OP(pack3d, NUM_UNPACKS, ++);
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
