@@ -189,7 +189,7 @@ std::vector<int> prime_factors(int n) {
 
 struct BenchResult {
   Statistics pack;
-  Statistics alltoallv;
+  Statistics exch;
   Statistics unpack;
   Statistics comm;
   int3 lcr;
@@ -583,7 +583,7 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
       MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
                              MPI_PACKED, recvbuf, recvcounts.data(),
                              rdispls.data(), MPI_PACKED, graphComm);
-      result.alltoallv.insert(MPI_Wtime() - start);
+      result.exch.insert(MPI_Wtime() - start);
       nvtxRangePop();
     }
 
@@ -623,6 +623,259 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   return result;
 }
 
+BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
+                       int nIters) {
+
+  const int quantSize = 4;
+
+  BenchResult result;
+
+  int rank, size;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &size);
+
+  // distributed extent
+  cudaExtent distExt = make_cudaExtent(ext.x, ext.y, ext.z);
+
+  // do recursive bisection
+  cudaExtent locExt = distExt;
+  int3 dims{1, 1, 1};
+  for (int f : prime_factors(size)) {
+    if (locExt.depth >= locExt.height && locExt.depth >= locExt.width) {
+      if (locExt.depth < f) {
+        FATAL("bad z size");
+      }
+      locExt.depth /= f;
+      dims.z *= f;
+    } else if (locExt.height >= locExt.width) {
+      if (locExt.height < f) {
+        FATAL("bad y size");
+      }
+      locExt.height /= f;
+      dims.y *= f;
+    } else {
+      if (locExt.width < f) {
+        FATAL("bad x size");
+      }
+      locExt.width /= f;
+      dims.x *= f;
+    }
+  }
+  if (dims.x * dims.y * dims.z != size) {
+    FATAL("dims product != size");
+  }
+
+  // local compute region (in elements)
+  int3 lcr{int(locExt.width), int(locExt.height), int(locExt.depth)};
+
+  result.lcr = lcr;
+
+  // if (0 == rank) {
+  //  std::cerr << "lcr: " << lcr.x << "x" << lcr.y << "x" << lcr.z << "\n";
+  //}
+
+  // allocation extent (in bytes, not elements)
+  cudaPitchedPtr curr{};
+  {
+    cudaExtent e = locExt;
+    e.width += 2 * radius; // extra space in x for quantity
+    e.height += 2 * radius;
+    e.depth += 2 * radius;
+    e.width *= quantSize; // convert width to bytes
+
+#ifdef USE_CUDA
+    CUDA_RUNTIME(cudaMalloc3D(&curr, e));
+#else
+    // smallest multiple of 512 >= pitch (to match CUDA)
+    size_t pitch = (e.width + 511) / 512 * 512;
+    curr.pitch = pitch;
+    curr.ptr = new char[pitch * e.height * e.depth];
+    curr.xsize = e.width;
+    curr.ysize = e.height;
+#endif
+  }
+  // if (0 == rank) {
+  //  std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
+  //            << "\n";
+  //}
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  /* have each rank take the role of a particular compute region to build the
+   * communicator.
+   *
+   * convert this rank directly into a 3d coordinate
+   */
+  int3 mycoord = to_3d(rank, dims);
+
+  // construct datatypes for each halo direction
+  // <rank, datatype>
+  std::map<int, std::vector<MPI_Datatype>> nbrSendType, nbrRecvType;
+  for (int dz = -1; dz <= 1; ++dz) {
+    for (int dy = -1; dy <= 1; ++dy) {
+      for (int dx = -1; dx <= 1; ++dx) {
+        if (!dx && !dy && !dz) {
+          continue;
+        }
+
+        int3 dir{dx, dy, dz};
+        int3 nbrcoord{mycoord.x + dir.x, mycoord.y + dir.y, mycoord.z + dir.z};
+
+        // wrap neighbors
+        while (nbrcoord.x < 0) {
+          nbrcoord.x += dims.x;
+        }
+        while (nbrcoord.y < 0) {
+          nbrcoord.y += dims.y;
+        }
+        while (nbrcoord.z < 0) {
+          nbrcoord.z += dims.z;
+        }
+        nbrcoord.x %= dims.x;
+        nbrcoord.y %= dims.y;
+        nbrcoord.z %= dims.z;
+
+        int nbrRank = to_1d(nbrcoord, dims);
+
+        MPI_Datatype interior =
+            halo_type(radius, curr, lcr, dir, quantSize, false);
+        MPI_Type_commit(&interior);
+        MPI_Datatype exterior =
+            halo_type(radius, curr, lcr, dir, quantSize, true);
+        MPI_Type_commit(&exterior);
+
+        // for periodic, send should always be the same as recv
+        {
+          int sendSize, recvSize;
+          MPI_Type_size(interior, &sendSize);
+          MPI_Type_size(exterior, &recvSize);
+          assert(sendSize == recvSize);
+        }
+
+        nbrSendType[nbrRank].push_back(interior);
+        nbrRecvType[nbrRank].push_back(exterior);
+      }
+    }
+  }
+
+  // print neighbors
+#if 0
+  for (int r = 0; r < size; ++r) {
+    MPI_Barrier(graphComm);
+    if (rank == r) {
+      std::cerr << "rank " << rank << " nbrs= ";
+      for (const auto &kv : nbrSendType) {
+        std::cerr << kv.first << " ";
+      }
+      std::cerr << "\n";
+    }
+  }
+  std::cout << std::flush;
+#endif
+
+  // print volumes
+#if 0
+  for (int r = 0; r < size; ++r) {
+    MPI_Barrier(graphComm);
+    if (rank == r) {
+      std::cout << "rank " << rank << " sizes= ";
+      for (const auto &kv : nbrSendType) {
+        for (MPI_Datatype ty : kv.second) {
+          int size;
+          MPI_Type_size(ty, &size);
+          std::cout << size << " ";
+        }
+      }
+      std::cout << "\n";
+    }
+  }
+  std::cout << std::flush;
+#endif
+
+  // print extents
+#if 0
+  for (int r = 0; r < size; ++r) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == r) {
+      std::cout << "rank " << rank << " extents= ";
+      for (const auto &kv : nbrSendType) {
+        for (MPI_Datatype ty : kv.second) {
+          MPI_Aint lb, extent;
+          MPI_Type_get_extent(ty, &lb, &extent);
+          std::cout << "[" << lb << "," << lb + extent << ") ";
+        }
+      }
+      std::cout << "\n";
+    }
+  }
+  std::cout << std::flush;
+#endif
+
+  for (int i = 0; i < nIters; ++i) {
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // issue Isends
+    std::vector<MPI_Request> reqs(26 * 2); // one request per direction
+    auto ri = reqs.begin();
+    double startIsend;
+    {
+      nvtxRangePush("isend");
+      startIsend = MPI_Wtime();
+      int position = 0;
+      for (auto &kv : nbrSendType) {
+        const int dest = kv.first;
+        for (size_t tag = 0; tag < kv.second.size(); ++tag) {
+          const MPI_Datatype ty = kv.second[tag];
+          {
+            int tsize;
+            MPI_Type_size(ty, &tsize);
+            std::cerr << "send to   rank=" << dest << " tag=" << tag
+                      << " tsize=" << tsize << "\n";
+          }
+          MPI_Isend(curr.ptr, 1, ty, dest, tag, MPI_COMM_WORLD, &(*ri++));
+        }
+      }
+      nvtxRangePop();
+    }
+
+    // issue Irecv
+    {
+      nvtxRangePush("irecv");
+      int position = 0;
+      for (auto &kv : nbrRecvType) {
+        const int source = kv.first;
+        for (size_t tag = 0; tag < kv.second.size(); ++tag) {
+          const MPI_Datatype ty = kv.second[tag];
+          {
+            int tsize;
+            MPI_Type_size(ty, &tsize);
+            std::cerr << "recv from rank=" << source << " tag=" << tag
+                      << " tsize=" << tsize << "\n";
+          }
+          MPI_Irecv(curr.ptr, 1, ty, source, tag, MPI_COMM_WORLD, &(*ri++));
+        }
+      }
+      nvtxRangePop();
+    }
+
+    // wait
+    {
+      for (MPI_Request &r : reqs) {
+        MPI_Wait(&r, MPI_STATUS_IGNORE);
+      }
+      result.exch.insert(MPI_Wtime() - startIsend);
+    }
+  }
+
+#ifdef USE_CUDA
+  CUDA_RUNTIME(cudaFree(curr.ptr));
+#else
+  delete[](char *) curr.ptr;
+#endif
+
+  return result;
+}
+
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
@@ -654,14 +907,15 @@ int main(int argc, char **argv) {
     std::cout << std::flush;
   }
 
-  BenchResult result =
-      bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+  // BenchResult result =
+  //     bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+  BenchResult result = bench_isir(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
 
   double pack, alltoallv, unpack, comm;
 
   {
     double t1 = result.pack.min();
-    double t2 = result.alltoallv.min();
+    double t2 = result.exch.min();
     double t3 = result.unpack.min();
     double t4 = result.comm.min();
     MPI_Reduce(&t1, &pack, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);

@@ -517,7 +517,6 @@ StridedBlock to_strided_block(const Type &type) {
 
   const Type *cur = &type;
   while (true) {
-    LOG_SPEW("add variant id " << cur->data.index());
     data.push_back(cur->data);
     if (cur->children().size() == 1) {
       cur = &(cur->children()[0]);
@@ -526,7 +525,7 @@ StridedBlock to_strided_block(const Type &type) {
       // done descending
       break;
     } else {
-      LOG_SPEW("too many children");
+      LOG_DEBUG("to_strided_block(): too many children");
       // too many children
       return StridedBlock();
     }

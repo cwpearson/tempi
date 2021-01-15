@@ -31,7 +31,7 @@ int isend::impl(PARAMS_MPI_Isend) {
   auto pi = typeCache.find(datatype);
   if (typeCache.end() != pi && pi->second.packer) {
     Packer &packer = *(pi->second.packer);
-    *request = *async::start_isend(packer, ARGS_MPI_Isend);
+    async::start_isend(packer, ARGS_MPI_Isend);
     async::try_progress();
     return MPI_SUCCESS;
   }

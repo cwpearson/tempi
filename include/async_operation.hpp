@@ -18,10 +18,10 @@ namespace async {
 int wait(MPI_Request *request, MPI_Status *status);
 
 // create a new managed Isend operation using the provided packer and start it
-MPI_Request *start_isend(Packer &packer, PARAMS_MPI_Isend);
+void start_isend(Packer &packer, PARAMS_MPI_Isend);
 
 // create a new managed Irecv operation using the provided packer and start it
-MPI_Request *start_irecv(Packer &packer, PARAMS_MPI_Irecv);
+void start_irecv(Packer &packer, PARAMS_MPI_Irecv);
 
 // attempt to progress all active operations.
 // returns an MPI error code
