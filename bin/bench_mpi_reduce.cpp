@@ -83,6 +83,7 @@ BenchResult bench(size_t numBytes, const int nIters,
   Statistics stats;
   nvtxRangePush("loop");
   for (int n = 0; n < nIters; ++n) {
+    MPI_Barrier(MPI_COMM_WORLD);
     double start = MPI_Wtime();
     if (mpiReductionApiIdx == 0) {
       MPI_Reduce(src, dst, numBytes, MPI_BYTE, mpi_op_selected, 0,
@@ -124,18 +125,18 @@ int main(int argc, char **argv) {
     }
   }
 
-  int nIters = 10;
+  int nIters = 100;
 
   BenchResult result;
 
   std::vector<int> ns = {1,     2,       4,     8,       16,      32,   64,
                          128,   256,     512,   1024,    1 << 11, 4096, 1 << 13,
-                         16384, 1 << 15, 65536, 1 << 17, 1 << 20};
-
+                         16384, 1 << 15, 65536, 128 * 1024, 1024 * 1024, 4 * 1024 * 1024};
+  ns = {4 * 1024 * 1024};
   std::vector<int> mpiReductionApis{0, 1, 2};
+  mpiReductionApis = {0};
   std::vector<int> mpiReductionOps{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-  // mpiReductionApis = {0};
-  // mpiReductionOps = {0};
+  mpiReductionOps = {0};
 
   if (0 == rank) {
     std::cout << "api,op,n,MiB/s\n";

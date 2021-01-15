@@ -10,9 +10,8 @@ set -eou pipefail
 
 module reset
 module unload darshan-runtime
-module load gcc/7.4.0
+module load gcc/9.3.0
 module load cuda/11.0.3
-module load nsight-systems/2020.3.1.71
 
 DIR=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
 OUT=$DIR/bench_type_commit.csv
