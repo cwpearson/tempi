@@ -45,49 +45,52 @@ cudaExtent div_cudaExtent(cudaExtent &a, cudaExtent &b) {
   return c;
 }
 
-void to_3d(int *d3, int d1, const int dim[3]) {
-  d3[0] = d1 % dim[0];
-  d1 /= dim[0];
-  d3[1] = d1 % dim[1];
-  d1 /= dim[1];
-  d3[2] = d1;
-  assert(d3[0] < dim[0]);
-  assert(d3[1] < dim[1]);
-  assert(d3[2] < dim[2]);
+int3 to_3d(int d1, const int3 dim) {
+  int3 d3;
+  d3.x = d1 % dim.x;
+  d1 /= dim.x;
+  d3.y = d1 % dim.y;
+  d1 /= dim.y;
+  d3.z = d1;
+  assert(d3.x < dim.x);
+  assert(d3.y < dim.y);
+  assert(d3.z < dim.z);
+  return d3;
 }
 
-void to_1d(int *d1, const int d3[3], const int dim[3]) {
-  *d1 = d3[0];
-  *d1 += d3[1] * dim[0];
-  *d1 += d3[2] * dim[1] * dim[0];
-  assert(*d1 < dim[0] * dim[1] * dim[2]);
+int to_1d(const int3 d3, const int3 dim) {
+  int d1 = d3.x;
+  d1 += d3.y * dim.x;
+  d1 += d3.z * dim.y * dim.x;
+  assert(d1 < dim.x * dim.y * dim.z);
+  return d1;
 }
 
 /* return the halo size in elements for a region of size `lcr`, with `radius`,
  * for a send in direction `dir`
  */
 size_t halo_size(const int radius,
-                 const int lcr[3], // size of the local compute region
-                 const int dir[3]) {
+                 const int3 lcr, // size of the local compute region
+                 const int3 dir) {
 
-  int ext[3]{};
-  ext[0] = (0 == dir[0]) ? lcr[0] : radius;
-  ext[1] = (0 == dir[1]) ? lcr[1] : radius;
-  ext[2] = (0 == dir[2]) ? lcr[2] : radius;
-  return ext[0] * ext[1] * ext[2];
+  int3 ext{};
+  ext.x = (0 == dir.x) ? lcr.x : radius;
+  ext.y = (0 == dir.y) ? lcr.y : radius;
+  ext.z = (0 == dir.z) ? lcr.z : radius;
+  return ext.x * ext.y * ext.z;
 }
 
 /* create a derived datatype describing the particular direction
  */
 MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
-                       const int lcr[3], // size of the local compute region
-                       const int dir[3],
+                       const int3 lcr, // size of the local compute region
+                       const int3 dir,
                        const int quantSize, // size of each element
                        bool exterior) {
 
-  assert(dir[0] >= -1 && dir[0] <= 1);
-  assert(dir[1] >= -1 && dir[1] <= 1);
-  assert(dir[2] >= -1 && dir[2] <= 1);
+  assert(dir.x >= -1 && dir.x <= 1);
+  assert(dir.y >= -1 && dir.y <= 1);
+  assert(dir.z >= -1 && dir.z <= 1);
 
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -95,33 +98,33 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
   MPI_Datatype cubetype{};
 
   // each row either starts at x=0, or radius + xsize
-  int pos[3]{};
-  if (-1 == dir[0]) { // -x, no offset (exterior), radius (interior)
-    pos[0] = (exterior ? 0 : radius);
-  } else if (1 == dir[0]) { // +x, xsize (interior), xsize + radius (exterior)
-    pos[0] = lcr[0] + (exterior ? radius : 0);
+  int3 pos{};
+  if (-1 == dir.x) { // -x, no offset (exterior), radius (interior)
+    pos.x = (exterior ? 0 : radius);
+  } else if (1 == dir.x) { // +x, xsize (interior), xsize + radius (exterior)
+    pos.x = lcr.x + (exterior ? radius : 0);
   } else {
-    pos[0] = radius;
+    pos.x = radius;
   }
-  if (-1 == dir[1]) {
-    pos[1] = (exterior ? 0 : radius);
-  } else if (1 == dir[1]) {
-    pos[1] = lcr[1] + (exterior ? radius : 0);
+  if (-1 == dir.y) {
+    pos.y = (exterior ? 0 : radius);
+  } else if (1 == dir.y) {
+    pos.y = lcr.y + (exterior ? radius : 0);
   } else {
-    pos[1] = radius;
+    pos.y = radius;
   }
-  if (-1 == dir[2]) {
-    pos[2] = (exterior ? 0 : radius);
-  } else if (1 == dir[2]) {
-    pos[2] = lcr[2] + (exterior ? radius : 0);
+  if (-1 == dir.z) {
+    pos.z = (exterior ? 0 : radius);
+  } else if (1 == dir.z) {
+    pos.z = lcr.z + (exterior ? radius : 0);
   } else {
-    pos[2] = radius;
+    pos.z = radius;
   }
 
-  int ext[3]{};
-  ext[0] = (0 == dir[0]) ? lcr[0] : radius;
-  ext[1] = (0 == dir[1]) ? lcr[1] : radius;
-  ext[2] = (0 == dir[2]) ? lcr[2] : radius;
+  int3 ext;
+  ext.x = (0 == dir.x) ? lcr.x : radius;
+  ext.y = (0 == dir.y) ? lcr.y : radius;
+  ext.z = (0 == dir.z) ? lcr.z : radius;
 
   {
     /* subarray outer dim is the largest one
@@ -130,15 +133,15 @@ MPI_Datatype halo_type(const int radius, cudaPitchedPtr curr,
     int ndims = 3;
     // elems in each dimension of the full array
     int array_of_sizes[3]{
-        pos[2] + ext[2], // dim should be at least this big...
+        pos.z + ext.z, // dim should be at least this big...
         int(curr.ysize),
         int(curr.pitch),
 
     };
     // elems of oldtype in each dimension of the subarray
-    int array_of_subsizes[3]{ext[2], ext[1], ext[0] * quantSize};
+    int array_of_subsizes[3]{ext.z, ext.y, ext.x * quantSize};
     // starting coordinates of subarray
-    int array_of_starts[3]{pos[2], pos[1], pos[0] * quantSize};
+    int array_of_starts[3]{pos.z, pos.y, pos.x * quantSize};
     int order = MPI_ORDER_C;
     MPI_Datatype oldtype = MPI_BYTE; // have element size in subsizes
 
@@ -189,11 +192,11 @@ struct BenchResult {
   Statistics alltoallv;
   Statistics unpack;
   Statistics comm;
-  int lcr[3];
+  int3 lcr;
 };
 
-BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
-                  int nIters) {
+BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
+                                     int radius, int nIters) {
 
   const int quantSize = 4;
 
@@ -204,45 +207,43 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
   MPI_Comm_size(comm, &size);
 
   // distributed extent
-  cudaExtent distExt = make_cudaExtent(ext[0], ext[1], ext[2]);
+  cudaExtent distExt = make_cudaExtent(ext.x, ext.y, ext.z);
 
   // do recursive bisection
   cudaExtent locExt = distExt;
-  int dims[3]{1, 1, 1};
+  int3 dims{1, 1, 1};
   for (int f : prime_factors(size)) {
     if (locExt.depth >= locExt.height && locExt.depth >= locExt.width) {
       if (locExt.depth < f) {
         FATAL("bad z size");
       }
       locExt.depth /= f;
-      dims[2] *= f;
+      dims.z *= f;
     } else if (locExt.height >= locExt.width) {
       if (locExt.height < f) {
         FATAL("bad y size");
       }
       locExt.height /= f;
-      dims[1] *= f;
+      dims.y *= f;
     } else {
       if (locExt.width < f) {
         FATAL("bad x size");
       }
       locExt.width /= f;
-      dims[0] *= f;
+      dims.x *= f;
     }
   }
-  if (dims[0] * dims[1] * dims[2] != size) {
+  if (dims.x * dims.y * dims.z != size) {
     FATAL("dims product != size");
   }
 
-  // local extent in elements
-  int lcr[3]{int(locExt.width), int(locExt.height), int(locExt.depth)};
+  // local compute region (in elements)
+  int3 lcr{int(locExt.width), int(locExt.height), int(locExt.depth)};
 
-  result.lcr[0] = lcr[0];
-  result.lcr[1] = lcr[1];
-  result.lcr[2] = lcr[2];
+  result.lcr = lcr;
 
   // if (0 == rank) {
-  //  std::cerr << "lcr: " << lcr[0] << "x" << lcr[1] << "x" << lcr[2] << "\n";
+  //  std::cerr << "lcr: " << lcr.x << "x" << lcr.y << "x" << lcr.z << "\n";
   //}
 
   // allocation extent (in bytes, not elements)
@@ -276,8 +277,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
    *
    * convert this rank directly into a 3d coordinate
    */
-  int mycoord[3];
-  to_3d(mycoord, rank, dims);
+  int3 mycoord = to_3d(rank, dims);
 
   // figure out how much I communicate with each neighbor
   std::map<int, int> nbrSendWeight, nbrRecvWeight;
@@ -288,29 +288,26 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
           continue;
         }
 
-        int dir[3]{};
-        dir[0] = dx;
-        dir[1] = dy;
-        dir[2] = dz;
+        int3 dir{dx, dy, dz};
 
         // determine the coordinate and rank of each neighbor
-        int nbrcoord[3]{}, nbrRank = -1;
-        nbrcoord[0] = mycoord[0] + dir[0];
-        nbrcoord[1] = mycoord[1] + dir[1];
-        nbrcoord[2] = mycoord[2] + dir[2];
-        while (nbrcoord[0] < 0) {
-          nbrcoord[0] += dims[0];
+        int3 nbrcoord;
+        nbrcoord.x = mycoord.x + dir.x;
+        nbrcoord.y = mycoord.y + dir.y;
+        nbrcoord.z = mycoord.z + dir.z;
+        while (nbrcoord.x < 0) {
+          nbrcoord.x += dims.x;
         }
-        while (nbrcoord[1] < 0) {
-          nbrcoord[1] += dims[1];
+        while (nbrcoord.y < 0) {
+          nbrcoord.y += dims.y;
         }
-        while (nbrcoord[2] < 0) {
-          nbrcoord[2] += dims[2];
+        while (nbrcoord.z < 0) {
+          nbrcoord.z += dims.z;
         }
-        nbrcoord[0] %= dims[0];
-        nbrcoord[1] %= dims[1];
-        nbrcoord[2] %= dims[2];
-        to_1d(&nbrRank, nbrcoord, dims);
+        nbrcoord.x %= dims.x;
+        nbrcoord.y %= dims.y;
+        nbrcoord.z %= dims.z;
+        int nbrRank = to_1d(nbrcoord, dims);
 
         int weight = halo_size(radius, lcr, dir);
         nbrSendWeight[nbrRank] += weight;
@@ -354,7 +351,7 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
 
   // get my new rank after reorder
   MPI_Comm_rank(graphComm, &rank);
-  to_3d(mycoord, rank, dims);
+  mycoord = to_3d(rank, dims);
 
   // construct datatypes for each halo direction
   std::map<int, std::vector<MPI_Datatype>> nbrSendType, nbrRecvType;
@@ -365,32 +362,24 @@ BenchResult bench(MPI_Comm comm, int ext[3], int nquants, int radius,
           continue;
         }
 
-        int dir[3];
-        dir[0] = dx;
-        dir[1] = dy;
-        dir[2] = dz;
-
-        int nbrcoord[3];
-        nbrcoord[0] = mycoord[0] + dir[0];
-        nbrcoord[1] = mycoord[1] + dir[1];
-        nbrcoord[2] = mycoord[2] + dir[2];
+        int3 dir{dx, dy, dz};
+        int3 nbrcoord{mycoord.x + dir.x, mycoord.y + dir.y, mycoord.z + dir.z};
 
         // wrap neighbors
-        while (nbrcoord[0] < 0) {
-          nbrcoord[0] += dims[0];
+        while (nbrcoord.x < 0) {
+          nbrcoord.x += dims.x;
         }
-        while (nbrcoord[1] < 0) {
-          nbrcoord[1] += dims[1];
+        while (nbrcoord.y < 0) {
+          nbrcoord.y += dims.y;
         }
-        while (nbrcoord[2] < 0) {
-          nbrcoord[2] += dims[2];
+        while (nbrcoord.z < 0) {
+          nbrcoord.z += dims.z;
         }
-        nbrcoord[0] %= dims[0];
-        nbrcoord[1] %= dims[1];
-        nbrcoord[2] %= dims[2];
+        nbrcoord.x %= dims.x;
+        nbrcoord.y %= dims.y;
+        nbrcoord.z %= dims.z;
 
-        int nbrRank;
-        to_1d(&nbrRank, nbrcoord, dims);
+        int nbrRank = to_1d(nbrcoord, dims);
 
         MPI_Datatype interior =
             halo_type(radius, curr, lcr, dir, quantSize, false);
@@ -641,17 +630,17 @@ int main(int argc, char **argv) {
   int nQuants = 2;
   int radius = 2;
 
-  int ext[3]{};
+  int3 ext{};
   if (argc == 3) {
     nIters = std::atoi(argv[1]);
-    ext[0] = std::atoi(argv[2]);
-    ext[1] = std::atoi(argv[2]);
-    ext[2] = std::atoi(argv[2]);
+    ext.x = std::atoi(argv[2]);
+    ext.y = std::atoi(argv[2]);
+    ext.z = std::atoi(argv[2]);
   } else if (5 == argc) {
     nIters = std::atoi(argv[1]);
-    ext[0] = std::atoi(argv[2]);
-    ext[1] = std::atoi(argv[3]);
-    ext[2] = std::atoi(argv[4]);
+    ext.x = std::atoi(argv[2]);
+    ext.y = std::atoi(argv[3]);
+    ext.z = std::atoi(argv[4]);
   } else {
     FATAL(argv[0] << " ITERS X Y Z");
   }
@@ -665,7 +654,8 @@ int main(int argc, char **argv) {
     std::cout << std::flush;
   }
 
-  BenchResult result = bench(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+  BenchResult result =
+      bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
 
   double pack, alltoallv, unpack, comm;
 
@@ -681,7 +671,7 @@ int main(int argc, char **argv) {
   }
 
   if (0 == rank) {
-    std::cout << result.lcr[0] << "," << result.lcr[1] << "," << result.lcr[2]
+    std::cout << result.lcr.x << "," << result.lcr.y << "," << result.lcr.z
               << "," << comm << "," << pack << "," << alltoallv << "," << unpack
               << "\n";
   }
