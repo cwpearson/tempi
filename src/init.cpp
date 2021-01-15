@@ -13,7 +13,6 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 #include "types.hpp"
-#include "worker.hpp"
 
 #include <mpi.h>
 
@@ -57,7 +56,6 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   events::init();
   topology_init();
   streams_init();
-  worker_init();
   types_init();
   measure_system_init();
 

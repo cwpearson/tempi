@@ -1,9 +1,15 @@
+//          Copyright Carl Pearson 2020 - 2021.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE or copy at
+//    https://www.boost.org/LICENSE_1_0.txt)
+
 #include "async_operation.hpp"
 
 #include "allocators.hpp"
 #include "cuda_runtime.hpp"
 #include "events.hpp"
 #include "logging.hpp"
+#include "request.hpp"
 #include "symbols.hpp"
 
 #include <map>
@@ -43,25 +49,15 @@ Manages the state of a particular Isend
 CUDA - the CUDA transfer is active or completion is not detected yet
 MPI - the MPI_Isend has been issued
 
-It is not safe to store the request pointer
-to manipulate the request, as the MPI_Isend caller may move the request
-after the call (for example, the request is on the stack).
+Isend/Irecv manage the MPI request internally, since the lifetime of the TEMPI
+Isend/Irecv is longer than the lifetime of the MPI Isend/Irecv
 
-Isend makes a copy of the MPI_Request.
-When MPI completes a request, we'll track the original value.
-when the caller provides us with a request that MPI has already completed,
-we can be confident we know which operation they intended.
-
-TODO:
-It is possible that MPI would reuse a request that's been freed.
-Then we could have an old request for an operation the caller has not waited on,
-And a new identical MPI request. Then the caller could wait on the old one.
-In that case we might have to maintain an ordering of in-flight operations that
-use the same MPI_Request and complete them in order.
+TEMPI provides a fake request to the caller as a handle.
 */
 class Isend : public AsyncOperation {
   Packer &packer_;
-  MPI_Request *request_;
+  MPI_Request
+      request_; // copy of the provided request - see class documentation
 
   enum class State { CUDA, MPI };
   State state_;
@@ -73,25 +69,29 @@ class Isend : public AsyncOperation {
 
 public:
   Isend(Packer &packer, PARAMS_MPI_Isend)
-      : packer_(packer), request_(request), state_(State::CUDA),
-        packedBuf_(nullptr), packedSize_(0) {
+      : packer_(packer), state_(State::CUDA), packedBuf_(nullptr),
+        packedSize_(0) {
     NVTX_MARK("Isend()");
     event_ = events::request();
 
     // allocate intermediate space
     MPI_Pack_size(count, datatype, comm, &packedSize_);
     packedBuf_ = hostAllocator.allocate(packedSize_);
-    LOG_SPEW("buffer is @" << uintptr_t(packedBuf_));
+    // LOG_SPEW("buffer is @" << uintptr_t(packedBuf_));
 
     // issue pack operation
     int position = 0;
     packer.pack_async(packedBuf_, &position, buf, count, event_);
     LOG_SPEW("Isend():: issued pack");
 
-    // initialize Isend and request
+    // initialize Isend with internal request
     libmpi.MPI_Send_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
-                         request_);
-    LOG_SPEW("Isend():: init'ed Send, req=" << uintptr_t(*request_));
+                         &request_);
+
+    // provide caller with a new TEMPI request
+    *request = Request::make();
+
+    LOG_SPEW("Isend():: init'ed Send, caller req=" << int(*request));
   }
   ~Isend() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
@@ -105,9 +105,10 @@ public:
       cudaError_t err = cudaEventQuery(event_);
       if (cudaSuccess == err) {
         NVTX_MARK("Isend:: CUDA->MPI");
-        LOG_SPEW("Isend::wake() MPI_Start, req=" << uintptr_t(*request_));
+        LOG_SPEW("Isend::wake() MPI_Start, internal req=" << int(request_));
         state_ = State::MPI;
-        return libmpi.MPI_Start(request_);
+        // manipulate local request, not Caller's copy
+        return libmpi.MPI_Start(&request_);
       } else if (cudaErrorNotReady == err) {
         return MPI_SUCCESS; // still waiting on CUDA
       } else {
@@ -129,7 +130,7 @@ public:
     while (state_ != State::MPI) {
       wake();
     }
-    return libmpi.MPI_Wait(request_, status);
+    return libmpi.MPI_Wait(&request_, status);
   }
 
   virtual bool needs_wake() override { return state_ != State::MPI; }
@@ -142,7 +143,7 @@ CUDA - the CUDA transfer is active or completion is not detected yet
 */
 class Irecv : public AsyncOperation {
   Packer &packer_;
-  MPI_Request *request_;
+  MPI_Request request_;
   void *buf_;
   int count_;
 
@@ -156,8 +157,8 @@ class Irecv : public AsyncOperation {
 
 public:
   Irecv(Packer &packer, PARAMS_MPI_Irecv)
-      : packer_(packer), request_(request), buf_(buf), count_(count),
-        state_(State::MPI), packedBuf_(nullptr), packedSize_(0) {
+      : packer_(packer), buf_(buf), count_(count), state_(State::MPI),
+        packedBuf_(nullptr), packedSize_(0) {
     NVTX_MARK("Irecv()");
     event_ = events::request();
 
@@ -166,14 +167,16 @@ public:
     packedBuf_ = hostAllocator.allocate(packedSize_);
 
     NVTX_MARK("Irecv() issue MPI_Irecv");
-    // issue MPI_Irecv
+    // issue MPI_Irecv with internal request
     libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
-                     request_);
-    LOG_SPEW("Irecv(): issued Irecv, req=" << uintptr_t(*request_));
+                     &request_);
+
+    // give caller a new TEMPI request
+    *request = Request::make();
+    LOG_SPEW("Irecv(): issued Irecv, MPI req=" << int(request_));
   }
   ~Irecv() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
-    assert(event_);
     events::release(event_);
   }
 
@@ -183,9 +186,9 @@ public:
     case State::MPI: {
       // TODO: handle status
       int flag;
-      // FIXME: this will set request to MPI_REQUEST_NULL if the message
-      // is delivered, which causes the
-      int err = libmpi.MPI_Test(request_, &flag, MPI_STATUS_IGNORE);
+      // if the MPI is complete this will set internal request to
+      // MPI_REQUEST_NULL
+      int err = libmpi.MPI_Test(&request_, &flag, MPI_STATUS_IGNORE);
       if (flag) {
         NVTX_MARK("Irecv:: MPI -> CUDA");
         // issue unpack operation
@@ -222,28 +225,28 @@ namespace async {
 
 void start_isend(Packer &packer, PARAMS_MPI_Isend) {
   std::unique_ptr<Isend> op = std::make_unique<Isend>(packer, ARGS_MPI_Isend);
-  LOG_SPEW("managed Isend, req=" << uintptr_t(*request));
+  LOG_SPEW("managed Isend, caller req=" << int(*request));
   active[*request] = std::move(op);
 }
 
 void start_irecv(Packer &packer, PARAMS_MPI_Irecv) {
   std::unique_ptr<Irecv> op = std::make_unique<Irecv>(packer, ARGS_MPI_Irecv);
-  LOG_SPEW("managed Irecv, req=" << uintptr_t(*request));
+  LOG_SPEW("managed Irecv, caller req=" << int(*request));
   active[*request] = std::move(op);
 }
 
 int wait(MPI_Request *request, MPI_Status *status) {
-
   auto ii = active.find(*request);
   if (active.end() != ii) {
-    LOG_SPEW("async::wait() on managed request " << uintptr_t(*request));
+    LOG_SPEW("async::wait() on managed (caller) request " << int(*request));
     int err = ii->second->wait(status);
     active.erase(ii);
     LOG_SPEW("async::wait() cleaned up request "
-             << uintptr_t(request) << "(" << active.size() << " remaining)");
+             << int(*request) << "(" << active.size() << " remaining)");
+    *request = MPI_REQUEST_NULL; // clear the caller's request
     return err;
   } else {
-    LOG_SPEW("MPI_Wait on unmanaged request " << uintptr_t(*request));
+    LOG_SPEW("MPI_Wait on unmanaged request " << int(*request));
     return libmpi.MPI_Wait(request, status);
   }
 }

@@ -829,8 +829,6 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
           {
             int tsize;
             MPI_Type_size(ty, &tsize);
-            std::cerr << "send to   rank=" << dest << " tag=" << tag
-                      << " tsize=" << tsize << "\n";
           }
           MPI_Isend(curr.ptr, 1, ty, dest, tag, MPI_COMM_WORLD, &(*ri++));
         }
@@ -849,8 +847,6 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
           {
             int tsize;
             MPI_Type_size(ty, &tsize);
-            std::cerr << "recv from rank=" << source << " tag=" << tag
-                      << " tsize=" << tsize << "\n";
           }
           MPI_Irecv(curr.ptr, 1, ty, source, tag, MPI_COMM_WORLD, &(*ri++));
         }
@@ -860,9 +856,11 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
 
     // wait
     {
+      nvtxRangePush("wait");
       for (MPI_Request &r : reqs) {
         MPI_Wait(&r, MPI_STATUS_IGNORE);
       }
+      nvtxRangePop();
       result.exch.insert(MPI_Wtime() - startIsend);
     }
   }

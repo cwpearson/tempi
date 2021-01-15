@@ -10,7 +10,6 @@
 #include "events.hpp"
 #include "logging.hpp"
 #include "streams.hpp"
-#include "worker.hpp"
 
 #include <mpi.h>
 
@@ -30,7 +29,6 @@ extern "C" int MPI_Finalize() {
 
   async::finalize();
   events::finalize();
-  worker_finalize();
   streams_finalize();
   allocators::finalize();
   counters::finalize();
