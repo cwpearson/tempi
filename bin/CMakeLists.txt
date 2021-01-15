@@ -23,6 +23,26 @@ macro(add_tempi_executable exe)
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
     target_link_libraries(${ARGV0} PRIVATE tempi_support)
     target_link_libraries(${ARGV0} PRIVATE tempi_bin)
+
+  # prefer march=native, but fallback to mcpu=native if needed. march implies mtune
+  if (CXX_HAS_MARCH)
+    message(STATUS "-march=native detected")
+    target_compile_options(
+      ${ARGV0}
+      PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-march=native>
+      $<$<COMPILE_LANGUAGE:CXX>:-march=native>
+    )
+  elseif (CXX_HAS_MCPU)
+    message(STATUS "-mcpu=native -mtune=native instead of -march=native")
+    target_compile_options(
+      ${ARGV0}
+      PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mcpu=native -Xcompiler=-mtune=native>
+      $<$<COMPILE_LANGUAGE:CXX>:-mcpu=native -mtune=native>
+    )
+  endif()
+
 endmacro()
 
 set(TEMPI_BINARY_SOURCES benchmark.cpp)

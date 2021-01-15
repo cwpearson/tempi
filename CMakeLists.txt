@@ -187,8 +187,6 @@ $<$<COMPILE_LANGUAGE:CUDA>:
 >
 )
 
-check_cxx_compiler_flag(-march=native CXX_HAS_MARCH)
-check_cxx_compiler_flag(-mcpu=native CXX_HAS_MCPU)
 if (CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_options(
     tempi
@@ -217,13 +215,8 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
     >
     
   )
-  # always apply mtune
-  target_compile_options(
-    tempi
-    PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mtune=native>
-    $<$<COMPILE_LANGUAGE:CXX>:-mtune=native>
-  )
+  check_cxx_compiler_flag(-march=native CXX_HAS_MARCH)
+  check_cxx_compiler_flag(-mcpu=native CXX_HAS_MCPU)
   # prefer march=native, but fallback to mcpu=native if needed
   if (CXX_HAS_MARCH)
     message(STATUS "-march=native detected")
@@ -234,12 +227,12 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
       $<$<COMPILE_LANGUAGE:CXX>:-march=native>
     )
   elseif (CXX_HAS_MCPU)
-    message(STATUS "-mcpu=native instead of -march=native")
+    message(STATUS "-mcpu=native -mtune=native instead of -march=native")
     target_compile_options(
       tempi
       PRIVATE
-      $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mcpu=native>
-      $<$<COMPILE_LANGUAGE:CXX>:-mcpu=native>
+      $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-mcpu=native -Xcompiler=-mtune=native>
+      $<$<COMPILE_LANGUAGE:CXX>:-mcpu=native -mtune=native>
     )
   endif()
 endif()
