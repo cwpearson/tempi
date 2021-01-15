@@ -6,6 +6,7 @@
 #include "sender.hpp"
 
 #include "allocators.hpp"
+#include "counters.hpp"
 #include "packer_2d.hpp"
 #include "packer_3d.hpp"
 #include "topology.hpp"
@@ -284,14 +285,20 @@ int SendRecvND::send(PARAMS_MPI_Send) {
 }
 
 int SendRecvND::recv(PARAMS_MPI_Recv) {
+
+  using counters::CACHE_HIT;
+  using counters::CACHE_MISS;
+  using counters::WALL_TIME;
+
+  double start = MPI_Wtime();
   int bytes;
   MPI_Pack_size(count, datatype, comm, &bytes);
   bool colocated = is_colocated(comm, source);
-
   Args args{.colocated = colocated, .bytes = bytes};
   auto it = modelChoiceCache_.find(args);
   Method method;
   if (modelChoiceCache_.end() == it) {
+    counters::modeling[CACHE_MISS]++;
     double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
     double d = device.model(systemPerformance, colocated, bytes, blockLength_);
     if (o < d) {
@@ -301,8 +308,10 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
     }
     modelChoiceCache_[args] = method;
   } else {
+    counters::modeling[CACHE_HIT]++;
     method = it->second;
   }
+  counters::modeling[WALL_TIME] += MPI_Wtime() - start;
 
   switch (method) {
   case Method::DEVICE:

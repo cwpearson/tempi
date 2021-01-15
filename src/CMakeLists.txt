@@ -25,6 +25,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/alltoallv_impl.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/allocators.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/async_operation.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/benchmark.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/counters.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/env.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/events.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/iid.cpp

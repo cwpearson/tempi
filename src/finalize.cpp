@@ -5,6 +5,7 @@
 
 #include "allocators.hpp"
 #include "async_operation.hpp"
+#include "counters.hpp"
 #include "env.hpp"
 #include "events.hpp"
 #include "logging.hpp"
@@ -51,6 +52,7 @@ extern "C" int MPI_Finalize() {
   worker_finalize();
   streams_finalize();
   allocators::finalize();
+  counters::finalize();
 
   LOG_SPEW("library MPI_Finalize");
   int err = fn();

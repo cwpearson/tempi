@@ -13,6 +13,7 @@
 #include "types.hpp"
 #include "worker.hpp"
 #include "events.hpp"
+#include "counters.hpp"
 
 #include <mpi.h>
 
@@ -44,6 +45,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
     LOG_SPEW("MPI_THREAD_MULTIPLE");
   }
 
+  counters::init();
   allocators::init();
   events::init();
   topology_init();
