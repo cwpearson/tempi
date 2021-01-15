@@ -4,7 +4,9 @@
 //    https://www.boost.org/LICENSE_1_0.txt)
 
 #include "allocators.hpp"
+#include "counters.hpp"
 #include "env.hpp"
+#include "events.hpp"
 #include "logging.hpp"
 #include "measure_system.hpp"
 #include "streams.hpp"
@@ -12,8 +14,6 @@
 #include "topology.hpp"
 #include "types.hpp"
 #include "worker.hpp"
-#include "events.hpp"
-#include "counters.hpp"
 
 #include <mpi.h>
 
@@ -43,6 +43,13 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
     LOG_SPEW("MPI_THREAD_SERIALIZED");
   } else if (MPI_THREAD_MULTIPLE == provided) {
     LOG_SPEW("MPI_THREAD_MULTIPLE");
+  }
+
+  int rank;
+  libmpi.MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (0 == rank) {
+    LOG_INFO("MPI_Wtick() = " << MPI_Wtick());
   }
 
   counters::init();

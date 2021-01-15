@@ -7,8 +7,8 @@
 
 #include <nvToolsExt.h>
 
-/*extern*/ SlabAllocator<char, device_allocator<char>> deviceAllocator;
-/*extern*/ SlabAllocator<char, host_allocator<char>> hostAllocator;
+/*extern*/ SlabAllocator<char, device_allocator<char>> deviceAllocator(counters::deviceAllocator);
+/*extern*/ SlabAllocator<char, host_allocator<char>> hostAllocator(counters::hostAllocator);
 
 namespace allocators {
 

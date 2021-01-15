@@ -33,10 +33,24 @@ void finalize() {
                                                                 NUM_ALLOCS));
       LOG_DEBUG("host_allocator::num_deallocs: "
                 << TEMPI_COUNTER(hostAllocator, NUM_DEALLOCS));
+      LOG_DEBUG("host_allocator::num_requests: "
+                << TEMPI_COUNTER(hostAllocator, NUM_REQUESTS));
+      LOG_DEBUG("host_allocator::num_releases: "
+                << TEMPI_COUNTER(hostAllocator, NUM_RELEASES));
+      LOG_DEBUG("host_allocator::max_usage: " << TEMPI_COUNTER(hostAllocator,
+                                                               MAX_USAGE));
+
       LOG_DEBUG("device_allocator::num_allocs: "
                 << TEMPI_COUNTER(deviceAllocator, NUM_ALLOCS));
       LOG_DEBUG("device_allocator::num_deallocs: "
                 << TEMPI_COUNTER(deviceAllocator, NUM_DEALLOCS));
+      LOG_DEBUG("device_allocator::num_requests: "
+                << TEMPI_COUNTER(deviceAllocator, NUM_REQUESTS));
+      LOG_DEBUG("device_allocator::num_releases: "
+                << TEMPI_COUNTER(deviceAllocator, NUM_RELEASES));
+      LOG_DEBUG("device_allocator::max_usage: "
+                << TEMPI_COUNTER(deviceAllocator, MAX_USAGE));
+
       LOG_DEBUG(
           "modeling::cache_miss: " << TEMPI_COUNTER(modeling, CACHE_MISS));
       LOG_DEBUG("modeling::cache_hit:  " << TEMPI_COUNTER(modeling, CACHE_HIT));

@@ -12,12 +12,12 @@
 namespace counters {
 
 struct Allocator {
-    uint64_t numRequests;
-    uint64_t numReleases;
+    uint64_t NUM_REQUESTS;
+    uint64_t NUM_RELEASES;
     uint64_t NUM_ALLOCS;
     uint64_t NUM_DEALLOCS;
-    uint64_t currUsage;
-    uint64_t maxUsage;
+    uint64_t CURRENT_USAGE;
+    uint64_t MAX_USAGE;
 };
 
 struct Modeling {

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "counters.hpp"
 #include "logging.hpp"
 #include "numeric.hpp"
 
@@ -24,6 +25,8 @@ public:
   typedef T value_type;
 
 private:
+  counters::Allocator &counters_;
+
   /*! \brief a pool of allocations of a particular size
    */
   struct Pool {
@@ -111,9 +114,12 @@ private:
       const size_t allocSize = alloc_size_for(n);
       void *newPtr = allocator.allocate(allocSize);
       LOG_SPEW("calling allocator for " << allocSize << "B");
-      // ++stats_.numAllocs;
-      // stats_.currUsage += allocSize;
-      // stats_.maxUsage = std::max(stats_.maxUsage, stats_.currUsage);
+#ifdef TEMPI_ENABLE_COUNTERS
+      counters_.CURRENT_USAGE += allocSize;
+      counters_.MAX_USAGE =
+          std::max(counters_.MAX_USAGE, counters_.CURRENT_USAGE);
+#endif
+
       pool.avail.push_back(false);
       pool.ptrs.push_back(newPtr);
       return newPtr;
@@ -121,8 +127,8 @@ private:
   }
 
 public:
-  SlabAllocator() {}
-  SlabAllocator(const SlabAllocator &) {}
+  SlabAllocator(counters::Allocator &counters) : counters_(counters) {}
+  SlabAllocator(const SlabAllocator &) = default;
 
   /* free all memory in the pools
    */
@@ -139,15 +145,19 @@ public:
   ~SlabAllocator() { release_all(); }
 
   pointer allocate(size_type n, const void * = 0) {
-    // ++stats_.numRequests;
+#ifdef TEMPI_ENABLE_COUNTERS
+    counters_.NUM_REQUESTS++;
+#endif
     return (pointer)alloc_request(n);
   }
 
   void deallocate(void *p, size_type n) {
+#ifdef TEMPI_ENABLE_COUNTERS
+    counters_.NUM_RELEASES++;
+#endif
     if (0 == n) {
       return;
     }
-    // ++stats_.numReleases;
     // retrieve the pool this allocation must have come from
     Pool &pool = get_pool_for_size(n);
 
