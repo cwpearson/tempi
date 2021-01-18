@@ -5,6 +5,7 @@
 
 #include "measure_system.hpp"
 
+#include "allocators.hpp"
 #include "benchmark.hpp"
 #include "cuda_runtime.hpp"
 #include "logging.hpp"
@@ -245,13 +246,18 @@ public:
 };
 
 /* a cpu-to-cpu MPI ping-pong test between ranks 0 and 1
+   in TEMPI, this is used with the hostAllocator
  */
 class CpuCpuPingpong : public MpiBenchmark {
-  std::vector<char> buf_;
+  char *buf_;
+  int n_;
 
 public:
   // zero buffer to put it in cache
-  CpuCpuPingpong(size_t n, MPI_Comm comm) : buf_(n), MpiBenchmark(comm) {}
+  CpuCpuPingpong(size_t n, MPI_Comm comm)
+      : buf_(nullptr), n_(n), MpiBenchmark(comm) {
+    buf_ = hostAllocator.allocate(n);
+  }
   ~CpuCpuPingpong() {}
 
   Benchmark::Sample run_iter() override {
@@ -261,13 +267,11 @@ public:
     Time start = Clock::now();
     for (int i = 0; i < nreps_; ++i) {
       if (0 == rank) {
-        libmpi.MPI_Send(buf_.data(), buf_.size(), MPI_BYTE, 1, 0, comm_);
-        libmpi.MPI_Recv(buf_.data(), buf_.size(), MPI_BYTE, 1, 0, comm_,
-                        MPI_STATUS_IGNORE);
+        libmpi.MPI_Send(buf_, n_, MPI_BYTE, 1, 0, comm_);
+        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 1, 0, comm_, MPI_STATUS_IGNORE);
       } else if (1 == rank) {
-        libmpi.MPI_Recv(buf_.data(), buf_.size(), MPI_BYTE, 0, 0, comm_,
-                        MPI_STATUS_IGNORE);
-        libmpi.MPI_Send(buf_.data(), buf_.size(), MPI_BYTE, 0, 0, comm_);
+        libmpi.MPI_Recv(buf_, n_, MPI_BYTE, 0, 0, comm_, MPI_STATUS_IGNORE);
+        libmpi.MPI_Send(buf_, n_, MPI_BYTE, 0, 0, comm_);
       }
     }
     Time stop = Clock::now();
