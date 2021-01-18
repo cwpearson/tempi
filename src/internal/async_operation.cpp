@@ -15,7 +15,7 @@
 #include <map>
 #include <memory>
 
-// #define USE_NVTX
+//#define USE_NVTX
 #ifdef USE_NVTX
 #include <nvToolsExt.h>
 #define NVTX_MARK(x) nvtxMark(x)
@@ -166,10 +166,11 @@ public:
     MPI_Pack_size(count, datatype, comm, &packedSize_);
     packedBuf_ = hostAllocator.allocate(packedSize_);
 
-    NVTX_MARK("Irecv() issue MPI_Irecv");
     // issue MPI_Irecv with internal request
+    NVTX_RANGE_PUSH("MPI_Irecv");
     libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                      &request_);
+    NVTX_RANGE_POP();
 
     // give caller a new TEMPI request
     *request = Request::make();
@@ -196,7 +197,7 @@ public:
         packer_.unpack_async(packedBuf_, &position, buf_, count_, event_);
         state_ = State::CUDA;
       } else {
-        // wait
+        NVTX_MARK("Irecv:: MPI not done");
       }
       return err;
     }
