@@ -437,6 +437,7 @@ public:
 
   ~HostUnpack2D() {
     hostAllocator.deallocate(src, numBlocks_ * blockLength_);
+    src = {};
     CUDA_RUNTIME(cudaFree(dst));
   }
 
@@ -459,6 +460,8 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
+
+#if 0
 
   MPI_Barrier(comm);
   if (0 == rank) {
@@ -585,6 +588,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     LOG_WARN("skip interNodeGpuGpuPingpong");
   }
 
+#endif
   MPI_Barrier(comm);
   if (0 == rank) {
     std::cerr << "HostPack2D\n";
@@ -615,7 +619,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   }
   if (rank == 0 && sp.unpackHost.empty()) {
     for (int i = 0; i < 9; ++i) {
-      sp.packHost.push_back({});
+      sp.unpackHost.push_back({});
       for (int j = 0; j < 9; ++j) {
         int64_t bytes = 1ull << (2 * i + 6);
         int64_t blockLength = 1ull << j;
@@ -664,7 +668,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   }
   if (rank == 0 && sp.unpackDevice.empty()) {
     for (int i = 0; i < 9; ++i) {
-      sp.packDevice.push_back({});
+      sp.unpackDevice.push_back({});
       for (int j = 0; j < 9; ++j) {
         int64_t bytes = 1ull << (2 * i + 6);
         int64_t blockLength = 1ull << j;

@@ -14,6 +14,14 @@ typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
+Benchmark::~Benchmark() { LOG_SPEW("Benchmark::~Benchmark()"); }
+
+void Benchmark::setup() { LOG_SPEW("Benchmark::setup(): default setup"); }
+
+void Benchmark::teardown() {
+  LOG_SPEW("Benchmark::teardown(): default teardown");
+}
+
 void Benchmark::estimate_nreps() {
   nreps_ = 1;
   for (int i = 0; i < 4; ++i) {
@@ -43,6 +51,8 @@ Benchmark::Result Benchmark::run(const RunConfig &rc) {
 
   int64_t trial = 0;
 
+  Result bres{};
+
   while (true) {
     int64_t iter = 0;
     Statistics stats;
@@ -57,21 +67,25 @@ Benchmark::Result Benchmark::run(const RunConfig &rc) {
     ++trial;
 
     if (sp_800_90B(stats.raw())) {
-      return Result{.nTrials = trial,
+      bres = Result{.nTrials = trial,
                     .nIters = iter,
                     .trimean = stats.trimean(),
                     .iid = true};
+      goto cleanup;
     }
     if (trial == rc.maxTrials) {
       LOG_ERROR("benchmark ended without IID");
-      return Result{.nTrials = trial,
+      bres = Result{.nTrials = trial,
                     .nIters = iter,
                     .trimean = stats.trimean(),
                     .iid = false};
+      goto cleanup;
     }
   }
 
+cleanup:
   teardown();
+  return bres;
 }
 
 Benchmark::Result MpiBenchmark::run(const RunConfig &rc) {

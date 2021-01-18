@@ -19,7 +19,7 @@ protected:
 
 public:
   Benchmark() : nreps_(1) {}
-  virtual ~Benchmark() {}
+  virtual ~Benchmark();
   struct Result {
     int64_t nTrials; // number of trial runs
     int64_t nIters;  // number of iterations in the final run
@@ -46,9 +46,11 @@ public:
     }
   };
 
-  virtual void setup() {} // before first sample
+  // before first sample
+  virtual void setup();
 
-  virtual void teardown() {}     // after last sample
+  // after last sample
+  virtual void teardown();
   virtual Sample run_iter() = 0; // average of n operations
 
   virtual Result run(const RunConfig &rc);
