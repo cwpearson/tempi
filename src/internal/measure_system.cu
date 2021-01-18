@@ -613,7 +613,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     std::cerr << "HostUnpack2D\n";
     std::cerr << "bytes,blockLength,s,niters\n";
   }
-  if (rank == 0 && sp.packHost.empty()) {
+  if (rank == 0 && sp.unpackHost.empty()) {
     for (int i = 0; i < 9; ++i) {
       sp.packHost.push_back({});
       for (int j = 0; j < 9; ++j) {
@@ -662,7 +662,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     std::cerr << "DeviceUnpack2D\n";
     std::cerr << "bytes,blockLength,s,niters\n";
   }
-  if (rank == 0 && sp.packDevice.empty()) {
+  if (rank == 0 && sp.unpackDevice.empty()) {
     for (int i = 0; i < 9; ++i) {
       sp.packDevice.push_back({});
       for (int j = 0; j < 9; ++j) {
