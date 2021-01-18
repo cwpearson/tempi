@@ -324,9 +324,9 @@ public:
   }
 };
 
+/* Synchronous pack, as used in MPI_Send
+ */
 class DevicePack2D : public Benchmark {
-  cudaStream_t stream;
-  cudaEvent_t start, stop;
   char *src, *dst;
   int64_t numBlocks_;
   int64_t blockLength_;
@@ -336,36 +336,28 @@ class DevicePack2D : public Benchmark {
 public:
   DevicePack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : packer_(0, blockLength, numBlocks, stride) {
-    CUDA_RUNTIME(cudaStreamCreate(&stream));
-    CUDA_RUNTIME(cudaEventCreate(&start));
-    CUDA_RUNTIME(cudaEventCreate(&stop));
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
     CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
   }
 
   ~DevicePack2D() {
-    CUDA_RUNTIME(cudaStreamDestroy(stream));
-    CUDA_RUNTIME(cudaEventDestroy(start));
-    CUDA_RUNTIME(cudaEventDestroy(stop));
     CUDA_RUNTIME(cudaFree(src));
     CUDA_RUNTIME(cudaFree(dst));
   }
 
   Benchmark::Sample run_iter() override {
-    float ms;
     int pos = 0;
-    packer_.launch_pack(dst, &pos, src, 1, stream, start, stop);
-    CUDA_RUNTIME(cudaEventSynchronize(stop));
-    CUDA_RUNTIME(cudaEventElapsedTime(&ms, start, stop));
     Sample res{};
-    res.time = ms / 1024.0;
+    double start = MPI_Wtime();
+    packer_.pack(dst, &pos, src, 1);
+    res.time = MPI_Wtime() - start;
     return res;
   }
 };
 
+/* Synchronous pack, as used in MPI_Send
+ */
 class PackHost2D : public Benchmark {
-  cudaStream_t stream;
-  cudaEvent_t start, stop;
   char *src, *dst;
   int64_t numBlocks_;
   int64_t blockLength_;
@@ -375,9 +367,6 @@ class PackHost2D : public Benchmark {
 public:
   PackHost2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : packer_(0, blockLength, numBlocks, stride) {
-    CUDA_RUNTIME(cudaStreamCreate(&stream));
-    CUDA_RUNTIME(cudaEventCreate(&start));
-    CUDA_RUNTIME(cudaEventCreate(&stop));
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
     dst = new char[numBlocks * stride];
     CUDA_RUNTIME(
@@ -385,22 +374,17 @@ public:
   }
 
   ~PackHost2D() {
-    CUDA_RUNTIME(cudaStreamDestroy(stream));
-    CUDA_RUNTIME(cudaEventDestroy(start));
-    CUDA_RUNTIME(cudaEventDestroy(stop));
     CUDA_RUNTIME(cudaFree(src));
     CUDA_RUNTIME(cudaHostUnregister(dst));
     delete[] dst;
   }
 
   Benchmark::Sample run_iter() override {
-    float ms;
     int pos = 0;
-    packer_.launch_pack(dst, &pos, src, 1, stream, start, stop);
-    CUDA_RUNTIME(cudaEventSynchronize(stop));
-    CUDA_RUNTIME(cudaEventElapsedTime(&ms, start, stop));
     Sample res{};
-    res.time = ms / 1024.0;
+    double start = MPI_Wtime();
+    packer_.pack(dst, &pos, src, 1);
+    res.time = MPI_Wtime() - start;
     return res;
   }
 };
