@@ -97,7 +97,7 @@ public:
     // provide caller with a new TEMPI request
     *request = Request::make();
 
-    LOG_SPEW("Isend():: init'ed Send, caller req=" << int(*request));
+    LOG_SPEW("Isend():: init'ed Send, caller req=" << intptr_t(*request));
   }
   ~Isend() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
@@ -111,7 +111,8 @@ public:
       cudaError_t err = cudaEventQuery(event_);
       if (cudaSuccess == err) {
         NVTX_MARK("Isend:: CUDA->MPI");
-        LOG_SPEW("Isend::wake() MPI_Start, internal req=" << int(request_));
+        LOG_SPEW(
+            "Isend::wake() MPI_Start, internal req=" << intptr_t(request_));
         state_ = State::MPI;
         // manipulate local request, not Caller's copy
         {
@@ -195,7 +196,7 @@ public:
 
     // give caller a new TEMPI request
     *request = Request::make();
-    LOG_SPEW("Irecv(): issued Irecv, MPI req=" << int(request_));
+    LOG_SPEW("Irecv(): issued Irecv, MPI req=" << intptr_t(request_));
   }
   ~Irecv() {
     hostAllocator.deallocate(packedBuf_, packedSize_);
@@ -247,28 +248,29 @@ namespace async {
 
 void start_isend(Packer &packer, PARAMS_MPI_Isend) {
   std::unique_ptr<Isend> op = std::make_unique<Isend>(packer, ARGS_MPI_Isend);
-  LOG_SPEW("managed Isend, caller req=" << int(*request));
+  LOG_SPEW("managed Isend, caller req=" << intptr_t(*request));
   active[*request] = std::move(op);
 }
 
 void start_irecv(Packer &packer, PARAMS_MPI_Irecv) {
   std::unique_ptr<Irecv> op = std::make_unique<Irecv>(packer, ARGS_MPI_Irecv);
-  LOG_SPEW("managed Irecv, caller req=" << int(*request));
+  LOG_SPEW("managed Irecv, caller req=" << intptr_t(*request));
   active[*request] = std::move(op);
 }
 
 int wait(MPI_Request *request, MPI_Status *status) {
   auto ii = active.find(*request);
   if (active.end() != ii) {
-    LOG_SPEW("async::wait() on managed (caller) request " << int(*request));
+    LOG_SPEW("async::wait() on managed (caller) request "
+             << intptr_t(*request));
     int err = ii->second->wait(status);
     active.erase(ii);
     LOG_SPEW("async::wait() cleaned up request "
-             << int(*request) << "(" << active.size() << " remaining)");
+             << intptr_t(*request) << "(" << active.size() << " remaining)");
     *request = MPI_REQUEST_NULL; // clear the caller's request
     return err;
   } else {
-    LOG_SPEW("MPI_Wait on unmanaged request " << int(*request));
+    LOG_SPEW("MPI_Wait on unmanaged request " << intptr_t(*request));
     return libmpi.MPI_Wait(request, status);
   }
 }
