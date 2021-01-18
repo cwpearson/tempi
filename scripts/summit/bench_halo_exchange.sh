@@ -16,6 +16,7 @@ module load nsight-systems/2020.3.1.71
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
 OUT=$SCRATCH/bench_halo_exchange.csv
+export TEMPI_CACHE_DIR=$SCRATCH
 
 set -x
 
