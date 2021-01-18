@@ -10,7 +10,7 @@ set -eou pipefail
 
 module reset
 module unload darshan-runtime
-module load gcc/7.4.0
+module load gcc/9.3.0
 module load cuda/11.0.3
 module load nsight-systems/2020.3.1.71
 
@@ -45,12 +45,13 @@ for nodes in 1 2 4 8 16 32; do
     echo "${nodes}nodes,${rpn}rankspernode,tempi" >> $OUT
     export TEMPI_PLACEMENT_KAHIP=""
     jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 100 $X | tee -a $OUT
+    #jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs nsys profile -t cuda,nvtx -f true -o $SCRATCH/bench_halo_exchange_${nodes}n_${rpn}rpn_${X}x_%q{OMPI_COMM_WORLD_RANK} ../../build/bin/bench-halo-exchange 10 $X
     unset TEMPI_PLACEMENT_KAHIP
 
-    echo "${nodes}nodes,${rpn}rankspernode,notempi" >> $OUT
-    export TEMPI_DISABLE=""
-    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 5 $X | tee -a $OUT
-    unset TEMPI_DISABLE
+#    echo "${nodes}nodes,${rpn}rankspernode,notempi" >> $OUT
+#    export TEMPI_DISABLE=""
+#    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 5 $X | tee -a $OUT
+#    unset TEMPI_DISABLE
   done
 done
 
