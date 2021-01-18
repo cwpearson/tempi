@@ -461,6 +461,8 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
 
+#if 0
+
   MPI_Barrier(comm);
   if (0 == rank) {
     std::cerr << "CUDA kernel\n";
@@ -657,7 +659,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
     }
   }
-
+#endif
   MPI_Barrier(comm);
   if (0 == rank) {
     std::cerr << "DeviceUnpack2D\n";
