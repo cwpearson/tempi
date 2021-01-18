@@ -12,6 +12,7 @@
 
 namespace counters {
 
+/*extern*/ LibCalls libCalls;
 /*extern*/ Modeling modeling;
 /*extern*/ Pack2d pack2d;
 /*extern*/ Pack3d pack3d;
@@ -29,6 +30,18 @@ void finalize() {
 
   for (int r = 0; r < size; ++r) {
     if (rank == r) {
+
+      LOG_DEBUG("libcalls::Irecv_num:  " << TEMPI_COUNTER(libCalls, IRECV_NUM));
+      LOG_DEBUG(
+          "libcalls::Irecv_time: " << TEMPI_COUNTER(libCalls, IRECV_TIME));
+      LOG_DEBUG("libcalls::Start_num:  " << TEMPI_COUNTER(libCalls, START_NUM));
+      LOG_DEBUG(
+          "libcalls::Start_time: " << TEMPI_COUNTER(libCalls, START_TIME));
+      LOG_DEBUG("libcalls::Send_init_num:  " << TEMPI_COUNTER(libCalls,
+                                                              SEND_INIT_NUM));
+      LOG_DEBUG("libcalls::Send_init_time: " << TEMPI_COUNTER(libCalls,
+                                                              SEND_INIT_TIME));
+
       LOG_DEBUG("host_allocator::num_allocs: " << TEMPI_COUNTER(hostAllocator,
                                                                 NUM_ALLOCS));
       LOG_DEBUG("host_allocator::num_deallocs: "

@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 
               MPI_Datatype ty = factory.fn(numBlocks, blockLength, stride);
 
-              result = bench(ty, count, nIters, true, s.c_str());
+              result = bench(ty, count, nIters, false, s.c_str());
 
               std::cout << ","
                         << double(result.size) / 1024.0 / 1024.0 /

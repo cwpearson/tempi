@@ -6,6 +6,7 @@
 #include "async_operation.hpp"
 
 #include "allocators.hpp"
+#include "counters.hpp"
 #include "cuda_runtime.hpp"
 #include "events.hpp"
 #include "logging.hpp"
@@ -85,8 +86,13 @@ public:
     LOG_SPEW("Isend():: issued pack");
 
     // initialize Isend with internal request
-    libmpi.MPI_Send_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
-                         &request_);
+    {
+      TEMPI_COUNTER_OP(libCalls, SEND_INIT_NUM, ++);
+      double start = MPI_Wtime();
+      libmpi.MPI_Send_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
+                           &request_);
+      TEMPI_COUNTER_OP(libCalls, SEND_INIT_TIME, += MPI_Wtime() - start);
+    }
 
     // provide caller with a new TEMPI request
     *request = Request::make();
@@ -108,7 +114,13 @@ public:
         LOG_SPEW("Isend::wake() MPI_Start, internal req=" << int(request_));
         state_ = State::MPI;
         // manipulate local request, not Caller's copy
-        return libmpi.MPI_Start(&request_);
+        {
+          TEMPI_COUNTER_OP(libCalls, START_NUM, ++);
+          double start = MPI_Wtime();
+          const int merr = libmpi.MPI_Start(&request_);
+          TEMPI_COUNTER_OP(libCalls, START_TIME, += MPI_Wtime() - start);
+          return merr;
+        }
       } else if (cudaErrorNotReady == err) {
         return MPI_SUCCESS; // still waiting on CUDA
       } else {
@@ -168,8 +180,13 @@ public:
 
     // issue MPI_Irecv with internal request
     NVTX_RANGE_PUSH("MPI_Irecv");
-    libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
-                     &request_);
+    {
+      TEMPI_COUNTER_OP(libCalls, IRECV_NUM, ++);
+      double start = MPI_Wtime();
+      libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
+                       &request_);
+      TEMPI_COUNTER_OP(libCalls, IRECV_TIME, += MPI_Wtime() - start);
+    }
     NVTX_RANGE_POP();
 
     // give caller a new TEMPI request
