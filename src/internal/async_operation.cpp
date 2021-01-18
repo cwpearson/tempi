@@ -116,7 +116,9 @@ public:
         // manipulate local request, not Caller's copy
         {
           TEMPI_COUNTER_OP(libCalls, START_NUM, ++);
+#ifdef TEMPI_ENABLE_COUNTERS
           double start = MPI_Wtime();
+#endif
           const int merr = libmpi.MPI_Start(&request_);
           TEMPI_COUNTER_OP(libCalls, START_TIME, += MPI_Wtime() - start);
           return merr;
@@ -182,7 +184,9 @@ public:
     NVTX_RANGE_PUSH("MPI_Irecv");
     {
       TEMPI_COUNTER_OP(libCalls, IRECV_NUM, ++);
+#ifdef TEMPI_ENABLE_COUNTERS
       double start = MPI_Wtime();
+#endif
       libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                        &request_);
       TEMPI_COUNTER_OP(libCalls, IRECV_TIME, += MPI_Wtime() - start);
