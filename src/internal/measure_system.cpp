@@ -37,7 +37,9 @@ void to_json(json &j, const SystemPerformance &p) {
   j["h2d"] = p.h2d;
   j["cudaKernelLaunch"] = p.cudaKernelLaunch;
   j["packDevice"] = p.packDevice;
+  j["unpackDevice"] = p.unpackDevice;
   j["packHost"] = p.packHost;
+  j["unpackHost"] = p.unpackHost;
 }
 void from_json(const json &j, SystemPerformance &p) {
   j.at("intraNodeCpuCpuPingpong").get_to(p.intraNodeCpuCpuPingpong);
@@ -48,7 +50,9 @@ void from_json(const json &j, SystemPerformance &p) {
   j.at("h2d").get_to(p.h2d);
   j.at("cudaKernelLaunch").get_to(p.cudaKernelLaunch);
   j.at("packDevice").get_to(p.packDevice);
+  j.at("unpackDevice").get_to(p.unpackDevice);
   j.at("packHost").get_to(p.packHost);
+  j.at("unpackHost").get_to(p.unpackHost);
 }
 
 bool export_system_performance(const SystemPerformance &sp) {

@@ -35,7 +35,9 @@ struct SystemPerformance {
 
   /*vec[i][j] is 2^(2i+6) bytes with stride 2^j*/
   std::vector<std::vector<IidTime>> packDevice;
+  std::vector<std::vector<IidTime>> unpackDevice;
   std::vector<std::vector<IidTime>> packHost;
+  std::vector<std::vector<IidTime>> unpackHost;
 
   double guess_global_pack(int64_t bytes, int64_t stride);
 };

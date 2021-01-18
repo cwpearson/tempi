@@ -258,7 +258,7 @@ public:
       : buf_(nullptr), n_(n), MpiBenchmark(comm) {
     buf_ = hostAllocator.allocate(n);
   }
-  ~CpuCpuPingpong() {}
+  ~CpuCpuPingpong() { hostAllocator.deallocate(buf_, n_); }
 
   Benchmark::Sample run_iter() override {
     int rank;
@@ -341,7 +341,7 @@ public:
   DevicePack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : packer_(0, blockLength, numBlocks, stride) {
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
-    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
+    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * blockLength));
   }
 
   ~DevicePack2D() {
@@ -359,9 +359,7 @@ public:
   }
 };
 
-/* Synchronous pack, as used in MPI_Send
- */
-class PackHost2D : public Benchmark {
+class DeviceUnpack2D : public Benchmark {
   char *src, *dst;
   int64_t numBlocks_;
   int64_t blockLength_;
@@ -369,18 +367,47 @@ class PackHost2D : public Benchmark {
   Packer2D packer_;
 
 public:
-  PackHost2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
+  DeviceUnpack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : packer_(0, blockLength, numBlocks, stride) {
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
-    dst = new char[numBlocks * stride];
-    CUDA_RUNTIME(
-        cudaHostRegister(dst, numBlocks * stride, cudaHostRegisterPortable));
+    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * blockLength));
   }
 
-  ~PackHost2D() {
+  ~DeviceUnpack2D() {
     CUDA_RUNTIME(cudaFree(src));
-    CUDA_RUNTIME(cudaHostUnregister(dst));
-    delete[] dst;
+    CUDA_RUNTIME(cudaFree(dst));
+  }
+
+  Benchmark::Sample run_iter() override {
+    int pos = 0;
+    Sample res{};
+    double start = MPI_Wtime();
+    packer_.unpack(src, &pos, dst, 1);
+    res.time = MPI_Wtime() - start;
+    return res;
+  }
+};
+
+/* Synchronous pack, as used in MPI_Send
+ */
+class HostPack2D : public Benchmark {
+  char *src, *dst;
+  int64_t numBlocks_;
+  int64_t blockLength_;
+  int64_t stride_;
+  Packer2D packer_;
+
+public:
+  HostPack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
+      : numBlocks_(numBlocks), blockLength_(blockLength),
+        packer_(0, blockLength, numBlocks, stride) {
+    CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
+    dst = hostAllocator.allocate(numBlocks * blockLength);
+  }
+
+  ~HostPack2D() {
+    CUDA_RUNTIME(cudaFree(src));
+    hostAllocator.deallocate(dst, numBlocks_ * blockLength_);
   }
 
   Benchmark::Sample run_iter() override {
@@ -388,6 +415,36 @@ public:
     Sample res{};
     double start = MPI_Wtime();
     packer_.pack(dst, &pos, src, 1);
+    res.time = MPI_Wtime() - start;
+    return res;
+  }
+};
+
+class HostUnpack2D : public Benchmark {
+  char *src, *dst;
+  int64_t numBlocks_;
+  int64_t blockLength_;
+  int64_t stride_;
+  Packer2D packer_;
+
+public:
+  HostUnpack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
+      : numBlocks_(numBlocks), blockLength_(blockLength),
+        packer_(0, blockLength, numBlocks, stride) {
+    src = hostAllocator.allocate(numBlocks * blockLength);
+    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
+  }
+
+  ~HostUnpack2D() {
+    hostAllocator.deallocate(src, numBlocks_ * blockLength_);
+    CUDA_RUNTIME(cudaFree(dst));
+  }
+
+  Benchmark::Sample run_iter() override {
+    int pos = 0;
+    Sample res{};
+    double start = MPI_Wtime();
+    packer_.unpack(src, &pos, dst, 1);
     res.time = MPI_Wtime() - start;
     return res;
   }
@@ -530,7 +587,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
 
   MPI_Barrier(comm);
   if (0 == rank) {
-    std::cerr << "PackHost2D\n";
+    std::cerr << "HostPack2D\n";
     std::cerr << "bytes,blockLength,s,niters\n";
   }
   if (rank == 0 && sp.packHost.empty()) {
@@ -542,11 +599,35 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
         // no blocklength larger than bytes
         blockLength = min(bytes, blockLength);
         int64_t numBlocks = bytes / blockLength;
-        PackHost2D bm(numBlocks, blockLength, 512);
+        HostPack2D bm(numBlocks, blockLength, 512);
         Benchmark::Result res = bm.run(Benchmark::RunConfig());
         std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
                   << res.nIters << "\n";
         sp.packHost[i].push_back(IidTime{.time = res.trimean, .iid = res.iid});
+      }
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "HostUnpack2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0 && sp.packHost.empty()) {
+    for (int i = 0; i < 9; ++i) {
+      sp.packHost.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        HostUnpack2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.unpackHost[i].push_back(
+            IidTime{.time = res.trimean, .iid = res.iid});
       }
     }
   }
@@ -570,6 +651,31 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
         std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
                   << res.nIters << "\n";
         sp.packDevice[i].push_back(
+            IidTime{.time = res.trimean, .iid = res.iid});
+        ;
+      }
+    }
+  }
+
+  MPI_Barrier(comm);
+  if (0 == rank) {
+    std::cerr << "DeviceUnpack2D\n";
+    std::cerr << "bytes,blockLength,s,niters\n";
+  }
+  if (rank == 0 && sp.packDevice.empty()) {
+    for (int i = 0; i < 9; ++i) {
+      sp.packDevice.push_back({});
+      for (int j = 0; j < 9; ++j) {
+        int64_t bytes = 1ull << (2 * i + 6);
+        int64_t blockLength = 1ull << j;
+        // no blocklength larger than bytes
+        blockLength = min(bytes, blockLength);
+        int64_t numBlocks = bytes / blockLength;
+        DeviceUnpack2D bm(numBlocks, blockLength, 512);
+        Benchmark::Result res = bm.run(Benchmark::RunConfig());
+        std::cerr << bytes << "," << blockLength << "," << res.trimean << ","
+                  << res.nIters << "\n";
+        sp.unpackDevice[i].push_back(
             IidTime{.time = res.trimean, .iid = res.iid});
         ;
       }
