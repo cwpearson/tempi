@@ -369,8 +369,8 @@ class DeviceUnpack2D : public Benchmark {
 public:
   DeviceUnpack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : packer_(0, blockLength, numBlocks, stride) {
-    CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
-    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * blockLength));
+    CUDA_RUNTIME(cudaMalloc(&src, numBlocks * blockLength));
+    CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
   }
 
   ~DeviceUnpack2D() {
@@ -460,8 +460,6 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
   int rank, size;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &size);
-
-#if 0
 
   MPI_Barrier(comm);
   if (0 == rank) {
@@ -659,7 +657,7 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
       }
     }
   }
-#endif
+
   MPI_Barrier(comm);
   if (0 == rank) {
     std::cerr << "DeviceUnpack2D\n";
