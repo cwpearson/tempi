@@ -24,7 +24,7 @@ macro(pmpi_test_exe exe)
 endmacro()
 
 pmpi_test_exe(iid iid.cpp)
-add_test(NAME iid COMMAND COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 iid)
+add_test(NAME iid COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 iid)
 
 pmpi_test_exe(numeric numeric.cpp)
 add_test(NAME numeric COMMAND numeric)
