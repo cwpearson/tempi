@@ -39,7 +39,7 @@ public:
       throw std::bad_alloc();
     }
     cudaError_t err =
-        cudaHostRegister(t, n * sizeof(T), cudaHostRegisterPortable);
+        cudaHostRegister(t, n * sizeof(T), cudaHostRegisterMapped);
     if (cudaSuccess != err) {
       delete[] t;
       CUDA_RUNTIME(err);
