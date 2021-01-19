@@ -117,7 +117,7 @@ unpack_2d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
   }
 }
 
-PackConfig::PackConfig(unsigned blockLength, unsigned blockCount)
+inline Pack2DConfig::Pack2DConfig(unsigned blockLength, unsigned blockCount)
     : packfn(nullptr), unpackfn(nullptr) {
 
   int w;
@@ -168,20 +168,19 @@ PackConfig::PackConfig(unsigned blockLength, unsigned blockCount)
   assert(packfn);
   assert(dimGrid.x > 0);
   assert(dimGrid.y > 0);
-  assert(dimGrid.z > 0);
   assert(dimBlock.x > 0);
   assert(dimBlock.y > 0);
   assert(dimBlock.z > 0);
 }
 
 // update the grid dimension for `count` objects
-dim3 PackConfig::dim_grid(int count) const {
+inline dim3 Pack2DConfig::dim_grid(int count) const {
   dim3 ret = dimGrid;
   ret.z = count;
   return ret;
 }
 
-dim3 PackConfig::dim_block() const { return dimBlock; }
+inline dim3 Pack2DConfig::dim_block() const { return dimBlock; }
 
 /* pack blocks of bytes separated a stride
     the z dimension is used for the incount
@@ -323,6 +322,275 @@ __global__ static void unpack_bytes(
           const uint64_t *__restrict__ s =
               reinterpret_cast<const uint64_t *>(src + bi);
           *d = *s;
+        }
+      }
+    }
+  }
+}
+
+/* pack blocks of bytes separated by two strides
+
+each thread loads N bytes of a block
+ */
+template <unsigned W>
+__global__ static void
+pack_3d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
+        const int incount,
+        unsigned count0,  // block length (B)
+        unsigned count1,  // count of inner blocks in a group
+        unsigned stride1, // stride (B) between start of inner blocks in group
+        unsigned count2,  // number of block groups
+        unsigned stride2, // stride (B) between start of block groups,
+        uint64_t extent   // extent of the object to pack
+) {
+
+  assert(count0 % N == 0); // N should evenly divide block length
+
+#if 0
+  printf("count1=%u count2=%u, stride1=%u stride2=%u\n", count1, count2,
+         stride1, stride2);
+#endif
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+
+  for (int i = 0; i < incount; ++i) {
+    char *__restrict__ dst =
+        reinterpret_cast<char *>(outbuf) + i * count2 * count1 * count0;
+    const char *__restrict__ src =
+        reinterpret_cast<const char *>(inbuf) + i * extent;
+
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+
+        unsigned bo = z * count1 * count0 + y * count0;
+        unsigned bi = z * stride2 + y * stride1;
+#if 0
+          printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                 uintptr_t(dst) + bo - uintptr_t(outbuf));
+#endif
+        grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
+      }
+    }
+  }
+}
+
+template <unsigned W>
+__global__ static void unpack_3d(
+    void *__restrict__ outbuf, const void *__restrict__ inbuf,
+    const int incount,
+    const unsigned count0,  // block length (B)
+    const unsigned count1,  // count of inner blocks in a group
+    const unsigned stride1, // stride (B) between start of inner blocks in group
+    const unsigned count2,  // number of block groups
+    const unsigned stride2, // stride (B) between start of block groups
+    uint64_t extent) {
+
+  assert(count0 % N == 0); // N should evenly divide block length
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+
+  for (int i = 0; i < incount; ++i) {
+    char *__restrict__ dst = reinterpret_cast<char *>(outbuf) + i * extent;
+    const char *__restrict__ src =
+        reinterpret_cast<const char *>(inbuf) + i * count2 * count1 * count0;
+
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+        unsigned bi = z * count1 * count0 + y * count0;
+        unsigned bo = z * stride2 + y * stride1;
+        // printf("%u -> %u\n", bi, bo);
+        grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
+      }
+    }
+  }
+}
+
+inline Pack3DConfig::Pack3DConfig(unsigned blockLength, unsigned count1,
+                                  unsigned count2)
+    : packfn(nullptr), unpackfn(nullptr) {
+
+  int w;
+  /* using largest sizes can reduce the zero-copy performanc especially
+  need to detect 12 so it doesn't match 6
+  using the W=12 specialization leads to bad zero-copy performance
+    */
+  if (0 == blockLength % 12) {
+    w = 4;
+    packfn = pack_3d<4>;
+    unpackfn = unpack_3d<4>;
+  } else if (0 == blockLength % 8) {
+    w = 8;
+    packfn = pack_3d<8>;
+    unpackfn = unpack_3d<8>;
+  } else if (0 == blockLength % 6) {
+    packfn = pack_3d<6>;
+    unpackfn = unpack_3d<6>;
+    w = 6;
+  } else if (0 == blockLength % 4) {
+    packfn = pack_3d<4>;
+    unpackfn = unpack_3d<4>;
+    w = 4;
+  } else if (0 == blockLength % 3) {
+    packfn = pack_3d<3>;
+    unpackfn = unpack_3d<3>;
+    w = 3;
+  } else if (0 == blockLength % 2) {
+    packfn = pack_3d<2>;
+    unpackfn = unpack_3d<2>;
+    w = 2;
+  } else {
+    packfn = pack_3d<1>;
+    unpackfn = unpack_3d<1>;
+    w = 1;
+  }
+
+  // x dimension is words to load each block
+  // y dimension is number of blocks
+  // z dimension is object count
+  dimBlock = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, count1, count2), 512);
+  dimGrid = Dim3((blockLength / w + dimBlock.x - 1) / dimBlock.x,
+                 (count1 + dimBlock.y - 1) / dimBlock.y,
+                 (count2 + dimBlock.z - 1) / dimBlock.z);
+
+  dimGrid.y = std::min(65535u, dimGrid.y);
+
+  assert(packfn);
+  assert(dimGrid.x > 0);
+  assert(dimGrid.y > 0);
+  assert(dimGrid.z > 0);
+  assert(dimBlock.x > 0);
+  assert(dimBlock.y > 0);
+  assert(dimBlock.z > 0);
+}
+
+inline const dim3 &Pack3DConfig::dim_grid() const { return dimBlock; }
+inline const dim3 &Pack3DConfig::dim_block() const { return dimBlock; }
+
+/* pack blocks of bytes separated by two strides
+
+each thread loads N bytes of a block
+ */
+template <unsigned N>
+__global__ static void
+pack_3d(void *__restrict__ outbuf, int position, // position in output buffer
+        const void *__restrict__ inbuf, const int incount,
+        unsigned count0,  // block length (B)
+        unsigned count1,  // count of inner blocks in a group
+        unsigned stride1, // stride (B) between start of inner blocks in group
+        unsigned count2,  // number of block groups
+        unsigned stride2  // stride (B) between start of block groups
+) {
+
+  assert(count0 % N == 0); // N should evenly divide block length
+
+#if 0
+  printf("count1=%u count2=%u, stride1=%u stride2=%u\n", count1, count2,
+         stride1, stride2);
+#endif
+  // n-1 counts of the stride, plus the extent of the last count
+  const uint64_t extent =
+      (count2 - 1) * stride2 + (count1 - 1) * stride1 + count0;
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+  const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
+
+  char *__restrict__ op = reinterpret_cast<char *>(outbuf) + position;
+  const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
+
+  for (int i = 0; i < incount; ++i) {
+    char *__restrict__ dst = op + i * count2 * count1 * count0;
+    const char *__restrict__ src = ip + i * extent;
+
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+        for (unsigned x = tx; x < count0 / N; x += gridDim.x * blockDim.x) {
+          unsigned bo = z * count1 * count0 + y * count0 + x * N;
+          unsigned bi = z * stride2 + y * stride1 + x * N;
+#if 0
+          printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                 uintptr_t(dst) + bo - uintptr_t(outbuf));
+#endif
+
+          if (N == 1) {
+            dst[bo] = src[bi];
+          } else if (N == 2) {
+            uint16_t *__restrict__ d = reinterpret_cast<uint16_t *>(dst + bo);
+            const uint16_t *__restrict__ s =
+                reinterpret_cast<const uint16_t *>(src + bi);
+            *d = *s;
+          } else if (N == 4) {
+            uint32_t *__restrict__ d = reinterpret_cast<uint32_t *>(dst + bo);
+            const uint32_t *__restrict__ s =
+                reinterpret_cast<const uint32_t *>(src + bi);
+            *d = *s;
+          } else if (N == 8) {
+            uint64_t *__restrict__ d = reinterpret_cast<uint64_t *>(dst + bo);
+            const uint64_t *__restrict__ s =
+                reinterpret_cast<const uint64_t *>(src + bi);
+            *d = *s;
+          }
+        }
+      }
+    }
+  }
+}
+
+template <unsigned N>
+__global__ static void unpack_3d(
+    void *__restrict__ outbuf, int position, const void *__restrict__ inbuf,
+    const int incount,
+    const unsigned count0,  // block length (B)
+    const unsigned count1,  // count of inner blocks in a group
+    const unsigned stride1, // stride (B) between start of inner blocks in group
+    const unsigned count2,  // number of block groups
+    const unsigned stride2  // stride (B) between start of block groups
+) {
+
+  assert(count0 % N == 0); // N should evenly divide block length
+
+  // n-1 counts of the stride, plus the extent of the last count
+  const uint64_t extent =
+      (count2 - 1) * stride2 + (count1 - 1) * stride1 + count0;
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+  const unsigned int tx = blockDim.x * blockIdx.x + threadIdx.x;
+
+  char *__restrict__ op = reinterpret_cast<char *>(outbuf) + position;
+  const char *__restrict__ ip = reinterpret_cast<const char *>(inbuf);
+
+  for (int i = 0; i < incount; ++i) {
+    char *__restrict__ dst = op + i * extent;
+    const char *__restrict__ src = ip + i * count2 * count1 * count0;
+
+    for (unsigned z = tz; z < count2; z += gridDim.z * blockDim.z) {
+      for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+        for (unsigned x = tx; x < count0 / N; x += gridDim.x * blockDim.x) {
+          unsigned bi = z * count1 * count0 + y * count0 + x * N;
+          unsigned bo = z * stride2 + y * stride1 + x * N;
+          // printf("%u -> %u\n", bi, bo);
+
+          if (N == 1) {
+            dst[bo] = src[bi];
+          } else if (N == 2) {
+            uint16_t *__restrict__ d = reinterpret_cast<uint16_t *>(dst + bo);
+            const uint16_t *__restrict__ s =
+                reinterpret_cast<const uint16_t *>(src + bi);
+            *d = *s;
+          } else if (N == 4) {
+            uint32_t *__restrict__ d = reinterpret_cast<uint32_t *>(dst + bo);
+            const uint32_t *__restrict__ s =
+                reinterpret_cast<const uint32_t *>(src + bi);
+            *d = *s;
+          } else if (N == 8) {
+            uint64_t *__restrict__ d = reinterpret_cast<uint64_t *>(dst + bo);
+            const uint64_t *__restrict__ s =
+                reinterpret_cast<const uint64_t *>(src + bi);
+            *d = *s;
+          }
         }
       }
     }

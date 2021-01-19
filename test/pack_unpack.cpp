@@ -212,7 +212,7 @@ int main(int argc, char **argv) {
 
   {
     Dim3 pe(2, 3, 4), ae(16, 16, 16), off(1, 1, 4);
-    for (int count : {1}) { // FIXME: 3D packer extent wrong
+    for (int count : {1, 2}) {
       std::stringstream ss;
       ss << "TEST: "
          << "make_off_subarray " << pe << " " << ae << " " << off << " "

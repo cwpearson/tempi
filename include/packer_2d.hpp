@@ -17,11 +17,11 @@ class Packer2D : public Packer {
   unsigned stride_;
   unsigned extent_;
 #ifdef USE_NEW_PACKER
-  PackConfig params_;
-#endif
-
+  Pack2DConfig params_;
+#else
   int wordSize_; // number of bytes each thread will load
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
+#endif
 
 public:
   Packer2D(unsigned off, unsigned blockLength, unsigned count, unsigned stride,

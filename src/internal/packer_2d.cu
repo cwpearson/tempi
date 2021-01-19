@@ -3,7 +3,7 @@
 //    (See accompanying file LICENSE or copy at
 //    https://www.boost.org/LICENSE_1_0.txt)
 
-#include "pack_kernels_2d.cuh"
+#include "pack_kernels.cuh"
 #include "packer_2d.hpp"
 
 #include "counters.hpp"

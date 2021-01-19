@@ -7,7 +7,7 @@
 
 #include "../include/allocators.hpp"
 #include "../include/cuda_runtime.hpp"
-#include "../include/pack_kernels_2d.cuh"
+#include "../include/pack_kernels.cuh"
 
 #include <nvToolsExt.h>
 
@@ -61,7 +61,7 @@ BenchResult bench(const BenchArgs &args, // message datatype
   CUDA_RUNTIME(cudaEventCreate(&start));
   CUDA_RUNTIME(cudaEventCreate(&stop));
 
-  PackConfig config(args.blockLength, args.numBlocks);
+  Pack2DConfig config(args.blockLength, args.numBlocks);
 
   dim3 gd = config.dim_grid(args.count);
   dim3 bd = config.dim_block();
