@@ -67,9 +67,9 @@ BenchResult bench(const BenchArgs &args, // message datatype
   // dimBlock = 32;
   // dimGrid = 1;
 
-  std::cerr << " [" << params.dimGrid.x << " " << params.dimGrid.y << " "
-            << params.dimGrid.z << "]x[" << params.dimBlock.x << " "
-            << params.dimBlock.y << " " << params.dimBlock.z << "] ";
+  // std::cerr << " [" << params.dimGrid.x << " " << params.dimGrid.y << " "
+  //           << params.dimGrid.z << "]x[" << params.dimBlock.x << " "
+  //           << params.dimBlock.y << " " << params.dimBlock.z << "] ";
 
 #if 0
   std::cerr << "[" << dimGrid.x << " " << dimGrid.y << " " << dimGrid.z <<
@@ -138,8 +138,8 @@ int main(int argc, char **argv) {
   std::cout << "s,one-shot,count,obj size(B),stride,blocklengths,s,MiB/s";
   std::cout << std::endl << std::flush;
 
-  std::vector<int> blockLengths{1,  2,  4,  6,  8,  12,  16,
-                                20, 24, 28, 32, 64, 128, 256};
+  std::vector<int> blockLengths{1,  2,  4,  6,  8,  12,  16, 20,
+                                24, 28, 32, 64, 96, 128, 256};
   // blockLengths = {1};
   std::vector<int> strides{16, 256};
   // strides = {16};
