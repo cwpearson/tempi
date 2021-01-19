@@ -112,8 +112,8 @@ private:
     }
     { // otherwise, make a few one and mark it as full and reuturn
       const size_t allocSize = alloc_size_for(n);
+      LOG_SPEW("calling allocator for " << allocSize << " to serve request of " << n);
       void *newPtr = allocator.allocate(allocSize);
-      LOG_SPEW("calling allocator for " << allocSize << "B");
 #ifdef TEMPI_ENABLE_COUNTERS
       counters_.CURRENT_USAGE += allocSize;
       counters_.MAX_USAGE =
