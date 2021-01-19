@@ -6,57 +6,13 @@
 #pragma once
 
 #include "dim3.hpp"
+#include "pack_config.hpp"
 
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
 
-#if 0
-/* use a warp to copy `n` bytes with word size `W`
- */
-template <unsigned W>
-__device__ void warp_memcpy_aligned(void *__restrict__ dst,
-                                    const void *__restrict__ src, size_t n) {
-
-  static_assert(sizeof(uchar3) == 3, "wrong uchar3 size");
-  static_assert(sizeof(ushort3) == 6, "wrong ushort3 size");
-  static_assert(sizeof(uint3) == 12, "wrong uint3 size");
-  static_assert(sizeof(ulonglong2) == 16, "wrong ulonglong2 size");
-  static_assert(sizeof(ulonglong3) == 24, "wrong ulonglong3 size");
-  static_assert(sizeof(ulonglong4) == 32, "wrong ulonglong4 size");
-
-  assert(n % W == 0 && "wrong word size");
-
-  for (int i = threadIdx.x; i < n / W; i += 32) {
-    if (2 == W) {
-      static_cast<uint16_t *>(dst)[i] = static_cast<const uint16_t *>(src)[i];
-    } else if (3 == W) {
-      static_cast<uchar3 *>(dst)[i] = static_cast<const uchar3 *>(src)[i];
-    } else if (4 == W) {
-      static_cast<uint32_t *>(dst)[i] = static_cast<const uint32_t *>(src)[i];
-    } else if (6 == W) {
-      static_cast<ushort3 *>(dst)[i] = static_cast<const ushort3 *>(src)[i];
-    } else if (8 == W) {
-      static_cast<uint64_t *>(dst)[i] = static_cast<const uint64_t *>(src)[i];
-    } else if (12 == W) {
-      static_cast<uint3 *>(dst)[i] = static_cast<const uint3 *>(src)[i];
-    } else if (16 == W) {
-      static_cast<ulonglong2 *>(dst)[i] =
-          static_cast<const ulonglong2 *>(src)[i];
-    } else if (24 == W) {
-      static_cast<ulonglong3 *>(dst)[i] =
-          static_cast<const ulonglong3 *>(src)[i];
-    } else if (32 == W) {
-      static_cast<ulonglong4 *>(dst)[i] =
-          static_cast<const ulonglong4 *>(src)[i];
-    } else { // default to W == 1
-      static_cast<uint8_t *>(dst)[i] = static_cast<const uint8_t *>(src)[i];
-    }
-  }
-}
-#endif
-
-/* use x dimension to copy `n` bytes with word size `W`
+/* collaboratively use x dimension to copy `n` bytes with word size `W`
  */
 template <unsigned W>
 __device__ void grid_x_memcpy_aligned(void *__restrict__ dst,
@@ -84,7 +40,7 @@ __device__ void grid_x_memcpy_aligned(void *__restrict__ dst,
       static_cast<ushort3 *>(dst)[i] = static_cast<const ushort3 *>(src)[i];
     } else if (8 == W) {
       static_cast<uint64_t *>(dst)[i] = static_cast<const uint64_t *>(src)[i];
-    } else if (12 == W) {
+    } else if (12 == W) { // this kills performance in zero-copy
       static_cast<uint3 *>(dst)[i] = static_cast<const uint3 *>(src)[i];
     } else if (16 == W) {
       static_cast<ulonglong2 *>(dst)[i] =
@@ -107,8 +63,12 @@ template <unsigned W>
 __global__ void pack_bytes_warp(void *__restrict__ outbuf,
                                 const void *__restrict__ inbuf,
                                 const unsigned incount, const unsigned count0,
-                                const unsigned count1, const unsigned stride1,
-                                const unsigned extent) {
+                                const unsigned count1, const unsigned stride1) {
+
+  // as the input space may be large, incount * extent may be over 2G
+  // FIXME: this may not handle vector vs subarray correctly
+  // may need to compute outside kernel and pass in
+  const uint64_t extent = (count1 - 1) * stride1 + count0;
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -134,89 +94,64 @@ __global__ void pack_bytes_warp(void *__restrict__ outbuf,
   }
 }
 
-/* Compute launch parameters for pack_bytes_warp
- */
-struct LaunchParams {
-  using PackFn = void (*)(void *__restrict__ outbuf,
-                          const void *__restrict__ inbuf,
-                          const unsigned incount, const unsigned count0,
-                          const unsigned count1, const unsigned stride1,
-                          const unsigned extent);
+PackConfig::PackConfig(unsigned blockLength, unsigned blockCount)
+    : packfn(nullptr) {
 
-  PackFn packfn;
-  dim3 dimGrid;
-  dim3 dimBlock;
-
-  LaunchParams(unsigned blockLength, unsigned blockCount, unsigned stride,
-               unsigned count)
-      : packfn(nullptr) {
-
-    int w;
-    /* using largest sizes can kill the zero-copy performance */
-    if (0 == blockLength % 32) {
-      //   packfn = pack_bytes_warp<32>;
-      packfn = pack_bytes_warp<8>;
-      w = 8;
-    } else if (0 == blockLength % 24) {
-      //   packfn = pack_bytes_warp<24>;
-      //   packfn = pack_bytes_warp<12>;
-      packfn = pack_bytes_warp<8>;
-      w = 8;
-    } else if (0 == blockLength % 16) {
-      packfn = pack_bytes_warp<8>;
-      //   packfn = pack_bytes_warp<8>;
-      w = 8;
-    } else if (0 == blockLength % 12) {
-      //   packfn = pack_bytes_warp<12>;
-      w = 4;
-      packfn = pack_bytes_warp<4>;
-    } else if (0 == blockLength % 8) {
-      w = 8;
-      packfn = pack_bytes_warp<8>;
-    } else if (0 == blockLength % 6) {
-      packfn = pack_bytes_warp<6>;
-      w = 6;
-    } else if (0 == blockLength % 4) {
-      packfn = pack_bytes_warp<4>;
-      w = 4;
-    } else if (0 == blockLength % 3) {
-      packfn = pack_bytes_warp<3>;
-      w = 3;
-    } else if (0 == blockLength % 2) {
-      packfn = pack_bytes_warp<2>;
-      w = 2;
-    } else {
-      packfn = pack_bytes_warp<1>;
-      w = 1;
-    }
-
-#if 0
-    // one warp in the x dimension
-    // y dimension is number of blocks
-    // z dimension is object count
-    dimBlock = Dim3::fill_xyz_by_pow2(Dim3(32, blockCount, 1), 512);
-    dimGrid = Dim3(1, (blockCount + dimBlock.y - 1) / dimBlock.y, count);
-#endif
-
-    // one warp in the x dimension
-    // y dimension is number of blocks
-    // z dimension is object count
-    dimBlock =
-        Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
-    dimGrid = Dim3((blockLength / w + dimBlock.x - 1) / dimBlock.x,
-                   (blockCount + dimBlock.y - 1) / dimBlock.y, count);
-
-    dimGrid.y = std::min(65535u, dimGrid.y);
-
-    assert(packfn);
-    assert(dimGrid.x > 0);
-    assert(dimGrid.y > 0);
-    assert(dimGrid.z > 0);
-    assert(dimBlock.x > 0);
-    assert(dimBlock.y > 0);
-    assert(dimBlock.z > 0);
+  int w;
+  /* using largest sizes can reduce the zero-copy performanc especially
+  need to detect 12 so it doesn't match 6
+  using the W=12 specialization leads to bad zero-copy performance
+    */
+  if (0 == blockLength % 12) {
+    w = 4;
+    packfn = pack_bytes_warp<4>;
+  } else if (0 == blockLength % 8) {
+    w = 8;
+    packfn = pack_bytes_warp<8>;
+  } else if (0 == blockLength % 6) {
+    packfn = pack_bytes_warp<6>;
+    w = 6;
+  } else if (0 == blockLength % 4) {
+    packfn = pack_bytes_warp<4>;
+    w = 4;
+  } else if (0 == blockLength % 3) {
+    packfn = pack_bytes_warp<3>;
+    w = 3;
+  } else if (0 == blockLength % 2) {
+    packfn = pack_bytes_warp<2>;
+    w = 2;
+  } else {
+    packfn = pack_bytes_warp<1>;
+    w = 1;
   }
-};
+
+  // one warp in the x dimension
+  // y dimension is number of blocks
+  // z dimension is object count
+  dimBlock = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
+  dimGrid = Dim3((blockLength / w + dimBlock.x - 1) / dimBlock.x,
+                 (blockCount + dimBlock.y - 1) / dimBlock.y,
+                 0 /* to be filled in dim_grid */);
+
+  dimGrid.y = std::min(65535u, dimGrid.y);
+
+  assert(packfn);
+  assert(dimGrid.x > 0);
+  assert(dimGrid.y > 0);
+  assert(dimGrid.z > 0);
+  assert(dimBlock.x > 0);
+  assert(dimBlock.y > 0);
+  assert(dimBlock.z > 0);
+}
+
+// update the grid dimension for `count` objects
+dim3 PackConfig::dim_grid(int count) const {
+  dim3 ret = dimGrid;
+  ret.z = count;
+  return ret;
+}
+
+dim3 PackConfig::dim_block() const { return dimBlock; }
 
 /* pack blocks of bytes separated a stride
     the z dimension is used for the incount

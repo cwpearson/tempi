@@ -61,15 +61,16 @@ BenchResult bench(const BenchArgs &args, // message datatype
   CUDA_RUNTIME(cudaEventCreate(&start));
   CUDA_RUNTIME(cudaEventCreate(&stop));
 
-  LaunchParams params(args.blockLength, args.numBlocks, args.stride,
-                      args.count);
+  PackConfig config(args.blockLength, args.numBlocks);
+
+  dim3 gd = config.dim_grid(args.count);
+  dim3 bd = config.dim_block();
 
   // dimBlock = 32;
   // dimGrid = 1;
 
-  // std::cerr << " [" << params.dimGrid.x << " " << params.dimGrid.y << " "
-  //           << params.dimGrid.z << "]x[" << params.dimBlock.x << " "
-  //           << params.dimBlock.y << " " << params.dimBlock.z << "] ";
+  std::cerr << " [" << gd.x << " " << gd.y << " " << gd.z << "]x[" << bd.x
+            << " " << bd.y << " " << bd.z << "] ";
 
 #if 0
   std::cerr << "[" << dimGrid.x << " " << dimGrid.y << " " << dimGrid.z <<
@@ -81,9 +82,8 @@ BenchResult bench(const BenchArgs &args, // message datatype
   for (int n = 0; n < nIters; ++n) {
 
     CUDA_RUNTIME(cudaEventRecord(start, stream));
-    params.packfn<<<params.dimGrid, params.dimBlock, 0, stream>>>(
-        dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-        objExt);
+    config.packfn<<<gd, bd, 0, stream>>>(dst, src, args.count, args.blockLength,
+                                         args.numBlocks, args.stride);
     CUDA_RUNTIME(cudaEventRecord(stop, stream));
     CUDA_RUNTIME(cudaEventSynchronize(stop));
     CUDA_RUNTIME(cudaGetLastError());

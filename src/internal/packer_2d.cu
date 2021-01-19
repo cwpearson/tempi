@@ -3,18 +3,17 @@
 //    (See accompanying file LICENSE or copy at
 //    https://www.boost.org/LICENSE_1_0.txt)
 
-#include "packer_2d.hpp"
 #include "pack_kernels_2d.cuh"
+#include "packer_2d.hpp"
 
 #include "counters.hpp"
 #include "cuda_runtime.hpp"
 #include "dim3.hpp"
 #include "logging.hpp"
 
-
-
 Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
-                   unsigned stride) {
+                   unsigned stride)
+    : params_(blockLength, count) {
   offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);
@@ -42,15 +41,24 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
   TEMPI_COUNTER_OP(pack2d, NUM_PACKS, ++);
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
-  if (uintptr_t(inbuf) % wordSize_) {
-    LOG_WARN("pack kernel may be unaligned.");
-  }
-
+#ifdef USE_NEW_PACKER
+  dim3 gd = params_.dim_grid(incount);
+  dim3 bd = params_.dim_block();
+#else
   Dim3 gd = gd_;
   gd.z = incount;
-  // LOG_SPEW("wordSize_ = " << wordSize_);
+#endif
   if (kernelStart) {
     CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
+  }
+#ifdef USE_NEW_PACKER
+  outbuf = static_cast<char *>(outbuf) + *position;
+  params_.packfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, incount, blockLength_,
+                                        count_, stride_);
+#else
+  // LOG_SPEW("wordSize_ = " << wordSize_);
+  if (uintptr_t(inbuf) % wordSize_) {
+    LOG_WARN("pack kernel may be unaligned.");
   }
   if (4 == wordSize_) {
     pack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
@@ -65,6 +73,8 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
     pack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
                                           blockLength_, count_, stride_);
   }
+#endif
+
   if (kernelStop) {
     CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }

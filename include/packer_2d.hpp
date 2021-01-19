@@ -5,13 +5,19 @@
 
 #pragma once
 
+#include "pack_config.hpp"
 #include "packer.hpp"
+
+#define USE_NEW_PACKER
 
 class Packer2D : public Packer {
   unsigned offset_;
   unsigned blockLength_;
   unsigned count_;
   unsigned stride_;
+#ifdef USE_NEW_PACKER
+  PackConfig params_;
+#endif
 
   int wordSize_; // number of bytes each thread will load
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
