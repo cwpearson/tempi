@@ -64,6 +64,12 @@ class Type {
   std::vector<Type> children_;
 
 public:
+  Type() : extent(-1) {}
+
+  /* track the extent of the type, needed for offsets when packing
+     not all types may have an extent, but the root type should
+  */
+  int64_t extent;
   TypeData data;
 
   std::vector<Type> &children() { return children_; }
@@ -101,7 +107,6 @@ public:
           if constexpr (std::is_same_v<T, std::monostate>) {
             s += "monostate";
           } else {
-
             s += arg.str();
           }
         },

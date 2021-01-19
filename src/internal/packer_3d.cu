@@ -145,7 +145,9 @@ __global__ static void unpack_bytes(
 }
 
 Packer3D::Packer3D(unsigned off, unsigned blockLength, unsigned count1,
-                   unsigned stride1, unsigned count2, unsigned stride2) {
+                   unsigned stride1, unsigned count2, unsigned stride2,
+                   unsigned extent)
+    : extent_(extent) {
   offset_ = off;
   blockLength_ = blockLength;
   assert(blockLength_ > 0);

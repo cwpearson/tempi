@@ -15,6 +15,7 @@ class Packer2D : public Packer {
   unsigned blockLength_;
   unsigned count_;
   unsigned stride_;
+  unsigned extent_;
 #ifdef USE_NEW_PACKER
   PackConfig params_;
 #endif
@@ -23,7 +24,8 @@ class Packer2D : public Packer {
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
 
 public:
-  Packer2D(unsigned off, unsigned blockLength, unsigned count, unsigned stride);
+  Packer2D(unsigned off, unsigned blockLength, unsigned count, unsigned stride,
+           unsigned extent);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
   void pack_async(void *outbuf, int *position, const void *inbuf,

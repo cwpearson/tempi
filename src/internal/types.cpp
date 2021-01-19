@@ -78,6 +78,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Aint lb, extent, oldLb, oldExtent;
     int size, oldSize;
     MPI_Type_get_extent(datatype, &lb, &extent);
+    parent.extent = extent;
     MPI_Type_size(datatype, &size);
     MPI_Type_get_extent(old_type, &oldLb, &oldExtent);
     MPI_Type_size(datatype, &oldSize);
@@ -135,6 +136,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Aint lb, extent, oldLb, oldExtent;
     int size, oldSize;
     MPI_Type_get_extent(datatype, &lb, &extent);
+    parent.extent = extent;
     MPI_Type_size(datatype, &size);
     MPI_Type_get_extent(oldtype, &oldLb, &oldExtent);
     MPI_Type_size(datatype, &oldSize);
@@ -172,6 +174,7 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     MPI_Aint lb, extent;
     MPI_Type_get_extent(datatype, &lb, &extent);
     data.extent = extent;
+    ret.extent = extent;
 
     LOG_SPEW("named -> " << data.str());
     ret.data = data;
@@ -202,6 +205,12 @@ Type Type::from_mpi_datatype(MPI_Datatype datatype) {
     assert(datatypes.size() == 1);
     int count = integers[0];
     MPI_Datatype oldtype = datatypes[0];
+
+    {
+      MPI_Aint _, e;
+      MPI_Type_get_extent(datatype, &_, &e);
+      ret.extent = e;
+    }
 
     MPI_Aint oldLb, oldExtent;
     int oldSize;
@@ -287,6 +296,12 @@ oldtype, MPI_Datatype *newtype)
       parent.data = datas[i];
       parent.children_.push_back(child);
       child = parent;
+    }
+
+    {
+      MPI_Aint _, e;
+      MPI_Type_get_extent(datatype, &_, &e);
+      child.extent = e;
     }
 
     LOG_SPEW("after subarray, height=" << child.height());
@@ -461,17 +476,6 @@ Type simplify(const Type &type) {
 */
 std::unique_ptr<Packer> plan_pack(const StridedBlock &sb) {
 
-#if 0
-  if (!type) {
-    LOG_WARN("couldn't plan_pack strategy for unknown type");
-    return nullptr;
-  }
-
-  Type simp = simplify(type);
-  LOG_SPEW("type.height=" << simp.height());
-  StridedBlock strided = to_strided_block(simp);
-#endif
-
   if (sb != StridedBlock()) {
     if (1 == sb.ndims()) {
       LOG_SPEW("select Packer1D for " << sb.str());
@@ -481,21 +485,22 @@ std::unique_ptr<Packer> plan_pack(const StridedBlock &sb) {
     } else if (2 == sb.ndims()) {
       LOG_SPEW("select Packer2D for " << sb.str());
       std::unique_ptr<Packer> packer = std::make_unique<Packer2D>(
-          sb.start_, sb.counts[0], sb.counts[1], sb.strides[1]);
+          sb.start_, sb.counts[0], sb.counts[1], sb.strides[1], sb.extent_);
       return packer;
     } else if (3 == sb.ndims()) {
       LOG_SPEW("select Packer3D for " << sb.str());
       std::unique_ptr<Packer> packer = std::make_unique<Packer3D>(
           sb.start_, sb.counts[0], sb.counts[1], sb.strides[1], sb.counts[2],
-          sb.strides[2]);
+          sb.strides[2], sb.extent_);
       return packer;
     } else {
       LOG_SPEW("no packer for " << sb.str());
       return nullptr;
     }
+  } else {
+    LOG_WARN("couldn't plan_pack strategy for unknown type");
+    return nullptr;
   }
-
-  return nullptr;
 }
 
 /* try to convert a type into a strided block
@@ -537,6 +542,8 @@ StridedBlock to_strided_block(const Type &type) {
   }
 
   StridedBlock ret;
+  ret.extent_ = type.extent;
+  assert(ret.extent > 0);
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {

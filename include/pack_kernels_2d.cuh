@@ -60,15 +60,10 @@ __device__ void grid_x_memcpy_aligned(void *__restrict__ dst,
 /* use one warp to copy each contiguous block of bytes
  */
 template <unsigned W>
-__global__ void pack_bytes_warp(void *__restrict__ outbuf,
-                                const void *__restrict__ inbuf,
-                                const unsigned incount, const unsigned count0,
-                                const unsigned count1, const unsigned stride1) {
-
-  // as the input space may be large, incount * extent may be over 2G
-  // FIXME: this may not handle vector vs subarray correctly
-  // may need to compute outside kernel and pass in
-  const uint64_t extent = (count1 - 1) * stride1 + count0;
+__global__ static void
+pack_2d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
+        const unsigned incount, const unsigned count0, const unsigned count1,
+        const unsigned stride1, const uint64_t extent) {
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -88,14 +83,42 @@ __global__ void pack_bytes_warp(void *__restrict__ outbuf,
         printf("%u %u\n", bi, count0);
       }
 #endif
-      //   warp_memcpy_aligned<W>(dst + bo, src + bi, count0);
+      grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
+    }
+  }
+}
+
+template <unsigned W>
+__global__ static void
+unpack_2d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
+          const int outcount, unsigned count0, unsigned count1,
+          unsigned stride1, const uint64_t extent) {
+
+  assert(count0 % W == 0); // N should evenly divide block length
+
+  const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
+  const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
+
+  assert(blockDim.z == 1);
+  for (int z = tz; z < outcount; z += gridDim.z) {
+    // each datatype will have stride * count separating their starts in outbuf
+    // each packed datatype has count0 * count separating their starts
+    char *__restrict__ dst = reinterpret_cast<char *>(outbuf) + z * extent;
+    const char *__restrict__ src =
+        reinterpret_cast<const char *>(inbuf) + z * count1 * count0;
+
+    // x direction handle the blocks, y handles the block counts
+    for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
+      unsigned bi = y * count0;
+      unsigned bo = y * stride1;
+      // printf("%u -> %u\n", bi, bo);
       grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
     }
   }
 }
 
 PackConfig::PackConfig(unsigned blockLength, unsigned blockCount)
-    : packfn(nullptr) {
+    : packfn(nullptr), unpackfn(nullptr) {
 
   int w;
   /* using largest sizes can reduce the zero-copy performanc especially
@@ -104,28 +127,35 @@ PackConfig::PackConfig(unsigned blockLength, unsigned blockCount)
     */
   if (0 == blockLength % 12) {
     w = 4;
-    packfn = pack_bytes_warp<4>;
+    packfn = pack_2d<4>;
+    unpackfn = unpack_2d<4>;
   } else if (0 == blockLength % 8) {
     w = 8;
-    packfn = pack_bytes_warp<8>;
+    packfn = pack_2d<8>;
+    unpackfn = unpack_2d<8>;
   } else if (0 == blockLength % 6) {
-    packfn = pack_bytes_warp<6>;
+    packfn = pack_2d<6>;
+    unpackfn = unpack_2d<6>;
     w = 6;
   } else if (0 == blockLength % 4) {
-    packfn = pack_bytes_warp<4>;
+    packfn = pack_2d<4>;
+    unpackfn = unpack_2d<4>;
     w = 4;
   } else if (0 == blockLength % 3) {
-    packfn = pack_bytes_warp<3>;
+    packfn = pack_2d<3>;
+    unpackfn = unpack_2d<3>;
     w = 3;
   } else if (0 == blockLength % 2) {
-    packfn = pack_bytes_warp<2>;
+    packfn = pack_2d<2>;
+    unpackfn = unpack_2d<2>;
     w = 2;
   } else {
-    packfn = pack_bytes_warp<1>;
+    packfn = pack_2d<1>;
+    unpackfn = unpack_2d<1>;
     w = 1;
   }
 
-  // one warp in the x dimension
+  // x dimension is words to load each block
   // y dimension is number of blocks
   // z dimension is object count
   dimBlock = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);

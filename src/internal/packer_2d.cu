@@ -12,14 +12,12 @@
 #include "logging.hpp"
 
 Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
-                   unsigned stride)
-    : params_(blockLength, count) {
-  offset_ = off;
-  blockLength_ = blockLength;
+                   unsigned stride, unsigned extent)
+    : offset_(off), blockLength_(blockLength), count_(count), stride_(stride),
+      extent_(extent), params_(blockLength, count) {
   assert(blockLength_ > 0);
-  count_ = count;
-  stride_ = stride;
 
+#ifndef USE_NEW_PACKER
   // blocklength is a multiple of wordsize
   // offset is a multiple of wordsize
   // wordsize is at most 8
@@ -32,6 +30,7 @@ Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
   // griddim.z should be incount
   bd_ = Dim3::fill_xyz_by_pow2(Dim3(blockLength_ / wordSize_, count_, 1), 512);
   gd_ = (Dim3(blockLength_ / wordSize_, count_, 1) + bd_ - Dim3(1, 1, 1)) / bd_;
+#endif
 }
 
 void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
@@ -54,7 +53,7 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
 #ifdef USE_NEW_PACKER
   outbuf = static_cast<char *>(outbuf) + *position;
   params_.packfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, incount, blockLength_,
-                                        count_, stride_);
+                                        count_, stride_, extent_);
 #else
   // LOG_SPEW("wordSize_ = " << wordSize_);
   if (uintptr_t(inbuf) % wordSize_) {
@@ -89,12 +88,24 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   TEMPI_COUNTER_OP(pack2d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
 
+#ifdef USE_NEW_PACKER
+  dim3 gd = params_.dim_grid(outcount);
+  dim3 bd = params_.dim_block();
+#else
   Dim3 gd = gd_;
   gd.z = outcount;
-  // LOG_SPEW("wordSize_ = " << wordSize_);
+#endif
+
   if (kernelStart) {
     CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
   }
+
+#ifdef USE_NEW_PACKER
+  outbuf = static_cast<char *>(outbuf) + *position;
+  params_.unpackfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
+                                          count_, stride_, extent_);
+#else
+  // LOG_SPEW("wordSize_ = " << wordSize_);
   if (4 == wordSize_) {
     unpack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
@@ -108,6 +119,7 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
     unpack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
                                             blockLength_, count_, stride_);
   }
+#endif
   if (kernelStop) {
     CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }

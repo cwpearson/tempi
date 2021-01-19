@@ -34,6 +34,7 @@ extern "C" int MPI_Type_commit(PARAMS_MPI_Type_commit) {
     return result;
   } else {
     TypeRecord record{};
+
     Type type = traverse(*datatype);
     type = simplify(type);
     StridedBlock sb = to_strided_block(type);

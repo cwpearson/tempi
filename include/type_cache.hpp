@@ -25,7 +25,6 @@ struct TypeRecord {
   StridedBlock desc;
   std::unique_ptr<Sender> sender;
   std::unique_ptr<Recver> recver;
-  int64_t mpiPackSize; // result of MPI_Pack_size
 };
 
 extern std::unordered_map<MPI_Datatype, TypeRecord> typeCache;

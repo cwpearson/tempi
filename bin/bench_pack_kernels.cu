@@ -83,7 +83,7 @@ BenchResult bench(const BenchArgs &args, // message datatype
 
     CUDA_RUNTIME(cudaEventRecord(start, stream));
     config.packfn<<<gd, bd, 0, stream>>>(dst, src, args.count, args.blockLength,
-                                         args.numBlocks, args.stride);
+                                         args.numBlocks, args.stride, objExt);
     CUDA_RUNTIME(cudaEventRecord(stop, stream));
     CUDA_RUNTIME(cudaEventSynchronize(stop));
     CUDA_RUNTIME(cudaGetLastError());
