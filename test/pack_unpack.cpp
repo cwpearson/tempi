@@ -18,8 +18,6 @@
 
 void test_pack(MPI_Datatype ty, const int count) {
 
-  CUDA_RUNTIME(cudaSetDevice(0));
-
   MPI_Type_commit(&ty);
   MPI_Aint extent;
   {
@@ -66,6 +64,7 @@ void test_pack(MPI_Datatype ty, const int count) {
     environment::noPack = true;
     positionExp = 0;
     MPI_Pack(src, count, ty, packExp, packedSize, &positionExp, MPI_COMM_WORLD);
+    LOG_DEBUG("system MPI_Pack done");
   }
 
   // test
@@ -109,6 +108,7 @@ void test_pack(MPI_Datatype ty, const int count) {
     positionExp = 0;
     MPI_Unpack(packTest, packedSize, &positionTest, unpackTest, count, ty,
                MPI_COMM_WORLD);
+    LOG_DEBUG("TEMPI MPI_Unpack done");
   }
 
   // prefetch to host for comparison with original
@@ -131,16 +131,17 @@ int main(int argc, char **argv) {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+  // good to test input extent > 2^32 occasionally but it's very slow
 #if 0
-// good to test input extent > 2^32
   {
     int blockLength = 1;
     int stride = 512;
     int count = 8;
-    int numBlocks = 1024*1024;
+    int numBlocks = 1024 * 1024;
     std::stringstream ss;
     ss << "TEST: "
-       << "make_2d_byte_vector " << numBlocks << " " << blockLength << " " << stride << " " << count;
+       << "make_2d_byte_vector " << numBlocks << " " << blockLength << " "
+       << stride << " " << count;
     LOG_INFO(ss.str());
     nvtxRangePush(ss.str().c_str());
     test_pack(make_2d_byte_vector(numBlocks, blockLength, stride), count);
@@ -149,7 +150,7 @@ int main(int argc, char **argv) {
 #endif
 
   /*1D test
-  */
+   */
 
   {
     int extent = 10;
@@ -163,7 +164,39 @@ int main(int argc, char **argv) {
     nvtxRangePop();
   }
 
-  exit(0);
+  /* 2D tests */
+
+  {
+    int64_t nb = 2, bl = 3, st = 4;
+    for (int count : {1, 2}) {
+      std::stringstream ss;
+      ss << "TEST: "
+         << "make_2d_byte_vector " << nb << " " << bl << " " << st << " "
+         << count;
+      LOG_INFO(ss.str());
+      nvtxRangePush(ss.str().c_str());
+
+      test_pack(make_2d_byte_vector(nb, bl, st), count);
+      nvtxRangePop();
+    }
+  }
+
+  {
+    int64_t nb = 2, bl = 3, st = 4;
+    for (int count : {1, 2}) {
+      std::stringstream ss;
+      ss << "TEST: "
+         << "make_2d_byte_subarray " << nb << " " << bl << " " << st << " "
+         << count;
+      LOG_INFO(ss.str());
+      nvtxRangePush(ss.str().c_str());
+
+      test_pack(make_2d_byte_subarray(nb, bl, st), count);
+      nvtxRangePop();
+    }
+  }
+
+  /* 3D tests */
 
   {
     Dim3 pe(2, 3, 4), ae(16, 16, 16), off(1, 1, 4);
@@ -175,6 +208,20 @@ int main(int argc, char **argv) {
     nvtxRangePush(ss.str().c_str());
     test_pack(make_off_subarray(pe, ae, off), count);
     nvtxRangePop();
+  }
+
+  {
+    Dim3 pe(2, 3, 4), ae(16, 16, 16), off(1, 1, 4);
+    for (int count : {1}) { // FIXME: 3D packer extent wrong
+      std::stringstream ss;
+      ss << "TEST: "
+         << "make_off_subarray " << pe << " " << ae << " " << off << " "
+         << count;
+      LOG_INFO(ss.str());
+      nvtxRangePush(ss.str().c_str());
+      test_pack(make_off_subarray(pe, ae, off), count);
+      nvtxRangePop();
+    }
   }
 
   {
