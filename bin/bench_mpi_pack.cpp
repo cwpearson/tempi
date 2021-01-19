@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
   std::cout << std::endl << std::flush;
 
   std::vector<int> blockLengths{1, 2, 4, 8, 32, 64, 128, 256};
-  std::vector<int> strides{16, 256};
+  std::vector<int> strides{16, 512};
 
   for (int target : targets) {
     for (int count : counts) {
