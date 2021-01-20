@@ -5,8 +5,9 @@
 
 #include "statistics.hpp"
 
+#include "../include/allocators.hpp"
 #include "../include/cuda_runtime.hpp"
-#include "../include/pack_kernels.hu"
+#include "../include/pack_kernels.cuh"
 
 #include <nvToolsExt.h>
 
@@ -38,14 +39,13 @@ BenchResult bench(const BenchArgs &args, // message datatype
                   const char *name = "<unnamed>") {
 
   int64_t objExt = (args.numBlocks - 1) * args.stride + args.blockLength;
-  int64_t packedSize = args.numBlocks * args.blockLength;
+  const int64_t packedSize = args.numBlocks * args.blockLength;
 
-  char *src = {}, *dst = {};
+  char *src{}, *dst{};
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&src, objExt * args.count));
   if (stage) {
-    CUDA_RUNTIME(
-        cudaHostAlloc(&dst, packedSize * args.count, cudaHostAllocMapped));
+    dst = hostAllocator.allocate(packedSize * args.count);
   } else {
     CUDA_RUNTIME(cudaMalloc(&dst, packedSize * args.count));
   }
@@ -61,29 +61,16 @@ BenchResult bench(const BenchArgs &args, // message datatype
   CUDA_RUNTIME(cudaEventCreate(&start));
   CUDA_RUNTIME(cudaEventCreate(&stop));
 
-  int wordSize = 8;
-  while (args.blockLength % wordSize != 0) {
-    wordSize /= 2;
-  }
+  Pack2DConfig config(args.blockLength, args.numBlocks);
 
-  dim3 dimBlock;
-  dimBlock.x = args.blockLength / wordSize;
-  dimBlock.x = std::min(32u, dimBlock.x);
-  dimBlock.y = 1024 / dimBlock.x / 2 * 2;
-  dimBlock.z = 1;
+  dim3 gd = config.dim_grid(args.count);
+  dim3 bd = config.dim_block();
 
-  dim3 dimGrid;
-  dimGrid.x = 1; // one warp per block
-  dimGrid.y = (args.numBlocks + dimBlock.y - 1) / dimBlock.y;
-  dimGrid.z = args.count;
-
-  // std::cerr << wordSize << "\n";
   // dimBlock = 32;
   // dimGrid = 1;
 
-  dimGrid.y = std::min(65535u, dimGrid.y);
-
-  std::cerr << " [" << dimBlock.y << " " << dimGrid.y << "] ";
+  std::cerr << " [" << gd.x << " " << gd.y << " " << gd.z << "]x[" << bd.x
+            << " " << bd.y << " " << bd.z << "] ";
 
 #if 0
   std::cerr << "[" << dimGrid.x << " " << dimGrid.y << " " << dimGrid.z <<
@@ -95,31 +82,8 @@ BenchResult bench(const BenchArgs &args, // message datatype
   for (int n = 0; n < nIters; ++n) {
 
     CUDA_RUNTIME(cudaEventRecord(start, stream));
-    if (32 == wordSize) {
-      pack_bytes_v2<32><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    } else if (16 == wordSize) {
-      pack_bytes_v2<16><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    } else if (8 == wordSize) {
-      pack_bytes_v2<8><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    } else if (4 == wordSize) {
-      pack_bytes_v2<4><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    } else if (2 == wordSize) {
-      pack_bytes_v2<2><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    } else {
-      pack_bytes_v2<1><<<dimGrid, dimBlock, 0, stream>>>(
-          dst, src, args.count, args.blockLength, args.numBlocks, args.stride,
-          objExt);
-    }
+    config.packfn<<<gd, bd, 0, stream>>>(dst, src, args.count, args.blockLength,
+                                         args.numBlocks, args.stride, objExt);
     CUDA_RUNTIME(cudaEventRecord(stop, stream));
     CUDA_RUNTIME(cudaEventSynchronize(stop));
     CUDA_RUNTIME(cudaGetLastError());
@@ -139,7 +103,7 @@ BenchResult bench(const BenchArgs &args, // message datatype
 
   CUDA_RUNTIME(cudaFree(src));
   if (stage) {
-    CUDA_RUNTIME(cudaFreeHost(dst));
+    hostAllocator.deallocate(dst, packedSize * args.count);
   } else {
     CUDA_RUNTIME(cudaFree(dst));
   }
@@ -171,10 +135,11 @@ int main(int argc, char **argv) {
   std::vector<int> counts{1, 2};
   // counts = {1};
 
-  std::cout << "s,one-shot,count,target,stride,blocklengths,s,MiB/s";
+  std::cout << "s,one-shot,count,obj size(B),stride,blocklengths,s,MiB/s";
   std::cout << std::endl << std::flush;
 
-  std::vector<int> blockLengths{1, 2, 4, 6, 8, 12, 16, 20, 32, 64, 128, 256};
+  std::vector<int> blockLengths{1,  2,  4,  6,  8,  12,  16, 20,
+                                24, 28, 32, 64, 96, 128, 256};
   // blockLengths = {1};
   std::vector<int> strides{16, 256};
   // strides = {16};

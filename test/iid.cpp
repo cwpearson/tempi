@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     std::cerr << "TEST: fixed vector\n";
     std::vector<double> s = {-1, 0, 1, 2, 3, 4, 5};
     if (true == sp_800_90B(s)) {
-      return -1;
+      REQUIRE(false);
     }
   }
 

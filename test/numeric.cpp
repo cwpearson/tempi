@@ -25,5 +25,6 @@ int main(int argc, char **argv) {
   REQUIRE(log2_ceil(5) == 3);
   REQUIRE(log2_floor(5) == 2);
 
+  MPI_Finalize();
   return 0;
 }

@@ -339,7 +339,7 @@ class DevicePack2D : public Benchmark {
 
 public:
   DevicePack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
-      : packer_(0, blockLength, numBlocks, stride) {
+      : packer_(0, blockLength, numBlocks, stride, numBlocks * stride) {
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
     CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * blockLength));
   }
@@ -368,7 +368,7 @@ class DeviceUnpack2D : public Benchmark {
 
 public:
   DeviceUnpack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
-      : packer_(0, blockLength, numBlocks, stride) {
+      : packer_(0, blockLength, numBlocks, stride, numBlocks * stride) {
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * blockLength));
     CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
   }
@@ -400,7 +400,7 @@ class HostPack2D : public Benchmark {
 public:
   HostPack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : numBlocks_(numBlocks), blockLength_(blockLength),
-        packer_(0, blockLength, numBlocks, stride) {
+        packer_(0, blockLength, numBlocks, stride, numBlocks * stride) {
     CUDA_RUNTIME(cudaMalloc(&src, numBlocks * stride));
     dst = hostAllocator.allocate(numBlocks * blockLength);
   }
@@ -430,7 +430,7 @@ class HostUnpack2D : public Benchmark {
 public:
   HostUnpack2D(int64_t numBlocks, int64_t blockLength, int64_t stride)
       : numBlocks_(numBlocks), blockLength_(blockLength),
-        packer_(0, blockLength, numBlocks, stride) {
+        packer_(0, blockLength, numBlocks, stride, numBlocks * stride) {
     src = hostAllocator.allocate(numBlocks * blockLength);
     CUDA_RUNTIME(cudaMalloc(&dst, numBlocks * stride));
   }

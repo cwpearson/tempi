@@ -10,7 +10,7 @@
 #include <vector>
 
 struct StridedBlock {
-  StridedBlock() : start_(0) {}
+  StridedBlock() : start_(0), extent_(0) {}
 
   /* each dimension is described by a start/count/stride
 
@@ -26,6 +26,7 @@ struct StridedBlock {
      total offset that the first byte starts at
   */
   int64_t start_;
+  int64_t extent_;
   std::vector<int64_t> counts;
   std::vector<int64_t> strides;
 

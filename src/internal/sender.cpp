@@ -88,11 +88,11 @@ int SendRecv1D::recv(PARAMS_MPI_Recv) {
 OneshotND::OneshotND(const StridedBlock &sb) {
   if (2 == sb.ndims()) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
-                                         sb.strides[1]);
+                                         sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
     packer_ =
         std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2]);
+                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }
@@ -140,11 +140,11 @@ double OneshotND::model(const SystemPerformance &sp, bool colocated,
 DeviceND::DeviceND(const StridedBlock &sb) {
   if (2 == sb.ndims()) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
-                                         sb.strides[1]);
+                                         sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
     packer_ =
         std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2]);
+                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }
@@ -194,11 +194,11 @@ double DeviceND::model(const SystemPerformance &sp, bool colocated,
 StagedND::StagedND(const StridedBlock &sb) {
   if (2 == sb.ndims()) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
-                                         sb.strides[1]);
+                                         sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
     packer_ =
         std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2]);
+                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }

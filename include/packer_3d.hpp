@@ -5,20 +5,29 @@
 
 #pragma once
 
+#include "pack_config.hpp"
 #include "packer.hpp"
+
+#define USE_NEW_PACKER
 
 class Packer3D : public Packer {
   unsigned offset_; // (B) before first element
   unsigned blockLength_;
   unsigned count_[2];
   unsigned stride_[2]; // 0 is inner stride, 1 is outer stride
+  unsigned extent_;
 
+#ifdef USE_NEW_PACKER
+  Pack3DConfig config_;
+#else
   int wordSize_; // number of bytes each thread will load
   Dim3 gd_, bd_; // grid dim and block dim for pack kernel
+#endif
 
 public:
   Packer3D(unsigned off, unsigned blockLength, unsigned count0,
-           unsigned stride0, unsigned count1, unsigned stride1);
+           unsigned stride0, unsigned count1, unsigned stride1,
+           unsigned extent);
   void pack(void *outbuf, int *position, const void *inbuf,
             const int incount) const override;
   void pack_async(void *outbuf, int *position, const void *inbuf,
