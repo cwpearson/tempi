@@ -127,13 +127,14 @@ int OneshotND::recv(PARAMS_MPI_Recv) {
 
 double OneshotND::model(const SystemPerformance &sp, bool colocated,
                         int64_t bytes, int64_t blockLength) {
-  double d2h = interp_2d(sp.packHost, bytes, blockLength);
+  double ph = interp_2d(sp.packHost, bytes, blockLength);
   double send = interp_time(colocated ? sp.intraNodeCpuCpuPingpong
                                       : sp.interNodeCpuCpuPingpong,
                             bytes);
-  // FXIME: unpack not pack
-  double h2d = interp_2d(sp.packHost, bytes, blockLength);
-  return d2h + send + h2d;
+  //LOG_INFO("oneshot ph   = " << ph);
+  //LOG_INFO("oneshot send = " << send);
+  double uh = interp_2d(sp.unpackHost, bytes, blockLength);
+  return ph + send + uh;
 }
 
 DeviceND::DeviceND(const StridedBlock &sb) {
@@ -182,8 +183,11 @@ double DeviceND::model(const SystemPerformance &sp, bool colocated,
   double send = interp_time(colocated ? sp.intraNodeGpuGpuPingpong
                                       : sp.interNodeGpuGpuPingpong,
                             bytes);
-  // FXIME: unpack not pack
-  double unpack = interp_2d(sp.packDevice, bytes, blockLength);
+  double unpack = interp_2d(sp.unpackDevice, bytes, blockLength);
+
+  //LOG_INFO("device pack = " << pack);
+  //LOG_INFO("device send = " << send);
+
   return pack + send + unpack;
 }
 
@@ -240,8 +244,7 @@ double StagedND::model(const SystemPerformance &sp, bool colocated,
                                       : sp.interNodeCpuCpuPingpong,
                             bytes);
   double h2d = interp_time(sp.h2d, bytes);
-  // FXIME: unpack not pack
-  double unpack = interp_2d(sp.packDevice, bytes, blockLength);
+  double unpack = interp_2d(sp.unpackDevice, bytes, blockLength);
   return pack + d2h + send + h2d + unpack;
 }
 
@@ -267,6 +270,9 @@ int SendRecvND::send(PARAMS_MPI_Send) {
     TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
     double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
     double d = device.model(systemPerformance, colocated, bytes, blockLength_);
+    //LOG_INFO("o = " << o);
+    //LOG_INFO("d = " << d);
+ 
     if (o < d) {
       method = Method::ONESHOT;
     } else {
