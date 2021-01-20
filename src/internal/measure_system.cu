@@ -171,15 +171,13 @@ public:
   CudaMemcpyAsyncD2H(size_t n) : n_(n) {
     CUDA_RUNTIME(cudaStreamCreate(&stream));
     CUDA_RUNTIME(cudaMalloc(&src, n));
-    dst = new char[n];
-    CUDA_RUNTIME(cudaHostRegister(dst, n, cudaHostRegisterPortable));
+    dst = hostAllocator.allocate(n);
   }
 
   ~CudaMemcpyAsyncD2H() {
     CUDA_RUNTIME(cudaStreamDestroy(stream));
     CUDA_RUNTIME(cudaFree(src));
-    CUDA_RUNTIME(cudaHostUnregister(dst));
-    delete[] dst;
+    hostAllocator.deallocate(dst, n_);
   }
 
   void setup() {
@@ -217,16 +215,14 @@ public:
   CudaMemcpyAsyncH2D(size_t n) : n_(n) {
     CUDA_RUNTIME(cudaStreamCreate(&stream));
     CUDA_RUNTIME(cudaMalloc(&dst, n));
-    src = new char[n];
-    CUDA_RUNTIME(cudaHostRegister(src, n, cudaHostRegisterPortable));
+    src = hostAllocator.allocate(n);
     // std::memset(src, -1, n); // cache host buffer
   }
 
   ~CudaMemcpyAsyncH2D() {
     CUDA_RUNTIME(cudaStreamDestroy(stream));
     CUDA_RUNTIME(cudaFree(dst));
-    CUDA_RUNTIME(cudaHostUnregister(src));
-    delete[] src;
+    hostAllocator.deallocate(src, n_);
   }
 
   Benchmark::Sample run_iter() override {
