@@ -7,6 +7,7 @@
 #include "../include/env.hpp"
 #include "../support/type.hpp"
 #include "statistics.hpp"
+#include "../include/allocators.hpp"
 
 #include <mpi.h>
 #include <nvToolsExt.h>
@@ -46,7 +47,7 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   CUDA_RUNTIME(cudaSetDevice(0));
   CUDA_RUNTIME(cudaMalloc(&src, typeExtent * count));
   if (stage) {
-    CUDA_RUNTIME(cudaHostAlloc(&dst, packedSize, cudaHostAllocMapped));
+    dst = hostAllocator.allocate(packedSize);
   } else {
     CUDA_RUNTIME(cudaMalloc(&dst, packedSize));
   }
@@ -71,7 +72,7 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
 
   CUDA_RUNTIME(cudaFree(src));
   if (stage) {
-    CUDA_RUNTIME(cudaFreeHost(dst));
+    hostAllocator.deallocate(dst, packedSize);
   } else {
     CUDA_RUNTIME(cudaFree(dst));
   }
