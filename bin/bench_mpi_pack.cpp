@@ -3,11 +3,11 @@
 //    (See accompanying file LICENSE or copy at
 //    https://www.boost.org/LICENSE_1_0.txt)
 
+#include "../include/allocators.hpp"
 #include "../include/cuda_runtime.hpp"
 #include "../include/env.hpp"
 #include "../support/type.hpp"
 #include "statistics.hpp"
-#include "../include/allocators.hpp"
 
 #include <mpi.h>
 #include <nvToolsExt.h>
@@ -119,15 +119,12 @@ int main(int argc, char **argv) {
     nIters = 500;
   }
 
-  std::vector<bool> stage{
-      true}; // whether to one-shot pack device-host / unpack host-device
-
   BenchResult result;
 
   /* 2D packing
    */
 
-  std::vector<int> targets{1024, 1024 * 1024};
+  std::vector<int> targets{1024, 1024 * 1024, 4*1024*1024};
 
   std::vector<int> counts{1, 2};
 
@@ -183,6 +180,9 @@ int main(int argc, char **argv) {
       }
     }
   }
+
+  MPI_Finalize();
+  return 0;
 
   /* 3D packing
    */
