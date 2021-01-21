@@ -142,8 +142,8 @@ int main(int argc, char **argv) {
   }
   std::cout << std::endl << std::flush;
 
-  std::vector<int> blockLengths{1, 2, 4, 8, 32, 64, 128, 256};
-  std::vector<int> strides{16, 512};
+  std::vector<int> blockLengths{1, 2, 4, 8, 32, 64, 128, 256, 512};
+  std::vector<int> strides{512};
 
   for (int target : targets) {
     for (int count : counts) {
@@ -205,6 +205,7 @@ int main(int argc, char **argv) {
       Factory3D{make_subarray, "subarray"},
       Factory3D{make_subarray_v, "subarray_v"},
       Factory3D{make_byte_v1_hv_hv, "byte_v1_hv_hv"},
+      Factory3D{make_byte_vn_hv_hv, "byte_vn_hv_hv"},
       Factory3D{make_byte_v_hv, "byte_v_hv"}};
 
   std::cout << "s,x,y,z";
