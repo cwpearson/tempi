@@ -41,6 +41,8 @@ struct Pack3d {
 struct LibCalls {
   unsigned IRECV_NUM;
   double IRECV_TIME;
+  unsigned ISEND_NUM;
+  double ISEND_TIME;
   unsigned START_NUM;
   double START_TIME;
   unsigned SEND_INIT_NUM;
@@ -60,9 +62,11 @@ void finalize();
 } // namespace counters
 
 #ifdef TEMPI_ENABLE_COUNTERS
+#define TEMPI_COUNTER_EXPR(expr) expr
 #define TEMPI_COUNTER(group, key) counters::group.key
 #define TEMPI_COUNTER_OP(group, key, op) (counters::group.key) op
 #else
+#define TEMPI_COUNTER_EXPR(expr)
 #define TEMPI_COUNTER(group, key)
 #define TEMPI_COUNTER_OP(group, key, op)
 #endif

@@ -13,6 +13,7 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 #include "types.hpp"
+#include "tags.hpp"
 
 #include <mpi.h>
 
@@ -51,6 +52,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
     LOG_INFO("MPI_Wtick() = " << MPI_Wtick());
   }
 
+  tags::init();
   counters::init();
   allocators::init();
   events::init();

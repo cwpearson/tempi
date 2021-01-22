@@ -36,6 +36,7 @@ void init_symbols() {
   DLSYM(MPI_Irecv);
   DLSYM(MPI_Isend);
   DLSYM(MPI_Neighbor_alltoallv);
+  DLSYM(MPI_Neighbor_alltoallw);
   DLSYM(MPI_Pack);
   DLSYM(MPI_Recv);
   DLSYM(MPI_Send);

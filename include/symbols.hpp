@@ -56,6 +56,15 @@ typedef int (*Func_MPI_Alltoallv)(PARAMS_MPI_Alltoallv);
       recvtype, comm
 typedef int (*Func_MPI_Neighbor_alltoallv)(PARAMS_MPI_Neighbor_alltoallv);
 
+#define PARAMS_MPI_Neighbor_alltoallw                                          \
+  const void *sendbuf, const int sendcounts[], const MPI_Aint sdispls[],       \
+      const MPI_Datatype sendtypes[], void *recvbuf, const int recvcounts[],   \
+      const MPI_Aint rdispls[], const MPI_Datatype recvtypes[], MPI_Comm comm
+#define ARGS_MPI_Neighbor_alltoallw                                            \
+  sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls,       \
+      recvtypes, comm
+typedef int (*Func_MPI_Neighbor_alltoallw)(PARAMS_MPI_Neighbor_alltoallw);
+
 #define PARAMS_MPI_Dist_graph_create                                           \
   MPI_Comm comm_old, int n, const int sources[], const int degrees[],          \
       const int destinations[], const int weights[], MPI_Info info,            \
@@ -176,6 +185,7 @@ struct MpiFunc {
   Func_MPI_Irecv_init MPI_Irecv_init;
   Func_MPI_Isend MPI_Isend;
   Func_MPI_Neighbor_alltoallv MPI_Neighbor_alltoallv;
+  Func_MPI_Neighbor_alltoallw MPI_Neighbor_alltoallw;
   Func_MPI_Pack MPI_Pack;
   Func_MPI_Recv MPI_Recv;
   Func_MPI_Send MPI_Send;

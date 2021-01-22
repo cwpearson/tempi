@@ -13,6 +13,7 @@ ${CMAKE_CURRENT_LIST_DIR}/init.cpp
 ${CMAKE_CURRENT_LIST_DIR}/irecv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/isend.cpp
 ${CMAKE_CURRENT_LIST_DIR}/neighbor_alltoallv.cpp
+${CMAKE_CURRENT_LIST_DIR}/neighbor_alltoallw.cpp
 ${CMAKE_CURRENT_LIST_DIR}/pack.cpp
 ${CMAKE_CURRENT_LIST_DIR}/recv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/send.cpp
@@ -33,6 +34,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/irecv.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/isend.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/measure_system.cu
+${CMAKE_CURRENT_LIST_DIR}/internal/neighbor_alltoallw.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_1d.cu
 ${CMAKE_CURRENT_LIST_DIR}/internal/packer_2d.cu
@@ -44,6 +46,7 @@ ${CMAKE_CURRENT_LIST_DIR}/internal/sender.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/statistics.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/streams.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/symbols.cpp
+${CMAKE_CURRENT_LIST_DIR}/internal/tags.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/topology.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/type_cache.cpp
 ${CMAKE_CURRENT_LIST_DIR}/internal/types.cpp
