@@ -275,6 +275,20 @@ int wait(MPI_Request *request, MPI_Status *status) {
   }
 }
 
+#if 0
+int waitall(PARAMS_MPI_Waitall) {
+
+  for (int i = 0; i < count; ++i) {
+    auto ii = active.find(array_of_requests[i]);
+    if (active.end() != ii) {
+
+    }
+  }
+
+}
+#endif
+
+
 int try_progress() {
   NVTX_RANGE_PUSH("try progress");
   for (auto &kv : active) {
