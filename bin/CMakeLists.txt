@@ -48,6 +48,7 @@ endmacro()
 set(TEMPI_BINARY_SOURCES benchmark.cpp)
 
 add_tempi_executable(bench-pack bench_pack.cpp)
+add_tempi_executable(bench-cache bench_cache.cpp)
 add_tempi_executable(measure-system measure_system.cpp)
 add_tempi_executable(bench-pack-kernels bench_pack_kernels.cu)
 add_tempi_executable(bench-mpi-pack bench_mpi_pack.cpp)
