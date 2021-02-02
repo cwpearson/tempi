@@ -57,7 +57,6 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   }
 
   outbuf = static_cast<char *>(outbuf) + *position;
-  LOG_SPEW("unpackfn_");
   config_.unpackfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
                                     count_, stride_, extent_);
 
