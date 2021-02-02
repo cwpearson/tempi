@@ -4,7 +4,6 @@
 ##    https://www.boost.org/LICENSE_1_0.txt)
 
 
-
 add_library(tempi_bin OBJECT benchmark.cpp method.cpp)
 tempi_add_output_level_defines(tempi_bin)
 target_include_directories(tempi_bin SYSTEM PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
@@ -12,8 +11,6 @@ target_include_directories(tempi_bin PRIVATE ${MPI_CXX_INCLUDE_DIRS})
 
 macro(add_tempi_executable exe)
     add_executable(${ARGV0} ${ARGN})
-    # make tempi support code visible
-    target_include_directories(${ARGV0} PRIVATE)
     # link to pmpi first
     target_link_libraries(${ARGV0} PRIVATE tempi::tempi)
     ## just using target_link_libraries(pangolin INTERFACE MPI::MPI_CXX)
@@ -23,6 +20,9 @@ macro(add_tempi_executable exe)
     target_link_libraries(${ARGV0} PRIVATE ${MPI_CXX_LIBRARIES})
     target_link_libraries(${ARGV0} PRIVATE tempi_support)
     target_link_libraries(${ARGV0} PRIVATE tempi_bin)
+
+    # add thirdparty for nonstd::optional
+    target_include_directories(${ARGV0} PRIVATE SYSTEM ../thirdparty)
 
   # prefer march=native, but fallback to mcpu=native if needed. march implies mtune
   if (CXX_HAS_MARCH)
@@ -42,10 +42,7 @@ macro(add_tempi_executable exe)
       $<$<COMPILE_LANGUAGE:CXX>:-mcpu=native -mtune=native>
     )
   endif()
-
 endmacro()
-
-set(TEMPI_BINARY_SOURCES benchmark.cpp)
 
 add_tempi_executable(bench-pack bench_pack.cpp)
 add_tempi_executable(bench-cache bench_cache.cpp)
