@@ -83,6 +83,9 @@ public:
     // issue pack operation
     int position = 0;
     packer.pack_async(packedBuf_, &position, buf, count, event_);
+    CUDA_RUNTIME(cudaDeviceSynchronize());
+
+
     LOG_SPEW("Isend():: issued pack");
 
     // initialize Isend with internal request

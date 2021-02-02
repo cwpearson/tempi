@@ -90,9 +90,9 @@ OneshotND::OneshotND(const StridedBlock &sb) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
                                          sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
-    packer_ =
-        std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
+    packer_ = std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
+                                         sb.strides[1], sb.counts[2],
+                                         sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }
@@ -131,8 +131,8 @@ double OneshotND::model(const SystemPerformance &sp, bool colocated,
   double send = interp_time(colocated ? sp.intraNodeCpuCpuPingpong
                                       : sp.interNodeCpuCpuPingpong,
                             bytes);
-  //LOG_INFO("oneshot ph   = " << ph);
-  //LOG_INFO("oneshot send = " << send);
+  // LOG_INFO("oneshot ph   = " << ph);
+  // LOG_INFO("oneshot send = " << send);
   double uh = interp_2d(sp.unpackHost, bytes, blockLength);
   return ph + send + uh;
 }
@@ -142,9 +142,9 @@ DeviceND::DeviceND(const StridedBlock &sb) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
                                          sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
-    packer_ =
-        std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
+    packer_ = std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
+                                         sb.strides[1], sb.counts[2],
+                                         sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }
@@ -185,8 +185,8 @@ double DeviceND::model(const SystemPerformance &sp, bool colocated,
                             bytes);
   double unpack = interp_2d(sp.unpackDevice, bytes, blockLength);
 
-  //LOG_INFO("device pack = " << pack);
-  //LOG_INFO("device send = " << send);
+  // LOG_INFO("device pack = " << pack);
+  // LOG_INFO("device send = " << send);
 
   return pack + send + unpack;
 }
@@ -196,9 +196,9 @@ StagedND::StagedND(const StridedBlock &sb) {
     packer_ = std::make_unique<Packer2D>(sb.start_, sb.counts[0], sb.counts[1],
                                          sb.strides[1], sb.extent_);
   } else if (3 == sb.ndims()) {
-    packer_ =
-        std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
-                                   sb.strides[1], sb.counts[2], sb.strides[2], sb.extent_);
+    packer_ = std::make_unique<Packer3D>(sb.start_, sb.counts[0], sb.counts[1],
+                                         sb.strides[1], sb.counts[2],
+                                         sb.strides[2], sb.extent_);
   } else {
     LOG_FATAL("unhandled number of dimensions");
   }
@@ -270,9 +270,9 @@ int SendRecvND::send(PARAMS_MPI_Send) {
     TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
     double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
     double d = device.model(systemPerformance, colocated, bytes, blockLength_);
-    //LOG_INFO("o = " << o);
-    //LOG_INFO("d = " << d);
- 
+    // LOG_INFO("o = " << o);
+    // LOG_INFO("d = " << d);
+
     if (o < d) {
       method = Method::ONESHOT;
     } else {

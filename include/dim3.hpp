@@ -227,10 +227,6 @@ public:
 #ifdef __CUDACC__
   /* convertible to CUDA dim3 */
   CUDA_CALLABLE_MEMBER operator dim3() const {
-    assert(x > 0);
-    assert(y > 0);
-    assert(z > 0);
-
     return dim3((unsigned int)x, (unsigned int)y, (unsigned int)z);
   }
 #endif

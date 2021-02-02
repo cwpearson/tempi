@@ -52,6 +52,7 @@ double interp_time(const std::vector<IidTime> a, int64_t bytes) {
 double interp_2d(const std::vector<std::vector<IidTime>> a, int64_t bytes,
                  int64_t stride) {
   assert(stride <= 512);
+  assert(!a.empty() && "no data to interpolate");
 
   /*find the surrounding points for which we have measurements,
     as well as indices into the measurement array for the points

@@ -8,6 +8,8 @@
 #include "dim3.hpp"
 #include "pack_config.hpp"
 
+#include <cuda_runtime.h>
+
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -117,70 +119,59 @@ unpack_2d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
   }
 }
 
-inline Pack2DConfig::Pack2DConfig(unsigned blockLength, unsigned blockCount)
-    : packfn(nullptr), unpackfn(nullptr) {
+inline Pack2DConfig::Pack2DConfig(unsigned offset, unsigned blockLength, unsigned blockCount) {
+    int w;
+    /* using largest sizes can reduce the zero-copy performanc especially
+    need to detect 12 so it doesn't match 6
+    using the W=12 specialization leads to bad zero-copy performance
+      */
+    if (0 == blockLength % 12 && 0 == offset % 12) {
+      packfn = pack_2d<4>;
+      unpackfn = unpack_2d<4>;
+      w = 4;
+    } else if (0 == blockLength % 8 && 0 == offset % 8) {
+      packfn = pack_2d<8>;
+      unpackfn = unpack_2d<8>;
+      w = 8;
+    } else if (0 == blockLength % 6 && 0 == offset % 6) {
+      packfn = pack_2d<6>;
+      unpackfn = unpack_2d<6>;
+      w = 6;
+    } else if (0 == blockLength % 4 && 0 == offset % 4) {
+      packfn = pack_2d<4>;
+      unpackfn = unpack_2d<4>;
+      w = 4;
+    } else if (0 == blockLength % 3 && 0 == offset % 3) {
+      packfn = pack_2d<3>;
+      unpackfn = unpack_2d<3>;
+      w = 3;
+    } else if (0 == blockLength % 2 && 0 == offset % 2) {
+      packfn = pack_2d<2>;
+      unpackfn = unpack_2d<2>;
+      w = 2;
+    } else {
+      packfn = pack_2d<1>;
+      unpackfn = unpack_2d<1>;
+      w = 1;
+    }
 
-  int w;
-  /* using largest sizes can reduce the zero-copy performanc especially
-  need to detect 12 so it doesn't match 6
-  using the W=12 specialization leads to bad zero-copy performance
-    */
-  if (0 == blockLength % 12) {
-    w = 4;
-    packfn = pack_2d<4>;
-    unpackfn = unpack_2d<4>;
-  } else if (0 == blockLength % 8) {
-    w = 8;
-    packfn = pack_2d<8>;
-    unpackfn = unpack_2d<8>;
-  } else if (0 == blockLength % 6) {
-    packfn = pack_2d<6>;
-    unpackfn = unpack_2d<6>;
-    w = 6;
-  } else if (0 == blockLength % 4) {
-    packfn = pack_2d<4>;
-    unpackfn = unpack_2d<4>;
-    w = 4;
-  } else if (0 == blockLength % 3) {
-    packfn = pack_2d<3>;
-    unpackfn = unpack_2d<3>;
-    w = 3;
-  } else if (0 == blockLength % 2) {
-    packfn = pack_2d<2>;
-    unpackfn = unpack_2d<2>;
-    w = 2;
-  } else {
-    packfn = pack_2d<1>;
-    unpackfn = unpack_2d<1>;
-    w = 1;
+    // x dimension is words to load each block
+    // y dimension is number of blocks
+    // z dimension is object count
+    bd_ = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
+
+    gd_ = Dim3(blockLength / w, blockCount, 0) + bd_ - Dim3(1, 1, 1) / bd_;
+
+    gd_.y = std::min(65535u, gd_.y);
+
+    assert(packfn);
+    assert(unpackfn);
+    assert(gd_.x > 0);
+    assert(gd_.y > 0);
+    assert(bd_.x > 0);
+    assert(bd_.y > 0);
+    assert(bd_.z > 0);
   }
-
-  // x dimension is words to load each block
-  // y dimension is number of blocks
-  // z dimension is object count
-  dimBlock = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
-  dimGrid = Dim3((blockLength / w + dimBlock.x - 1) / dimBlock.x,
-                 (blockCount + dimBlock.y - 1) / dimBlock.y,
-                 0 /* to be filled in dim_grid */);
-
-  dimGrid.y = std::min(65535u, dimGrid.y);
-
-  assert(packfn);
-  assert(dimGrid.x > 0);
-  assert(dimGrid.y > 0);
-  assert(dimBlock.x > 0);
-  assert(dimBlock.y > 0);
-  assert(dimBlock.z > 0);
-}
-
-// update the grid dimension for `count` objects
-inline dim3 Pack2DConfig::dim_grid(int count) const {
-  dim3 ret = dimGrid;
-  ret.z = count;
-  return ret;
-}
-
-inline dim3 Pack2DConfig::dim_block() const { return dimBlock; }
 
 /* pack blocks of bytes separated a stride
     the z dimension is used for the incount
@@ -328,6 +319,29 @@ __global__ static void unpack_bytes(
   }
 }
 
+class Pack3DConfig {
+  using PackFn = void (*)(void *__restrict__ outbuf,
+                          const void *__restrict__ inbuf, const int incount,
+                          unsigned count0, unsigned count1, unsigned stride1,
+                          unsigned count2, unsigned stride2, uint64_t extent);
+
+  using UnpackFn = void (*)(void *__restrict__ outbuf,
+                            const void *__restrict__ inbuf, const int incount,
+                            unsigned count0, unsigned count1, unsigned stride1,
+                            unsigned count2, unsigned stride2, uint64_t extent);
+
+  dim3 dimGrid;
+  dim3 dimBlock;
+
+public:
+  PackFn packfn;
+  UnpackFn unpackfn;
+  Pack3DConfig(unsigned blockLength, unsigned count1, unsigned count2);
+
+  const dim3 &dim_grid() const;
+  const dim3 &dim_block() const;
+};
+
 /* pack blocks of bytes separated by two strides
 
 each thread loads N bytes of a block
@@ -344,7 +358,7 @@ pack_3d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
         uint64_t extent   // extent of the object to pack
 ) {
 
-  assert(count0 % N == 0); // N should evenly divide block length
+  assert(count0 % W == 0); // N should evenly divide block length
 
 #if 0
   printf("count1=%u count2=%u, stride1=%u stride2=%u\n", count1, count2,
@@ -386,7 +400,7 @@ __global__ static void unpack_3d(
     const unsigned stride2, // stride (B) between start of block groups
     uint64_t extent) {
 
-  assert(count0 % N == 0); // N should evenly divide block length
+  assert(count0 % W == 0); // N should evenly divide block length
 
   const unsigned int tz = blockDim.z * blockIdx.z + threadIdx.z;
   const unsigned int ty = blockDim.y * blockIdx.y + threadIdx.y;
@@ -406,67 +420,6 @@ __global__ static void unpack_3d(
     }
   }
 }
-
-inline Pack3DConfig::Pack3DConfig(unsigned blockLength, unsigned count1,
-                                  unsigned count2)
-    : packfn(nullptr), unpackfn(nullptr) {
-
-  int w;
-  /* using largest sizes can reduce the zero-copy performanc especially
-  need to detect 12 so it doesn't match 6
-  using the W=12 specialization leads to bad zero-copy performance
-    */
-  if (0 == blockLength % 12) {
-    w = 4;
-    packfn = pack_3d<4>;
-    unpackfn = unpack_3d<4>;
-  } else if (0 == blockLength % 8) {
-    w = 8;
-    packfn = pack_3d<8>;
-    unpackfn = unpack_3d<8>;
-  } else if (0 == blockLength % 6) {
-    packfn = pack_3d<6>;
-    unpackfn = unpack_3d<6>;
-    w = 6;
-  } else if (0 == blockLength % 4) {
-    packfn = pack_3d<4>;
-    unpackfn = unpack_3d<4>;
-    w = 4;
-  } else if (0 == blockLength % 3) {
-    packfn = pack_3d<3>;
-    unpackfn = unpack_3d<3>;
-    w = 3;
-  } else if (0 == blockLength % 2) {
-    packfn = pack_3d<2>;
-    unpackfn = unpack_3d<2>;
-    w = 2;
-  } else {
-    packfn = pack_3d<1>;
-    unpackfn = unpack_3d<1>;
-    w = 1;
-  }
-
-  // x dimension is words to load each block
-  // y dimension is number of blocks
-  // z dimension is object count
-  dimBlock = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, count1, count2), 512);
-  dimGrid = Dim3((blockLength / w + dimBlock.x - 1) / dimBlock.x,
-                 (count1 + dimBlock.y - 1) / dimBlock.y,
-                 (count2 + dimBlock.z - 1) / dimBlock.z);
-
-  dimGrid.y = std::min(65535u, dimGrid.y);
-
-  assert(packfn);
-  assert(dimGrid.x > 0);
-  assert(dimGrid.y > 0);
-  assert(dimGrid.z > 0);
-  assert(dimBlock.x > 0);
-  assert(dimBlock.y > 0);
-  assert(dimBlock.z > 0);
-}
-
-inline const dim3 &Pack3DConfig::dim_grid() const { return dimBlock; }
-inline const dim3 &Pack3DConfig::dim_block() const { return dimBlock; }
 
 /* pack blocks of bytes separated by two strides
 

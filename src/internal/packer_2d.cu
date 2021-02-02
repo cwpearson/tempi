@@ -14,23 +14,9 @@
 Packer2D::Packer2D(unsigned off, unsigned blockLength, unsigned count,
                    unsigned stride, unsigned extent)
     : offset_(off), blockLength_(blockLength), count_(count), stride_(stride),
-      extent_(extent), params_(blockLength, count) {
+      extent_(extent), config_(off, blockLength, count) {
   assert(blockLength_ > 0);
 
-#ifndef USE_NEW_PACKER
-  // blocklength is a multiple of wordsize
-  // offset is a multiple of wordsize
-  // wordsize is at most 8
-  wordSize_ = 1;
-  while (0 == blockLength % (wordSize_ * 2) && 0 == offset_ % (wordSize_ * 2) &&
-         (wordSize_ * 2 <= 8)) {
-    wordSize_ *= 2;
-  }
-
-  // griddim.z should be incount
-  bd_ = Dim3::fill_xyz_by_pow2(Dim3(blockLength_ / wordSize_, count_, 1), 512);
-  gd_ = (Dim3(blockLength_ / wordSize_, count_, 1) + bd_ - Dim3(1, 1, 1)) / bd_;
-#endif
 }
 
 void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
@@ -40,40 +26,15 @@ void Packer2D::launch_pack(void *outbuf, int *position, const void *inbuf,
   TEMPI_COUNTER_OP(pack2d, NUM_PACKS, ++);
   inbuf = static_cast<const char *>(inbuf) + offset_;
 
-#ifdef USE_NEW_PACKER
-  dim3 gd = params_.dim_grid(incount);
-  dim3 bd = params_.dim_block();
-#else
-  Dim3 gd = gd_;
-  gd.z = incount;
-#endif
+  const dim3 gd = config_.dim_grid(incount);
+  const dim3 bd = config_.dim_block();
   if (kernelStart) {
     CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
   }
-#ifdef USE_NEW_PACKER
   outbuf = static_cast<char *>(outbuf) + *position;
-  params_.packfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, incount, blockLength_,
-                                        count_, stride_, extent_);
-#else
-  // LOG_SPEW("wordSize_ = " << wordSize_);
-  if (uintptr_t(inbuf) % wordSize_) {
-    LOG_WARN("pack kernel may be unaligned.");
-  }
-  if (4 == wordSize_) {
-    pack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
-                                          blockLength_, count_, stride_);
-  } else if (8 == wordSize_) {
-    pack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
-                                          blockLength_, count_, stride_);
-  } else if (2 == wordSize_) {
-    pack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
-                                          blockLength_, count_, stride_);
-  } else {
-    pack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, incount,
-                                          blockLength_, count_, stride_);
-  }
-#endif
-
+  LOG_SPEW("packfn_");
+  config_.packfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, incount, blockLength_, count_,
+                                  stride_, extent_);
   if (kernelStop) {
     CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }
@@ -88,38 +49,18 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   TEMPI_COUNTER_OP(pack2d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
 
-#ifdef USE_NEW_PACKER
-  dim3 gd = params_.dim_grid(outcount);
-  dim3 bd = params_.dim_block();
-#else
-  Dim3 gd = gd_;
-  gd.z = outcount;
-#endif
+  const dim3 gd = config_.dim_grid(outcount);
+  const dim3 bd = config_.dim_block();
 
   if (kernelStart) {
     CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
   }
 
-#ifdef USE_NEW_PACKER
   outbuf = static_cast<char *>(outbuf) + *position;
-  params_.unpackfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
-                                          count_, stride_, extent_);
-#else
-  // LOG_SPEW("wordSize_ = " << wordSize_);
-  if (4 == wordSize_) {
-    unpack_bytes<4><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
-                                            blockLength_, count_, stride_);
-  } else if (8 == wordSize_) {
-    unpack_bytes<8><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
-                                            blockLength_, count_, stride_);
-  } else if (2 == wordSize_) {
-    unpack_bytes<2><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
-                                            blockLength_, count_, stride_);
-  } else {
-    unpack_bytes<1><<<gd, bd_, 0, stream>>>(outbuf, *position, inbuf, outcount,
-                                            blockLength_, count_, stride_);
-  }
-#endif
+  LOG_SPEW("unpackfn_");
+  config_.unpackfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
+                                    count_, stride_, extent_);
+
   if (kernelStop) {
     CUDA_RUNTIME(cudaEventRecord(kernelStop, stream));
   }

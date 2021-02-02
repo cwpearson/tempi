@@ -61,7 +61,7 @@ BenchResult bench(const BenchArgs &args, // message datatype
   CUDA_RUNTIME(cudaEventCreate(&start));
   CUDA_RUNTIME(cudaEventCreate(&stop));
 
-  Pack2DConfig config(args.blockLength, args.numBlocks);
+  Pack2DConfig config(0, args.blockLength, args.numBlocks);
 
   dim3 gd = config.dim_grid(args.count);
   dim3 bd = config.dim_block();

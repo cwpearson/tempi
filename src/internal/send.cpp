@@ -255,6 +255,7 @@ int send::impl(PARAMS_MPI_Send) {
   // if sender is found
   if (typeCache.end() != pi && pi->second.sender) {
     LOG_SPEW("send::impl: cached Sender");
+    assert(pi->second.sender);
     return pi->second.sender->send(ARGS_MPI_Send);
   }
 

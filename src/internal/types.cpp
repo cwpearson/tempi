@@ -543,7 +543,7 @@ StridedBlock to_strided_block(const Type &type) {
 
   StridedBlock ret;
   ret.extent_ = type.extent;
-  assert(ret.extent > 0);
+  assert(ret.extent_ > 0);
 
   // deepest child must be DenseData
   if (DenseData *dd = std::get_if<DenseData>(&data.back())) {

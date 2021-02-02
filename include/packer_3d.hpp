@@ -5,24 +5,30 @@
 
 #pragma once
 
-#include "pack_config.hpp"
 #include "packer.hpp"
 
 #define USE_NEW_PACKER
 
 class Packer3D : public Packer {
+  using PackFn = void (*)(void *__restrict__ outbuf,
+                          const void *__restrict__ inbuf, const int incount,
+                          unsigned count0, unsigned count1, unsigned stride1,
+                          unsigned count2, unsigned stride2, uint64_t extent);
+
+  using UnpackFn = void (*)(void *__restrict__ outbuf,
+                            const void *__restrict__ inbuf, const int incount,
+                            unsigned count0, unsigned count1, unsigned stride1,
+                            unsigned count2, unsigned stride2, uint64_t extent);
+
   unsigned offset_; // (B) before first element
   unsigned blockLength_;
   unsigned count_[2];
   unsigned stride_[2]; // 0 is inner stride, 1 is outer stride
   unsigned extent_;
 
-#ifdef USE_NEW_PACKER
-  Pack3DConfig config_;
-#else
-  int wordSize_; // number of bytes each thread will load
-  Dim3 gd_, bd_; // grid dim and block dim for pack kernel
-#endif
+  PackFn packfn_;
+  UnpackFn unpackfn_;
+  Dim3 gd_, bd_; // grid dim and block dim for pack/unpack kernels
 
 public:
   Packer3D(unsigned off, unsigned blockLength, unsigned count0,
