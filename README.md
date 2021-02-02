@@ -295,3 +295,5 @@ Then modify the paths in lib64/pkgconfig, mpicc, and mpic++ scripts with the act
 
 Boost software license 1.0
 Please see the `LICENSE` file.
+
+* [`thirdparty/martinmoene/optional.hpp`](https://github.com/martinmoene/optional-lite) is also licensed under the Boost Software License 1.0. Thanks to Martin for making that project available.
