@@ -15,6 +15,9 @@ macro(pmpi_test_exe exe)
 
     target_link_libraries(${ARGV0} PRIVATE tempi_support)
 
+    # add thirdparty for nonstd::optional
+    target_include_directories(${ARGV0} PRIVATE SYSTEM ../thirdparty)
+
     if(TEMPI_ENABLE_METIS)
       target_compile_definitions(${ARGV0} PRIVATE TEMPI_ENABLE_METIS)
     endif()
