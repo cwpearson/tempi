@@ -20,7 +20,6 @@ void streams_init() {
   nvtxRangePush("streams_init");
   int count;
   CUDA_RUNTIME(cudaGetDeviceCount(&count));
-
   CUDA_RUNTIME(cudaStreamCreate(&commStream));
   nvtxNameCudaStreamA(commStream, "TEMPI_comm");
   CUDA_RUNTIME(cudaStreamCreate(&kernStream));
@@ -29,11 +28,15 @@ void streams_init() {
 }
 void streams_finalize() {
   nvtxRangePush("streams_finalize");
-  CUDA_RUNTIME(cudaStreamSynchronize(commStream));
-  CUDA_RUNTIME(cudaStreamDestroy(commStream));
-  CUDA_RUNTIME(cudaStreamSynchronize(kernStream));
-  CUDA_RUNTIME(cudaStreamDestroy(kernStream));
-  kernStream = {};
-  commStream = {};
+  if (commStream) {
+    CUDA_RUNTIME(cudaStreamSynchronize(commStream));
+    CUDA_RUNTIME(cudaStreamDestroy(commStream));
+    commStream = {};
+  }
+  if (kernStream) {
+    CUDA_RUNTIME(cudaStreamSynchronize(kernStream));
+    CUDA_RUNTIME(cudaStreamDestroy(kernStream));
+    kernStream = {};
+  }
   nvtxRangePop();
 }
