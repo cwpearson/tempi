@@ -1,7 +1,9 @@
 #include "logging.hpp"
 
-#include <map>
 #include <mpi.h>
+
+#include <cmath>
+#include <map>
 #include <unordered_map>
 
 /* key and value taken from SenderND
@@ -26,45 +28,59 @@ struct Key {
     }
   }
 };
-
-// which sender to use
 enum class Value { DEVICE, ONESHOT };
 
 int main(void) {
 
-  int nfinds = 10000000;
+  int nfinds = 10000;
+
+  std::cout << "#keys,std::unordered_map (ns),std::map (ns)\n";
 
   size_t hits = 0;
-  for (int sz = 1; sz < 512 * 1024 * 1024; sz *= 2) {
+  for (int sz = 1; sz < 512 * 1024 * 1024; sz = std::ceil(sz * 1.3)) {
 
-    // std::unordered_map<Key, Value, Key::Hasher> cache;
-    std::map<Key, Value> cache;
-    // create assortment of independent keys
+    std::unordered_map<Key, Value, Key::Hasher> cache1;
+    std::map<Key, Value> cache2;
+    cache1.reserve(sz);
+
+    // create assortment of independent keys. this is is the slow part
     for (int i = 0; i < sz; ++i) {
-      Key key{.colocated = i % 2, .bytes = i / 2};
-      cache[key] = Value();
+      Key key{.colocated = bool(i % 2), .bytes = i / 2};
+      cache1[key] = Value();
+      cache2[key] = Value();
     }
-    if (cache.size() != sz) {
-      LOG_FATAL("bad keys generation");
+    if (cache1.size() != sz) {
+      LOG_FATAL("bad key generation");
     }
 
-    double start = MPI_Wtime();
+    std::cout << sz;
 
-    for (int i = 0; i < nfinds; ++i) {
-
-      Key key{.colocated = i % 2, .bytes = i / 2};
-      auto it = cache.find(key);
-      if (it != cache.end()) {
-        ++hits;
+    {
+      double start = MPI_Wtime();
+      for (int i = 0; i < nfinds; ++i) {
+        Key key{.colocated = i % 2, .bytes = i / 2};
+        auto it = cache1.find(key);
+        if (it != cache1.end()) {
+          ++hits;
+        }
       }
+      double stop = MPI_Wtime();
+      std::cout << "," << (stop - start) * 1e9 / double(nfinds) << std::flush;
     }
 
-    double stop = MPI_Wtime();
-
-    // std::cerr << sz << "," << (stop - start) / double(nfinds) << ","
-    //           << cache.bucket_count() << "," << cache.load_factor() << "\n";
-
-    std::cerr << sz << "," << (stop - start) / double(nfinds) << "\n";
+    {
+      double start = MPI_Wtime();
+      for (int i = 0; i < nfinds; ++i) {
+        Key key{.colocated = bool(i % 2), .bytes = i / 2};
+        auto it = cache2.find(key);
+        if (it != cache2.end()) {
+          ++hits;
+        }
+      }
+      double stop = MPI_Wtime();
+      std::cout << "," << (stop - start) / double(nfinds) << std::flush;
+    }
+    std::cout << "\n";
   }
   return hits;
 }
