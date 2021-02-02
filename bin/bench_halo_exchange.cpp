@@ -815,7 +815,7 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
     MPI_Barrier(MPI_COMM_WORLD);
 
     // issue Isends
-    std::vector<MPI_Request> reqs(26 * 2); // one request per direction
+    std::vector<MPI_Request> reqs(26 * 2); // one request per send/recv
     auto ri = reqs.begin();
     double startIsend;
     {
@@ -826,10 +826,6 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
         const int dest = kv.first;
         for (size_t tag = 0; tag < kv.second.size(); ++tag) {
           const MPI_Datatype ty = kv.second[tag];
-          {
-            int tsize;
-            MPI_Type_size(ty, &tsize);
-          }
           MPI_Isend(curr.ptr, 1, ty, dest, tag, MPI_COMM_WORLD, &(*ri++));
         }
       }
@@ -844,10 +840,6 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
         const int source = kv.first;
         for (size_t tag = 0; tag < kv.second.size(); ++tag) {
           const MPI_Datatype ty = kv.second[tag];
-          {
-            int tsize;
-            MPI_Type_size(ty, &tsize);
-          }
           MPI_Irecv(curr.ptr, 1, ty, source, tag, MPI_COMM_WORLD, &(*ri++));
         }
       }
@@ -873,6 +865,9 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
 
   return result;
 }
+
+
+
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
