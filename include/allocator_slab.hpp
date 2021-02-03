@@ -168,7 +168,7 @@ public:
         return;
       }
     }
-    LOG_FATAL("Tried to free memory not from this allocator");
+    LOG_FATAL("Tried to free memory not from this allocator. Please report this.");
   }
 
   pointer address(reference x) const { return &x; }
