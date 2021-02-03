@@ -2,7 +2,7 @@
 
 set -eou pipefail
 
-DIR=$HOME/sync/tempi_results
+DIR=$HOME/sync_work/tempi_results
 OUT=$DIR/bench_halo_exchange.csv
 
 set -x
@@ -24,10 +24,24 @@ for rpn in 1 2 6; do
   elif [ $n ==   6 ]; then X=930
   fi
 
-  echo "${nodes}nodes,${rpn}rankspernode,tempi" >> $OUT
+  echo "${nodes}nodes,${rpn}rankspernode,auto" >> $OUT
   export TEMPI_PLACEMENT_KAHIP=""
   $MPIRUN -n $n ../../build/bin/bench-halo-exchange 100 $X | tee -a $OUT
   unset TEMPI_PLACEMENT_KAHIP
+
+  echo "${nodes}nodes,${rpn}rankspernode,oneshot" >> $OUT
+  export TEMPI_PLACEMENT_KAHIP=""
+  export TEMPI_DATATYPE_ONESHOT=""
+  $MPIRUN -n $n ../../build/bin/bench-halo-exchange 100 $X | tee -a $OUT
+  unset TEMPI_PLACEMENT_KAHIP
+  unset TEMPI_DATATYPE_ONESHOT
+
+  echo "${nodes}nodes,${rpn}rankspernode,device" >> $OUT
+  export TEMPI_PLACEMENT_KAHIP=""
+  export TEMPI_DATATYPE_DEVICE=""
+  $MPIRUN -n $n ../../build/bin/bench-halo-exchange 100 $X | tee -a $OUT
+  unset TEMPI_PLACEMENT_KAHIP
+  unset TEMPI_DATATYPE_DEVICE
 
 #    echo "${nodes}nodes,${rpn}rankspernode,notempi" >> $OUT
 #    export TEMPI_DISABLE=""

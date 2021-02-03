@@ -222,8 +222,8 @@ The behavior of these can be seen in `src/internal/env.cpp`
 |`TEMPI_PLACEMENT_RANDOM`| Do random rank placement for `MPI_Dist_graph_create_adjacent`|
 |`TEMPI_PLACEMENT_METIS` | Do rank placement using METIS for `MPI_Dist_graph_create_adjacent`|
 |`TEMPI_PLACEMENT_KAHIP` | Do rank placement using KaHIP for `MPI_Dist_graph_create_adjacent`|
-|`TEMPI_DATATYPE_ONESHOT`| Pack noncontiguous datatypes into pinned CPU memory |
-|`TEMPI_DATATYPE_DEVICE` | Pack noncontiguous datatypes into GPU memory |
+|`TEMPI_DATATYPE_ONESHOT`| Pack noncontiguous datatypes into pinned CPU memory before Send/Isend |
+|`TEMPI_DATATYPE_DEVICE` | Pack noncontiguous datatypes into GPU memory before Send/Isend |
 |`TEMPI_DATATYPE_AUTO` |Use results of `bin/measure-system` to select between `DEVICE` and `ONESHOT`|
 |`TEMPI_CONTIGUOUS_STAGED` | Copy data to CPU, then send |
 |`TEMPI_CONTIGUOUS_AUTO` |Use results of `bin/measure-system` to enable `STAGED` for some transfer sizes|
