@@ -31,7 +31,8 @@ int irecv::impl(PARAMS_MPI_Irecv) {
   auto pi = typeCache.find(datatype);
   if (typeCache.end() != pi && pi->second.packer) {
     Packer &packer = *(pi->second.packer);
-    async::start_irecv(packer, ARGS_MPI_Irecv);
+    const StridedBlock &sb = pi->second.desc;
+    async::start_irecv(sb, packer, ARGS_MPI_Irecv);
     async::try_progress();
     return MPI_SUCCESS;
   }

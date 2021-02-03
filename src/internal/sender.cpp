@@ -248,14 +248,6 @@ double StagedND::model(const SystemPerformance &sp, bool colocated,
   return pack + d2h + send + h2d + unpack;
 }
 
-bool SendRecvND::Args::operator<(const Args &rhs) const noexcept {
-  if (colocated < rhs.colocated) {
-    return true;
-  } else {
-    return bytes < rhs.bytes;
-  }
-}
-
 int SendRecvND::send(PARAMS_MPI_Send) {
 #ifdef TEMPI_ENABLE_COUNTERS
   double start = MPI_Wtime();
@@ -287,8 +279,10 @@ int SendRecvND::send(PARAMS_MPI_Send) {
 
   switch (method) {
   case Method::DEVICE:
+  TEMPI_COUNTER_OP(send, NUM_DEVICE, ++);
     return device.send(ARGS_MPI_Send);
   case Method::ONESHOT:
+  TEMPI_COUNTER_OP(send, NUM_ONESHOT, ++);
     return oneshot.send(ARGS_MPI_Send);
   default:
     LOG_FATAL("unexpected send method");
@@ -323,8 +317,10 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
 
   switch (method) {
   case Method::DEVICE:
+    TEMPI_COUNTER_OP(recv, NUM_DEVICE, ++);
     return device.recv(ARGS_MPI_Recv);
   case Method::ONESHOT:
+    TEMPI_COUNTER_OP(recv, NUM_ONESHOT, ++);
     return oneshot.recv(ARGS_MPI_Recv);
   default:
     LOG_FATAL("unexpected recv method");

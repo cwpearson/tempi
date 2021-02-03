@@ -36,6 +36,23 @@ struct Pack3d {
   unsigned NUM_UNPACKS;
 };
 
+struct Send {
+  unsigned NUM_ONESHOT;
+  unsigned NUM_DEVICE;
+};
+struct Recv {
+  unsigned NUM_ONESHOT;
+  unsigned NUM_DEVICE;
+};
+struct Isend {
+  unsigned NUM_ONESHOT;
+  unsigned NUM_DEVICE;
+};
+struct Irecv {
+  unsigned NUM_ONESHOT;
+  unsigned NUM_DEVICE;
+};
+
 /* underlying MPI library calls
  */
 struct LibCalls {
@@ -55,6 +72,10 @@ extern Pack2d pack2d;
 extern Pack3d pack3d;
 extern Allocator deviceAllocator;
 extern Allocator hostAllocator;
+extern Send send;
+extern Recv recv;
+extern Isend isend;
+extern Irecv irecv;
 
 void init();
 void finalize();

@@ -10,8 +10,10 @@
 #include "cuda_runtime.hpp"
 #include "events.hpp"
 #include "logging.hpp"
+#include "measure_system.hpp"
 #include "request.hpp"
 #include "symbols.hpp"
+#include "topology.hpp"
 
 #include <map>
 #include <memory>
@@ -45,17 +47,22 @@ public:
 // active async operations
 std::map<MPI_Request, std::unique_ptr<AsyncOperation>> active;
 
+// how to implement the send
+SystemPerformance::SendNonContigNd::MethodCache methodCache;
+
 /*
 Manages the state of a particular Isend
 CUDA - the CUDA transfer is active or completion is not detected yet
 MPI - the MPI_Isend has been issued
 
-Isend/Irecv manage the MPI request internally, since the lifetime of the TEMPI
-Isend/Irecv is longer than the lifetime of the MPI Isend/Irecv
+Isend/Irecv manage the MPI request internally, since the lifetime of the
+TEMPI Isend/Irecv is longer than the lifetime of the MPI Isend/Irecv
 
 TEMPI provides a fake request to the caller as a handle.
 */
 class Isend : public AsyncOperation {
+  using Method = SystemPerformance::SendNonContigNd::Method;
+
   Packer &packer_;
   MPI_Request
       request_; // copy of the provided request - see class documentation
@@ -64,34 +71,81 @@ class Isend : public AsyncOperation {
   State state_;
 
   void *packedBuf_;
+  Method method_;
   int packedSize_;
 
   cudaEvent_t event_;
 
 public:
-  Isend(Packer &packer, PARAMS_MPI_Isend)
+  Isend(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Isend)
       : packer_(packer), state_(State::CUDA), packedBuf_(nullptr),
         packedSize_(0) {
+    using Args = SystemPerformance::SendNonContigNd::Args;
+
     NVTX_MARK("Isend()");
     event_ = events::request();
 
-    // allocate intermediate space
+    // don't count this in modeling as we need it for intermediate alloc
     MPI_Pack_size(count, datatype, comm, &packedSize_);
-    packedBuf_ = hostAllocator.allocate(packedSize_);
-    // LOG_SPEW("buffer is @" << uintptr_t(packedBuf_));
+
+    // decide on one-shot or staged packing
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
+    const int blockLength = std::min(std::max(1, int(sb.counts[0])), 512);
+    const bool colocated = is_colocated(comm, dest);
+    Args args{.colocated = colocated,
+              .bytes = packedSize_,
+              .blockLength = blockLength};
+    auto it = methodCache.find(args);
+    if (methodCache.end() == it) {
+      TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
+      nonstd::optional<double> d = systemPerformance.model_device(args);
+      nonstd::optional<double> o = systemPerformance.model_oneshot(args);
+      if (!o || !d) {
+        method_ = Method::UNKNOWN;
+      } else if (*o < *d) {
+        method_ = Method::ONESHOT;
+      } else {
+        method_ = Method::DEVICE;
+      }
+      methodCache[args] = method_;
+    } else {
+      TEMPI_COUNTER_OP(modeling, CACHE_HIT, ++);
+      method_ = it->second;
+    }
+    TEMPI_COUNTER_OP(modeling, WALL_TIME, += MPI_Wtime() - start);
+
+    // allocate intermediate space
+    switch (method_) {
+    case Method::ONESHOT: {
+      TEMPI_COUNTER_OP(isend, NUM_ONESHOT, ++);
+      packedBuf_ = hostAllocator.allocate(packedSize_);
+      break;
+    }
+    case Method::DEVICE: {
+      TEMPI_COUNTER_OP(isend, NUM_DEVICE, ++);
+      packedBuf_ = deviceAllocator.allocate(packedSize_);
+      break;
+    }
+    case Method::UNKNOWN: {
+      // TODO: handle default with environment variable
+      TEMPI_COUNTER_OP(isend, NUM_ONESHOT, ++);
+      packedBuf_ = hostAllocator.allocate(packedSize_);
+      break;
+    }
+    default:
+      LOG_FATAL("unexpected method in isend");
+    }
 
     // issue pack operation
     int position = 0;
     packer.pack_async(packedBuf_, &position, buf, count, event_);
-    CUDA_RUNTIME(cudaDeviceSynchronize());
-
 
     LOG_SPEW("Isend():: issued pack");
 
     // initialize Isend with internal request
     {
       TEMPI_COUNTER_OP(libCalls, SEND_INIT_NUM, ++);
-      double start = MPI_Wtime();
+      TEMPI_COUNTER_EXPR(start = MPI_Wtime());
       libmpi.MPI_Send_init(packedBuf_, packedSize_, MPI_PACKED, dest, tag, comm,
                            &request_);
       TEMPI_COUNTER_OP(libCalls, SEND_INIT_TIME, += MPI_Wtime() - start);
@@ -103,7 +157,22 @@ public:
     LOG_SPEW("Isend():: init'ed Send, caller req=" << intptr_t(*request));
   }
   ~Isend() {
-    hostAllocator.deallocate(packedBuf_, packedSize_);
+    switch (method_) {
+    case Method::ONESHOT: {
+      hostAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    case Method::DEVICE: {
+      deviceAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    case Method::UNKNOWN: {
+      hostAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    default:
+      LOG_FATAL("unexpected method in isend");
+    }
     events::release(event_);
   }
 
@@ -160,6 +229,8 @@ MPI - the MPI_Irecv has been issued
 CUDA - the CUDA transfer is active or completion is not detected yet
 */
 class Irecv : public AsyncOperation {
+  using Method = SystemPerformance::SendNonContigNd::Method;
+
   Packer &packer_;
   MPI_Request request_;
   void *buf_;
@@ -169,28 +240,77 @@ class Irecv : public AsyncOperation {
   State state_;
 
   void *packedBuf_;
+  Method method_;
   int packedSize_;
 
   cudaEvent_t event_;
 
 public:
-  Irecv(Packer &packer, PARAMS_MPI_Irecv)
+  Irecv(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Irecv)
       : packer_(packer), buf_(buf), count_(count), state_(State::MPI),
-        packedBuf_(nullptr), packedSize_(0) {
+        packedBuf_(nullptr), method_(Method::UNKNOWN), packedSize_(0) {
+
+    using Args = SystemPerformance::SendNonContigNd::Args;
+
     NVTX_MARK("Irecv()");
     event_ = events::request();
 
-    // allocate intermediate space
+    // don't count this in modeling as we need it for intermediate alloc
     MPI_Pack_size(count, datatype, comm, &packedSize_);
-    packedBuf_ = hostAllocator.allocate(packedSize_);
+
+    // decide on one-shot or staged packing
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
+    const int blockLength = std::min(std::max(1, int(sb.counts[0])), 512);
+    const bool colocated = is_colocated(comm, source);
+    Args args{.colocated = colocated,
+              .bytes = packedSize_,
+              .blockLength = blockLength};
+    auto it = methodCache.find(args);
+    if (methodCache.end() == it) {
+      TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
+      nonstd::optional<double> d = systemPerformance.model_device(args);
+      nonstd::optional<double> o = systemPerformance.model_oneshot(args);
+      if (!o || !d) {
+        method_ = Method::UNKNOWN;
+      } else if (*o < *d) {
+        method_ = Method::ONESHOT;
+      } else {
+        method_ = Method::DEVICE;
+      }
+      methodCache[args] = method_;
+    } else {
+      TEMPI_COUNTER_OP(modeling, CACHE_HIT, ++);
+      method_ = it->second;
+    }
+    TEMPI_COUNTER_OP(modeling, WALL_TIME, += MPI_Wtime() - start);
+
+    // allocate intermediate space
+    switch (method_) {
+    case Method::ONESHOT: {
+      TEMPI_COUNTER_OP(irecv, NUM_ONESHOT, ++);
+      packedBuf_ = hostAllocator.allocate(packedSize_);
+      break;
+    }
+    case Method::DEVICE: {
+      TEMPI_COUNTER_OP(irecv, NUM_DEVICE, ++);
+      packedBuf_ = deviceAllocator.allocate(packedSize_);
+      break;
+    }
+    case Method::UNKNOWN: {
+      // TODO: handle default with environment variable
+      TEMPI_COUNTER_OP(irecv, NUM_ONESHOT, ++);
+      packedBuf_ = hostAllocator.allocate(packedSize_);
+      break;
+    }
+    default:
+      LOG_FATAL("unexpected method in isend");
+    }
 
     // issue MPI_Irecv with internal request
     NVTX_RANGE_PUSH("MPI_Irecv");
     {
       TEMPI_COUNTER_OP(libCalls, IRECV_NUM, ++);
-#ifdef TEMPI_ENABLE_COUNTERS
-      double start = MPI_Wtime();
-#endif
+      TEMPI_COUNTER_EXPR(start = MPI_Wtime());
       libmpi.MPI_Irecv(packedBuf_, packedSize_, MPI_PACKED, source, tag, comm,
                        &request_);
       TEMPI_COUNTER_OP(libCalls, IRECV_TIME, += MPI_Wtime() - start);
@@ -202,7 +322,22 @@ public:
     LOG_SPEW("Irecv(): issued Irecv, MPI req=" << intptr_t(request_));
   }
   ~Irecv() {
-    hostAllocator.deallocate(packedBuf_, packedSize_);
+    switch (method_) {
+    case Method::ONESHOT: {
+      hostAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    case Method::DEVICE: {
+      deviceAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    case Method::UNKNOWN: {
+      hostAllocator.deallocate(packedBuf_, packedSize_);
+      break;
+    }
+    default:
+      LOG_FATAL("unexpected method in isend");
+    }
     events::release(event_);
   }
 
@@ -249,14 +384,16 @@ public:
 
 namespace async {
 
-void start_isend(Packer &packer, PARAMS_MPI_Isend) {
-  std::unique_ptr<Isend> op = std::make_unique<Isend>(packer, ARGS_MPI_Isend);
+void start_isend(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Isend) {
+  std::unique_ptr<Isend> op =
+      std::make_unique<Isend>(sb, packer, ARGS_MPI_Isend);
   LOG_SPEW("managed Isend, caller req=" << intptr_t(*request));
   active[*request] = std::move(op);
 }
 
-void start_irecv(Packer &packer, PARAMS_MPI_Irecv) {
-  std::unique_ptr<Irecv> op = std::make_unique<Irecv>(packer, ARGS_MPI_Irecv);
+void start_irecv(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Irecv) {
+  std::unique_ptr<Irecv> op =
+      std::make_unique<Irecv>(sb, packer, ARGS_MPI_Irecv);
   LOG_SPEW("managed Irecv, caller req=" << intptr_t(*request));
   active[*request] = std::move(op);
 }
@@ -290,7 +427,6 @@ int waitall(PARAMS_MPI_Waitall) {
 
 }
 #endif
-
 
 int try_progress() {
   NVTX_RANGE_PUSH("try progress");

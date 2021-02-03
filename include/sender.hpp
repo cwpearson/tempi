@@ -114,7 +114,6 @@ class SendRecvND : public Sender, public Recver {
     bool operator==(const Args &rhs) const { // unordered_map key
       return colocated == rhs.colocated && bytes == rhs.bytes;
     }
-    bool operator<(const Args &rhs) const noexcept; // map key
   };
 
   // which sender to use

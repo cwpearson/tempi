@@ -12,12 +12,16 @@
 
 namespace counters {
 
+/*extern*/ Allocator deviceAllocator;
+/*extern*/ Allocator hostAllocator;
+/*extern*/ Irecv irecv;
+/*extern*/ Isend isend;
 /*extern*/ LibCalls libCalls;
 /*extern*/ Modeling modeling;
 /*extern*/ Pack2d pack2d;
 /*extern*/ Pack3d pack3d;
-/*extern*/ Allocator deviceAllocator;
-/*extern*/ Allocator hostAllocator;
+/*extern*/ Recv recv;
+/*extern*/ Send send;
 
 void init() {}
 
@@ -68,6 +72,16 @@ void finalize() {
           "modeling::cache_miss: " << TEMPI_COUNTER(modeling, CACHE_MISS));
       LOG_DEBUG("modeling::cache_hit:  " << TEMPI_COUNTER(modeling, CACHE_HIT));
       LOG_DEBUG("modeling::wall_time:  " << TEMPI_COUNTER(modeling, WALL_TIME));
+
+      LOG_DEBUG("send::num_oneshot: " << TEMPI_COUNTER(send, NUM_ONESHOT));
+      LOG_DEBUG("send::num_device: " << TEMPI_COUNTER(send, NUM_DEVICE));
+      LOG_DEBUG("isend::num_oneshot: " << TEMPI_COUNTER(isend, NUM_ONESHOT));
+      LOG_DEBUG("isend::num_device: " << TEMPI_COUNTER(isend, NUM_DEVICE));
+      LOG_DEBUG("recv::num_oneshot: " << TEMPI_COUNTER(recv, NUM_ONESHOT));
+      LOG_DEBUG("recv::num_device: " << TEMPI_COUNTER(recv, NUM_DEVICE));
+      LOG_DEBUG("irecv::num_oneshot: " << TEMPI_COUNTER(irecv, NUM_ONESHOT));
+      LOG_DEBUG("irecv::num_device: " << TEMPI_COUNTER(irecv, NUM_DEVICE));
+
       LOG_DEBUG("pack2d::num_packs:    " << TEMPI_COUNTER(pack2d, NUM_PACKS));
       LOG_DEBUG("pack2d::num_unpacks:  " << TEMPI_COUNTER(pack2d, NUM_UNPACKS));
       LOG_DEBUG("pack3d::num_packs:    " << TEMPI_COUNTER(pack3d, NUM_PACKS));
