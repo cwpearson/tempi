@@ -238,22 +238,13 @@ interp_2d_opt(const std::vector<std::vector<IidTime>> a, int64_t bytes,
   // LOG_SPEW("yi1,yi2=" << int(yi1) << "," << int(yi2) << " y1,y2=" << y1 <<
   // "," << y2);
 
-  // interpolate in bounds
-  if (yi2 >= a.size()) {
-    LOG_WARN("clamp y in 2d interpolation");
-    yi2 = a.size() - 1;
-  }
-  yi1 = std::min(yi2, yi1);
-  if (a.size() <= yi1) {
-    return nonstd::nullopt;
-  }
-
   uint8_t xi1 = log2_floor(stride);
   int64_t x1 = 1ull << xi1;
   uint8_t xi2 = log2_ceil(stride);
   int64_t x2 = 1ull << xi2;
 
-  // interpolate in bounds
+  // clamp bounds in x direction
+  // don't do this for y since we just scale the closest value
   if (xi2 >= a[yi2].size()) {
     LOG_WARN("clamp x in 2d interpolation");
     xi2 = a[yi2].size() - 1;

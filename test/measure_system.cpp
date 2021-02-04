@@ -82,7 +82,6 @@ int main(int argc, char **argv) {
     double r = interp_2d(a, 160, 3);
     REQUIRE(r == 21);
   }
-
   {
     double r = interp_2d(a, 512, 1);
     REQUIRE(r == 32);
