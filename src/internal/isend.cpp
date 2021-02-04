@@ -27,11 +27,11 @@ int isend::impl(PARAMS_MPI_Isend) {
     return err;
   }
 
-  // if the type has a packer, use the managed request
+  // use fast path for non-contigous data where a packer exists
   auto pi = typeCache.find(datatype);
-  if (typeCache.end() != pi && pi->second.packer) {
-    Packer &packer = *(pi->second.packer);
+  if (typeCache.end() != pi && pi->second.desc.ndims() > 1 && pi->second.packer) {
     const StridedBlock &sb = pi->second.desc;
+    Packer &packer = *(pi->second.packer);
     async::start_isend(sb, packer, ARGS_MPI_Isend);
     async::try_progress();
     return MPI_SUCCESS;

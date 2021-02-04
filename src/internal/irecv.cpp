@@ -27,9 +27,9 @@ int irecv::impl(PARAMS_MPI_Irecv) {
     return err;
   }
 
-  // if the type has a packer, create a managed request
+  // use fast path for non-contigous data where a packer exists
   auto pi = typeCache.find(datatype);
-  if (typeCache.end() != pi && pi->second.packer) {
+  if (typeCache.end() != pi && pi->second.desc.ndims() > 1 && pi->second.packer) {
     Packer &packer = *(pi->second.packer);
     const StridedBlock &sb = pi->second.desc;
     async::start_irecv(sb, packer, ARGS_MPI_Irecv);
