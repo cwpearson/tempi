@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   MPI_Wait(&reqRecv, MPI_STATUS_IGNORE);
 
   // device send/recv
-  std::cerr << "DEVICE\n";
+  std::cerr << "DEVICE TEMPI\n";
   nvtxRangePush("TEMPI");
   MPI_Isend(deviceSend, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqSend);
   MPI_Irecv(deviceRecv, 100, MPI_FLOAT, rank, 0, MPI_COMM_WORLD, &reqRecv);
