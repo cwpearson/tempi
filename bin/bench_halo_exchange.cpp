@@ -868,7 +868,6 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
 
 
 
-
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
@@ -907,10 +906,10 @@ int main(int argc, char **argv) {
   double pack, alltoallv, unpack, comm;
 
   {
-    double t1 = result.pack.min();
-    double t2 = result.exch.min();
-    double t3 = result.unpack.min();
-    double t4 = result.comm.min();
+    double t1 = result.pack.trimean();
+    double t2 = result.exch.trimean();
+    double t3 = result.unpack.trimean();
+    double t4 = result.comm.trimean();
     MPI_Reduce(&t1, &pack, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&t2, &alltoallv, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&t3, &unpack, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
