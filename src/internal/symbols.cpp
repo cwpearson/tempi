@@ -47,4 +47,5 @@ void init_symbols() {
   DLSYM(MPI_Type_free);
   DLSYM(MPI_Unpack);
   DLSYM(MPI_Wait);
+  DLSYM(MPI_Waitall);
 }

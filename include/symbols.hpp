@@ -168,6 +168,11 @@ typedef int (*Func_MPI_Unpack)(PARAMS_MPI_Unpack);
 #define ARGS_MPI_Wait request, status
 typedef int (*Func_MPI_Wait)(PARAMS_MPI_Wait);
 
+
+#define PARAMS_MPI_Waitall int count, MPI_Request array_of_requests[], MPI_Status array_of_statuses[]
+#define ARGS_MPI_Waitall count, array_of_requests, array_of_statuses
+typedef int (*Func_MPI_Waitall)(PARAMS_MPI_Waitall);
+
 struct MpiFunc {
   Func_MPI_Allgather MPI_Allgather;
   Func_MPI_Alltoallv MPI_Alltoallv;
@@ -196,6 +201,7 @@ struct MpiFunc {
   Func_MPI_Type_free MPI_Type_free;
   Func_MPI_Unpack MPI_Unpack;
   Func_MPI_Wait MPI_Wait;
+  Func_MPI_Waitall MPI_Waitall;
 };
 
 extern MpiFunc libmpi;
