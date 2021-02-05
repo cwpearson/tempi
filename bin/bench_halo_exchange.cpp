@@ -623,10 +623,10 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   return result;
 }
 
-BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
+BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nQuants, int radius,
                        int nIters) {
 
-  const int quantSize = 4;
+  const int quantSize = 8;
 
   BenchResult result;
 
@@ -674,25 +674,28 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
   //  std::cerr << "lcr: " << lcr.x << "x" << lcr.y << "x" << lcr.z << "\n";
   //}
 
-  // allocation extent (in bytes, not elements)
-  cudaPitchedPtr curr{};
+  // allocations (all the same)
+  std::vector<cudaPitchedPtr> currs(nQuants);
   {
+    // allocation extent (in bytes, not elements)
     cudaExtent e = locExt;
     e.width += 2 * radius; // extra space in x for quantity
     e.height += 2 * radius;
     e.depth += 2 * radius;
     e.width *= quantSize; // convert width to bytes
 
+    for (cudaPitchedPtr &cpp : currs) {
 #ifdef USE_CUDA
-    CUDA_RUNTIME(cudaMalloc3D(&curr, e));
+      CUDA_RUNTIME(cudaMalloc3D(&cpp, e));
 #else
-    // smallest multiple of 512 >= pitch (to match CUDA)
-    size_t pitch = (e.width + 511) / 512 * 512;
-    curr.pitch = pitch;
-    curr.ptr = new char[pitch * e.height * e.depth];
-    curr.xsize = e.width;
-    curr.ysize = e.height;
+      // smallest multiple of 512 >= pitch (to match CUDA)
+      size_t pitch = (e.width + 511) / 512 * 512;
+      curr.pitch = pitch;
+      curr.ptr = new char[pitch * e.height * e.depth];
+      curr.xsize = e.width;
+      curr.ysize = e.height;
 #endif
+    }
   }
   // if (0 == rank) {
   //  std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
@@ -737,10 +740,10 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
         int nbrRank = to_1d(nbrcoord, dims);
 
         MPI_Datatype interior =
-            halo_type(radius, curr, lcr, dir, quantSize, false);
+            halo_type(radius, currs[0], lcr, dir, quantSize, false);
         MPI_Type_commit(&interior);
         MPI_Datatype exterior =
-            halo_type(radius, curr, lcr, dir, quantSize, true);
+            halo_type(radius, currs[0], lcr, dir, quantSize, true);
         MPI_Type_commit(&exterior);
 
         // for periodic, send should always be the same as recv
@@ -814,19 +817,35 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // issue Isends
-    std::vector<MPI_Request> reqs(26 * 2); // one request per send/recv
+    // one request for each send/recv per quantity
+    std::vector<MPI_Request> reqs(26 * 2 * nQuants);
     auto ri = reqs.begin();
     double startIsend;
+    // issue Isends
     {
       nvtxRangePush("isend");
       startIsend = MPI_Wtime();
-      int position = 0;
-      for (auto &kv : nbrSendType) {
-        const int dest = kv.first;
-        for (size_t tag = 0; tag < kv.second.size(); ++tag) {
-          const MPI_Datatype ty = kv.second[tag];
-          MPI_Isend(curr.ptr, 1, ty, dest, tag, MPI_COMM_WORLD, &(*ri++));
+      for (int qi = 0; qi < nQuants; ++qi) {
+        int position = 0;
+        for (auto &kv : nbrSendType) {
+          const int dest = kv.first;
+          for (size_t ti = 0; ti < kv.second.size(); ++ti) {
+            const MPI_Datatype ty = kv.second[ti];
+            // at most 26 messages to another rank per quantity
+            const int tag = ti + qi * 26;
+
+#if 0
+            if (0 == rank) {
+              int size;
+              MPI_Type_size(ty, &size);
+              std::cerr << rank << " send " << size << " to " << dest
+                        << " tag=" << tag << "\n";
+            }
+#endif
+
+            MPI_Isend(currs[qi].ptr, 1, ty, dest, tag, MPI_COMM_WORLD,
+                      &(*ri++));
+          }
         }
       }
       nvtxRangePop();
@@ -835,12 +854,26 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
     // issue Irecv
     {
       nvtxRangePush("irecv");
-      int position = 0;
-      for (auto &kv : nbrRecvType) {
-        const int source = kv.first;
-        for (size_t tag = 0; tag < kv.second.size(); ++tag) {
-          const MPI_Datatype ty = kv.second[tag];
-          MPI_Irecv(curr.ptr, 1, ty, source, tag, MPI_COMM_WORLD, &(*ri++));
+      for (int qi = 0; qi < nQuants; ++qi) {
+        int position = 0;
+        for (auto &kv : nbrRecvType) {
+          const int source = kv.first;
+          for (size_t ti = 0; ti < kv.second.size(); ++ti) {
+            const MPI_Datatype ty = kv.second[ti];
+            const int tag = ti + qi * 26;
+
+#if 0
+            if (1 == rank) {
+              int size;
+              MPI_Type_size(ty, &size);
+              std::cerr << rank << " recv " << size << " from " << source
+                        << " tag=" << tag << "\n";
+            }
+#endif
+
+            MPI_Irecv(currs[qi].ptr, 1, ty, source, tag, MPI_COMM_WORLD,
+                      &(*ri++));
+          }
         }
       }
       nvtxRangePop();
@@ -857,22 +890,22 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nquants, int radius,
     }
   }
 
+  for (cudaPitchedPtr &cpp : currs) {
 #ifdef USE_CUDA
-  CUDA_RUNTIME(cudaFree(curr.ptr));
+    CUDA_RUNTIME(cudaFree(cpp.ptr));
 #else
-  delete[](char *) curr.ptr;
+    delete[](char *) cpp.ptr;
 #endif
+  }
 
   return result;
 }
-
-
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
   int nIters = 0;
-  int nQuants = 2;
+  int nQuants = 8;
   int radius = 2;
 
   int3 ext{};
