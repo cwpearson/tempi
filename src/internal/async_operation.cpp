@@ -16,8 +16,9 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 
-#include <map>
+#include <unordered_map>
 #include <memory>
+#include <numeric> // iota
 
 //#define USE_NVTX
 #ifdef USE_NVTX
@@ -46,7 +47,7 @@ public:
 };
 
 // active async operations
-std::map<MPI_Request, std::unique_ptr<AsyncOperation>> active;
+std::unordered_map<MPI_Request, std::unique_ptr<AsyncOperation>> active;
 
 // how to implement the send
 SystemPerformance::SendNonContigNd::MethodCache methodCache;
@@ -456,13 +457,36 @@ int wait(MPI_Request *request, MPI_Status *status) {
 #if 0
 int waitall(PARAMS_MPI_Waitall) {
 
-  for (int i = 0; i < count; ++i) {
-    auto ii = active.find(array_of_requests[i]);
-    if (active.end() != ii) {
+  std::vector<size_t> remaining(count);
+  std::iota(remaining.begin(), remaining.end(), 0);
 
+loop:
+  while (!remaining.empty()) {
+
+  wakeup_all:
+    // give all operations an opportunity to progress
+    // this means some can work while we wait on others
+    for (size_t i : remaining) {
+      auto it = active.find(array_of_requests[i]);
+      if (active.end() != it && it->second->needs_wake()) {
+        it->second->wake();
+      }
     }
-  }
 
+    // try to wait on an operation that does not need to wake up
+    // if we succeed, give all operations a chance to wake up again
+    for (size_t ri = 0; ri < remaining.size(); ++ri) {
+      auto ai = active.find(array_of_requests[remaining[ri]]);
+      if (active.end() != ai && !ai->second->needs_wake()) {
+        ai->second->wait(&array_of_statuses[ri]);
+        active.erase(ai);
+        remaining.erase(remaining.begin() + ri);
+        goto loop;
+      }
+    }
+
+    // if we get here, no requests are managed by TEMPI
+  }
 }
 #endif
 
