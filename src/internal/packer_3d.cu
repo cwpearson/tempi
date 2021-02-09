@@ -81,11 +81,8 @@ void Packer3D::launch_pack(void *outbuf, int *position, const void *inbuf,
                            const int incount, cudaStream_t stream) const {
   TEMPI_COUNTER_OP(pack3d, NUM_PACKS, ++);
   LOG_SPEW("launch_pack offset=" << offset_);
-
   inbuf = static_cast<const char *>(inbuf) + offset_;
-
   outbuf = static_cast<char *>(outbuf) + *position;
-
   packfn_<<<gd_, bd_, 0, stream>>>(outbuf, inbuf, incount, blockLength_,
                                    count_[0], stride_[0], count_[1], stride_[1],
                                    extent_);
@@ -98,8 +95,7 @@ void Packer3D::launch_unpack(const void *inbuf, int *position, void *outbuf,
                              const int outcount, cudaStream_t stream) const {
   TEMPI_COUNTER_OP(pack3d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
-
-  outbuf = static_cast<char *>(outbuf) + *position;
+  inbuf = static_cast<const char *>(inbuf) + *position;
   unpackfn_<<<gd_, bd_, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
                                      count_[0], stride_[0], count_[1],
                                      stride_[1], extent_);

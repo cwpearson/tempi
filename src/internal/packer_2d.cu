@@ -56,7 +56,7 @@ void Packer2D::launch_unpack(const void *inbuf, int *position, void *outbuf,
     CUDA_RUNTIME(cudaEventRecord(kernelStart, stream));
   }
 
-  outbuf = static_cast<char *>(outbuf) + *position;
+  inbuf = static_cast<const char *>(inbuf) + *position;
   config_.unpackfn<<<gd, bd, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
                                     count_, stride_, extent_);
 
