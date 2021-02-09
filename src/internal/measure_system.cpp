@@ -246,7 +246,7 @@ interp_2d_opt(const std::vector<std::vector<IidTime>> a, int64_t bytes,
   // clamp bounds in x direction
   // don't do this for y since we just scale the closest value
   if (xi2 >= a[yi2].size()) {
-    LOG_WARN("clamp x in 2d interpolation");
+    LOG_DEBUG("clamp x in 2d interpolation");
     xi2 = a[yi2].size() - 1;
   }
   xi1 = std::min(xi2, xi1);
