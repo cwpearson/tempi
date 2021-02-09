@@ -119,59 +119,60 @@ unpack_2d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
   }
 }
 
-inline Pack2DConfig::Pack2DConfig(unsigned offset, unsigned blockLength, unsigned blockCount) {
-    int w;
-    /* using largest sizes can reduce the zero-copy performanc especially
-    need to detect 12 so it doesn't match 6
-    using the W=12 specialization leads to bad zero-copy performance
-      */
-    if (0 == blockLength % 12 && 0 == offset % 12) {
-      packfn = pack_2d<4>;
-      unpackfn = unpack_2d<4>;
-      w = 4;
-    } else if (0 == blockLength % 8 && 0 == offset % 8) {
-      packfn = pack_2d<8>;
-      unpackfn = unpack_2d<8>;
-      w = 8;
-    } else if (0 == blockLength % 6 && 0 == offset % 6) {
-      packfn = pack_2d<6>;
-      unpackfn = unpack_2d<6>;
-      w = 6;
-    } else if (0 == blockLength % 4 && 0 == offset % 4) {
-      packfn = pack_2d<4>;
-      unpackfn = unpack_2d<4>;
-      w = 4;
-    } else if (0 == blockLength % 3 && 0 == offset % 3) {
-      packfn = pack_2d<3>;
-      unpackfn = unpack_2d<3>;
-      w = 3;
-    } else if (0 == blockLength % 2 && 0 == offset % 2) {
-      packfn = pack_2d<2>;
-      unpackfn = unpack_2d<2>;
-      w = 2;
-    } else {
-      packfn = pack_2d<1>;
-      unpackfn = unpack_2d<1>;
-      w = 1;
-    }
-
-    // x dimension is words to load each block
-    // y dimension is number of blocks
-    // z dimension is object count
-    bd_ = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
-
-    gd_ = Dim3(blockLength / w, blockCount, 0) + bd_ - Dim3(1, 1, 1) / bd_;
-
-    gd_.y = std::min(65535u, gd_.y);
-
-    assert(packfn);
-    assert(unpackfn);
-    assert(gd_.x > 0);
-    assert(gd_.y > 0);
-    assert(bd_.x > 0);
-    assert(bd_.y > 0);
-    assert(bd_.z > 0);
+inline Pack2DConfig::Pack2DConfig(unsigned offset, unsigned blockLength,
+                                  unsigned blockCount) {
+  int w;
+  /* using largest sizes can reduce the zero-copy performanc especially
+  need to detect 12 so it doesn't match 6
+  using the W=12 specialization leads to bad zero-copy performance
+    */
+  if (0 == blockLength % 12 && 0 == offset % 12) {
+    packfn = pack_2d<4>;
+    unpackfn = unpack_2d<4>;
+    w = 4;
+  } else if (0 == blockLength % 8 && 0 == offset % 8) {
+    packfn = pack_2d<8>;
+    unpackfn = unpack_2d<8>;
+    w = 8;
+  } else if (0 == blockLength % 6 && 0 == offset % 6) {
+    packfn = pack_2d<6>;
+    unpackfn = unpack_2d<6>;
+    w = 6;
+  } else if (0 == blockLength % 4 && 0 == offset % 4) {
+    packfn = pack_2d<4>;
+    unpackfn = unpack_2d<4>;
+    w = 4;
+  } else if (0 == blockLength % 3 && 0 == offset % 3) {
+    packfn = pack_2d<3>;
+    unpackfn = unpack_2d<3>;
+    w = 3;
+  } else if (0 == blockLength % 2 && 0 == offset % 2) {
+    packfn = pack_2d<2>;
+    unpackfn = unpack_2d<2>;
+    w = 2;
+  } else {
+    packfn = pack_2d<1>;
+    unpackfn = unpack_2d<1>;
+    w = 1;
   }
+
+  // x dimension is words to load each block
+  // y dimension is number of blocks
+  // z dimension is object count
+  bd_ = Dim3::fill_xyz_by_pow2(Dim3(blockLength / w, blockCount, 1), 512);
+
+  gd_ = Dim3(blockLength / w, blockCount, 0) + bd_ - Dim3(1, 1, 1) / bd_;
+
+  gd_.y = std::min(65535u, gd_.y);
+
+  assert(packfn);
+  assert(unpackfn);
+  assert(gd_.x > 0);
+  assert(gd_.y > 0);
+  assert(bd_.x > 0);
+  assert(bd_.y > 0);
+  assert(bd_.z > 0);
+}
 
 /* pack blocks of bytes separated a stride
     the z dimension is used for the incount
@@ -380,8 +381,10 @@ pack_3d(void *__restrict__ outbuf, const void *__restrict__ inbuf,
         unsigned bo = z * count1 * count0 + y * count0;
         unsigned bi = z * stride2 + y * stride1;
 #if 0
-          printf("%lu -> %lu\n", uintptr_t(src) + bi - uintptr_t(inbuf),
-                 uintptr_t(dst) + bo - uintptr_t(outbuf));
+        if (0 == threadIdx.x) {
+          printf("%lu -> %lu (%u)\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                 uintptr_t(dst) + bo - uintptr_t(outbuf), count0);
+        }
 #endif
         grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
       }
@@ -414,7 +417,15 @@ __global__ static void unpack_3d(
       for (unsigned y = ty; y < count1; y += gridDim.y * blockDim.y) {
         unsigned bi = z * count1 * count0 + y * count0;
         unsigned bo = z * stride2 + y * stride1;
-        // printf("%u -> %u\n", bi, bo);
+#if 0
+        if (0 == threadIdx.x) {
+          if (uintptr_t(dst) + bo - uintptr_t(outbuf) + count0 >=
+              26763264 - 408576) {
+            printf("%lu -> %lu (%u)\n", uintptr_t(src) + bi - uintptr_t(inbuf),
+                   uintptr_t(dst) + bo - uintptr_t(outbuf), count0);
+          }
+        }
+#endif
         grid_x_memcpy_aligned<W>(dst + bo, src + bi, count0);
       }
     }
