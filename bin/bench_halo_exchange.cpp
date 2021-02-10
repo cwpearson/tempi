@@ -195,10 +195,10 @@ struct BenchResult {
   int3 lcr;
 };
 
-BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
+BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
                                      int radius, int nIters) {
 
-  const int quantSize = 4;
+  const int quantSize = 8;
 
   BenchResult result;
 
@@ -243,28 +243,31 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   result.lcr = lcr;
 
   // if (0 == rank) {
-  //  std::cerr << "lcr: " << lcr.x << "x" << lcr.y << "x" << lcr.z << "\n";
-  //}
+  //   std::cerr << "lcr: " << lcr.x << "x" << lcr.y << "x" << lcr.z << "\n";
+  // }
 
-  // allocation extent (in bytes, not elements)
-  cudaPitchedPtr curr{};
+  // allocations (all the same)
+  std::vector<cudaPitchedPtr> currs(nQuants);
   {
+    // allocation extent (in bytes, not elements)
     cudaExtent e = locExt;
     e.width += 2 * radius; // extra space in x for quantity
     e.height += 2 * radius;
     e.depth += 2 * radius;
     e.width *= quantSize; // convert width to bytes
 
+    for (cudaPitchedPtr &cpp : currs) {
 #ifdef USE_CUDA
-    CUDA_RUNTIME(cudaMalloc3D(&curr, e));
+      CUDA_RUNTIME(cudaMalloc3D(&cpp, e));
 #else
-    // smallest multiple of 512 >= pitch (to match CUDA)
-    size_t pitch = (e.width + 511) / 512 * 512;
-    curr.pitch = pitch;
-    curr.ptr = new char[pitch * e.height * e.depth];
-    curr.xsize = e.width;
-    curr.ysize = e.height;
+      // smallest multiple of 512 >= pitch (to match CUDA)
+      size_t pitch = (e.width + 511) / 512 * 512;
+      curr.pitch = pitch;
+      curr.ptr = new char[pitch * e.height * e.depth];
+      curr.xsize = e.width;
+      curr.ysize = e.height;
 #endif
+    }
   }
   // if (0 == rank) {
   //  std::cerr << "logical width=" << locExt.width << " pitch=" << curr.pitch
@@ -382,10 +385,10 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
         int nbrRank = to_1d(nbrcoord, dims);
 
         MPI_Datatype interior =
-            halo_type(radius, curr, lcr, dir, quantSize, false);
+            halo_type(radius, currs[0], lcr, dir, quantSize, false);
         MPI_Type_commit(&interior);
         MPI_Datatype exterior =
-            halo_type(radius, curr, lcr, dir, quantSize, true);
+            halo_type(radius, currs[0], lcr, dir, quantSize, true);
         MPI_Type_commit(&exterior);
 
         // for periodic, send should always be the same as recv
@@ -463,49 +466,18 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   std::cout << std::flush;
 #endif
 
-  // create the total send/recv buffer
-  size_t sendBufSize = 0, recvBufSize = 0;
-  for (const auto &kv : nbrSendType) {
-    for (MPI_Datatype ty : kv.second) {
-      int size;
-      MPI_Type_size(ty, &size);
-      sendBufSize += size;
-    }
-  }
-  for (const auto &kv : nbrRecvType) {
-    for (MPI_Datatype ty : kv.second) {
-      int size;
-      MPI_Type_size(ty, &size);
-      recvBufSize += size;
-    }
-  }
-
-  char *sendbuf{}, *recvbuf{};
-#ifdef USE_CUDA
-  CUDA_RUNTIME(cudaMalloc(&sendbuf, sendBufSize));
-  CUDA_RUNTIME(cudaMalloc(&recvbuf, recvBufSize));
-#else
-  sendbuf = new char[sendBufSize];
-  recvbuf = new char[recvBufSize];
-#endif
-
-// print buffer sizes
-#if 0
-  std::cout << "rank " << rank << " sendbuf=" << sendBufSize << "\n";
-  std::cout << "rank " << rank << " recvbuf=" << recvBufSize << "\n";
-  std::cout << std::flush;
-#endif
-
-  // pack data for each neighbor and determine offsets in send buffer
+  // determine displacements and sizes for send buffer
   std::vector<int> sendcounts;
   {
     for (int nbr : destinations) {
+      // count up the types going to that destination, and multiply by nQuants
       int sendcount = 0;
       for (MPI_Datatype ty : nbrSendType[nbr]) {
         int size;
-        MPI_Type_size(ty, &size);
+        MPI_Pack_size(1, ty, graphComm, &size);
         sendcount += size;
       }
+      sendcount *= nQuants;
       sendcounts.push_back(sendcount);
     }
   }
@@ -513,6 +485,8 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   for (size_t i = 1; i < sdispls.size(); ++i) {
     sdispls[i] = sdispls[i - 1] + sendcounts[i - 1];
   }
+  const size_t sendBufSize =
+      sdispls[sdispls.size() - 1] + sendcounts[sendcounts.size() - 1];
 
 #if 0
   std::cerr << "rank " << rank << " sendcounts=";
@@ -533,15 +507,18 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
     int recvcount = 0;
     for (MPI_Datatype ty : nbrRecvType[nbr]) {
       int size;
-      MPI_Type_size(ty, &size);
+      MPI_Pack_size(1, ty, graphComm, &size);
       recvcount += size;
     }
+    recvcount *= nQuants;
     recvcounts.push_back(recvcount);
   }
   std::vector<int> rdispls(recvcounts.size(), 0);
   for (size_t i = 1; i < rdispls.size(); ++i) {
     rdispls[i] = rdispls[i - 1] + recvcounts[i - 1];
   }
+  const size_t recvBufSize =
+      rdispls[rdispls.size() - 1] + recvcounts[recvcounts.size() - 1];
 
 #if 0
   std::cerr << "rank " << rank << " recvcounts=";
@@ -556,8 +533,23 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   std::cerr << "\n";
 #endif
 
-  for (int i = 0; i < nIters; ++i) {
+  char *sendbuf{}, *recvbuf{};
+#ifdef USE_CUDA
+  CUDA_RUNTIME(cudaMalloc(&sendbuf, sendBufSize));
+  CUDA_RUNTIME(cudaMalloc(&recvbuf, recvBufSize));
+#else
+  sendbuf = new char[sendBufSize];
+  recvbuf = new char[recvBufSize];
+#endif
 
+// print buffer sizes
+#if 0
+  std::cout << "rank " << rank << " sendbuf=" << sendBufSize << "\n";
+  std::cout << "rank " << rank << " recvbuf=" << recvBufSize << "\n";
+  std::cout << std::flush;
+#endif
+
+  for (int i = 0; i < nIters; ++i) {
     MPI_Barrier(graphComm);
 
     // pack the send buf
@@ -565,9 +557,13 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
       nvtxRangePush("pack");
       double start = MPI_Wtime();
       int position = 0;
-      for (int nbr : destinations) {
-        for (MPI_Datatype ty : nbrSendType[nbr]) {
-          MPI_Pack(curr.ptr, 1, ty, sendbuf, sendBufSize, &position, graphComm);
+      for (int qi = 0; qi < nQuants; ++qi) {
+        for (int nbr : destinations) {
+          for (MPI_Datatype ty : nbrSendType[nbr]) {
+            assert(position < sendBufSize);
+            MPI_Pack(currs[qi].ptr, 1, ty, sendbuf, sendBufSize, &position,
+                     graphComm);
+          }
         }
       }
       result.pack.insert(MPI_Wtime() - start);
@@ -594,10 +590,23 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
       nvtxRangePush("unpack");
       double start = MPI_Wtime();
       int position = 0;
-      for (int nbr : sources) {
-        for (MPI_Datatype ty : nbrRecvType[nbr]) {
-          MPI_Unpack(recvbuf, recvBufSize, &position, curr.ptr, 1, ty,
-                     graphComm);
+      for (int qi = 0; qi < nQuants; ++qi) {
+        for (int nbr : sources) {
+          for (MPI_Datatype ty : nbrRecvType[nbr]) {
+#if 0
+            {
+              int size;
+              MPI_Pack_size(1, ty, graphComm, &size);
+              std::cerr << "qi=" << qi << " nbr=" << nbr << ": recvbuf@"
+                        << position << "..<" << size << " -> ["
+                        << currs[qi].pitch * currs[qi].ysize *
+                               (locExt.depth + 2 * radius)
+                        << "]\n";
+            }
+#endif
+            MPI_Unpack(recvbuf, recvBufSize, &position, currs[qi].ptr, 1, ty,
+                       graphComm);
+          }
         }
       }
       result.unpack.insert(MPI_Wtime() - start);
@@ -610,15 +619,23 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nquants,
   graphComm = {};
   nvtxRangePop();
 
+  // free intermediate buffers
 #ifdef USE_CUDA
-  CUDA_RUNTIME(cudaFree(curr.ptr));
   CUDA_RUNTIME(cudaFree(sendbuf));
   CUDA_RUNTIME(cudaFree(recvbuf));
 #else
-  delete[](char *) curr.ptr;
   delete[] sendbuf;
   delete[] recvbuf;
 #endif
+
+  // free quantities
+  for (cudaPitchedPtr &curr : currs) {
+#ifdef USE_CUDA
+    CUDA_RUNTIME(cudaFree(curr.ptr));
+#else
+    delete[](char *) curr.ptr;
+#endif
+  }
 
   return result;
 }
@@ -932,9 +949,10 @@ int main(int argc, char **argv) {
     std::cout << std::flush;
   }
 
-  // BenchResult result =
-  //     bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
-  BenchResult result = bench_isir(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+  BenchResult result =
+      bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+  // BenchResult result = bench_isir(MPI_COMM_WORLD, ext, nQuants, radius,
+  // nIters);
 
   double pack, alltoallv, unpack, comm;
 
