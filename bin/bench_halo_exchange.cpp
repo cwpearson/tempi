@@ -973,5 +973,7 @@ int main(int argc, char **argv) {
               << "\n";
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+
   MPI_Finalize();
 }
