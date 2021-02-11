@@ -547,10 +547,11 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
 #endif
 
 // print buffer sizes
-#if 0
-  std::cout << "rank " << rank << " sendbuf=" << sendBufSize << "\n";
-  std::cout << "rank " << rank << " recvbuf=" << recvBufSize << "\n";
-  std::cout << std::flush;
+#if 1
+  if (0 == rank) {
+    std::cerr << "sendbuf=" << sendBufSize << "\n";
+    std::cerr << "recvbuf=" << recvBufSize << "\n";
+  }
 #endif
 
   for (int i = 0; i < nIters; ++i) {
@@ -939,7 +940,7 @@ int main(int argc, char **argv) {
 
   int nIters = 0;
   int nQuants = 8;
-  int radius = 2;
+  int radius = 3;
 
   int3 ext{};
   if (argc == 3) {
