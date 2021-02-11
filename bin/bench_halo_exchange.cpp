@@ -321,6 +321,7 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
 
   // create topology
   MPI_Comm graphComm;
+  double commTime = 0;
   {
     MPI_Comm comm_old = MPI_COMM_WORLD;
     int indegree = nbrRecvWeight.size();
@@ -349,8 +350,11 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
     MPI_Dist_graph_create_adjacent(
         comm_old, indegree, sources.data(), sourceweights.data(), outdegree,
         destinations.data(), destweights.data(), info, reorder, &graphComm);
-    result.comm.insert(MPI_Wtime() - start);
+    commTime = MPI_Wtime() - start;
   }
+  MPI_Allreduce(MPI_IN_PLACE, &commTime, 1, MPI_DOUBLE, MPI_MAX,
+                MPI_COMM_WORLD);
+  result.comm.insert(commTime);
 
   // get my new rank after reorder
   MPI_Comm_rank(graphComm, &rank);
@@ -552,47 +556,48 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
   for (int i = 0; i < nIters; ++i) {
     MPI_Barrier(graphComm);
 
-    // pack the send buf
-    {
-      nvtxRangePush("pack");
-      double start = MPI_Wtime();
-      int position = 0;
-      for (int qi = 0; qi < nQuants; ++qi) {
-        for (int nbr : destinations) {
-          for (MPI_Datatype ty : nbrSendType[nbr]) {
-            assert(position < sendBufSize);
-            MPI_Pack(currs[qi].ptr, 1, ty, sendbuf, sendBufSize, &position,
-                     graphComm);
+    double packTime = 0, exchTime = 0, unpackTime = 0;
+
+    // substeps
+    for (int si = 0; si < 3; ++si) {
+
+      // pack the send buf
+      {
+        nvtxRangePush("pack");
+        double start = MPI_Wtime();
+        int position = 0;
+        for (int qi = 0; qi < nQuants; ++qi) {
+          for (int nbr : destinations) {
+            for (MPI_Datatype ty : nbrSendType[nbr]) {
+              assert(position < sendBufSize);
+              MPI_Pack(currs[qi].ptr, 1, ty, sendbuf, sendBufSize, &position,
+                       graphComm);
+            }
           }
         }
+        packTime += MPI_Wtime() - start;
+        nvtxRangePop();
       }
-      result.pack.insert(MPI_Wtime() - start);
-      nvtxRangePop();
-    }
 
-    MPI_Barrier(graphComm);
+      // exchange
+      {
+        nvtxRangePush("MPI_Neighbor_alltoallv");
+        double start = MPI_Wtime();
+        MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
+                               MPI_PACKED, recvbuf, recvcounts.data(),
+                               rdispls.data(), MPI_PACKED, graphComm);
+        exchTime += MPI_Wtime() - start;
+        nvtxRangePop();
+      }
 
-    // exchange
-    {
-      nvtxRangePush("MPI_Neighbor_alltoallv");
-      double start = MPI_Wtime();
-      MPI_Neighbor_alltoallv(sendbuf, sendcounts.data(), sdispls.data(),
-                             MPI_PACKED, recvbuf, recvcounts.data(),
-                             rdispls.data(), MPI_PACKED, graphComm);
-      result.exch.insert(MPI_Wtime() - start);
-      nvtxRangePop();
-    }
-
-    MPI_Barrier(graphComm);
-
-    // unpack recv buf
-    {
-      nvtxRangePush("unpack");
-      double start = MPI_Wtime();
-      int position = 0;
-      for (int qi = 0; qi < nQuants; ++qi) {
-        for (int nbr : sources) {
-          for (MPI_Datatype ty : nbrRecvType[nbr]) {
+      // unpack recv buf
+      {
+        nvtxRangePush("unpack");
+        double start = MPI_Wtime();
+        int position = 0;
+        for (int qi = 0; qi < nQuants; ++qi) {
+          for (int nbr : sources) {
+            for (MPI_Datatype ty : nbrRecvType[nbr]) {
 #if 0
             {
               int size;
@@ -604,14 +609,25 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
                         << "]\n";
             }
 #endif
-            MPI_Unpack(recvbuf, recvBufSize, &position, currs[qi].ptr, 1, ty,
-                       graphComm);
+              MPI_Unpack(recvbuf, recvBufSize, &position, currs[qi].ptr, 1, ty,
+                         graphComm);
+            }
           }
         }
+        unpackTime += MPI_Wtime() - start;
+        nvtxRangePop();
       }
-      result.unpack.insert(MPI_Wtime() - start);
-      nvtxRangePop();
     }
+
+    MPI_Allreduce(MPI_IN_PLACE, &packTime, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &exchTime, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &unpackTime, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    result.pack.insert(packTime);
+    result.unpack.insert(unpackTime);
+    result.exch.insert(exchTime);
   }
 
   nvtxRangePush("MPI_Comm_free");
