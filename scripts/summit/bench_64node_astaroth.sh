@@ -1,10 +1,10 @@
 #!/bin/bash
 #BSUB -P csc362
-#BSUB -J bench_astaroth 
-#BSUB -o bench_astaroth.o%J
-#BSUB -e bench_astaroth.e%J
-#BSUB -W 02:00
-#BSUB -nnodes 63
+#BSUB -J bench_64node_astaroth 
+#BSUB -o bench_64node_astaroth.o%J
+#BSUB -e bench_64node_astaroth.e%J
+#BSUB -W 01:00
+#BSUB -nnodes 64
 
 set -eou pipefail
 
@@ -15,7 +15,7 @@ module load cuda/11.0.3
 module load nsight-systems/2020.3.1.71
 
 SCRATCH=/gpfs/alpine/scratch/cpearson/csc362/tempi_results
-OUT=$SCRATCH/bench_astaroth.csv
+OUT=$SCRATCH/bench_64node_astaroth.csv
 export TEMPI_CACHE_DIR=$SCRATCH
 
 set -x
@@ -24,7 +24,7 @@ mkdir -p $SCRATCH
 
 echo "" > $OUT
 
-for nodes in 1 2 4 8 16 32 64 128 256 512; do
+for nodes in 1 2 4 8 16 32 64; do
   for rpn in 1 2 6; do
     let n=$nodes*$rpn
 
@@ -50,16 +50,14 @@ for nodes in 1 2 4 8 16 32 64 128 256 512; do
     elif [ $n == 3072 ]; then X=6144 Y=4096 Z=2048
     fi
 
-    echo "${nodes}nodes,${rpn}rankspernode,tempi" >> $OUT
+    echo "${nodes}nodes,${rpn}rankspernode,tempi-placement_kahip" >> $OUT
     export TEMPI_PLACEMENT_KAHIP=""
     jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 100 $X $Y $Z | tee -a $OUT
     #jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs nsys profile -t cuda,nvtx -f true -o $SCRATCH/bench_halo_exchange_${nodes}n_${rpn}rpn_${X}x_%q{OMPI_COMM_WORLD_RANK} ../../build/bin/bench-halo-exchange 10 $X
     unset TEMPI_PLACEMENT_KAHIP
 
-#    echo "${nodes}nodes,${rpn}rankspernode,notempi" >> $OUT
-#    export TEMPI_DISABLE=""
-#    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 5 $X | tee -a $OUT
-#    unset TEMPI_DISABLE
+    echo "${nodes}nodes,${rpn}rankspernode,tempi-placement_none" >> $OUT
+    jsrun --smpiargs="-gpu" -n $n -r $rpn -a 1 -g 1 -c 7 -b rs ../../build/bin/bench-halo-exchange 100 $X $Y $Z | tee -a $OUT
   done
 done
 
