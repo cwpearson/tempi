@@ -561,6 +561,8 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
     // substeps
     for (int si = 0; si < 3; ++si) {
 
+      MPI_Barrier(graphComm);
+
       // pack the send buf
       {
         nvtxRangePush("pack");
@@ -579,6 +581,8 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
         nvtxRangePop();
       }
 
+      MPI_Barrier(graphComm);
+
       // exchange
       {
         nvtxRangePush("MPI_Neighbor_alltoallv");
@@ -589,6 +593,8 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
         exchTime += MPI_Wtime() - start;
         nvtxRangePop();
       }
+
+      MPI_Barrier(graphComm);
 
       // unpack recv buf
       {
