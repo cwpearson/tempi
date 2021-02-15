@@ -20,9 +20,9 @@ void streams_init() {
   nvtxRangePush("streams_init");
   int count;
   CUDA_RUNTIME(cudaGetDeviceCount(&count));
-  CUDA_RUNTIME(cudaStreamCreate(&commStream));
+  CUDA_RUNTIME(cudaStreamCreateWithFlags(&commStream, cudaStreamNonBlocking));
   nvtxNameCudaStreamA(commStream, "TEMPI_comm");
-  CUDA_RUNTIME(cudaStreamCreate(&kernStream));
+  CUDA_RUNTIME(cudaStreamCreateWithFlags(&kernStream, cudaStreamNonBlocking));
   nvtxNameCudaStreamA(kernStream, "TEMPI_kern");
   nvtxRangePop();
 }
