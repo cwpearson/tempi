@@ -18,6 +18,8 @@
 #include <map>
 #include <vector>
 
+const int quantSize = 8;
+
 // GPU or not
 #define USE_CUDA
 
@@ -197,8 +199,6 @@ struct BenchResult {
 
 BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
                                      int radius, int nIters) {
-
-  const int quantSize = 8;
 
   BenchResult result;
 
@@ -666,8 +666,6 @@ BenchResult bench_neighbor_alltoallv(MPI_Comm comm, const int3 ext, int nQuants,
 BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nQuants, int radius,
                        int nIters) {
 
-  const int quantSize = 8;
-
   BenchResult result;
 
   int rank, size;
@@ -855,24 +853,28 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nQuants, int radius,
 
   for (int i = 0; i < nIters; ++i) {
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    double exchTime = 0;
 
-    // one request for each send/recv per quantity
-    std::vector<MPI_Request> reqs(26 * 2 * nQuants);
-    auto ri = reqs.begin();
-    double startIsend;
-    // issue Isends
-    {
-      nvtxRangePush("isend");
-      startIsend = MPI_Wtime();
-      for (int qi = 0; qi < nQuants; ++qi) {
-        int position = 0;
-        for (auto &kv : nbrSendType) {
-          const int dest = kv.first;
-          for (size_t ti = 0; ti < kv.second.size(); ++ti) {
-            const MPI_Datatype ty = kv.second[ti];
-            // at most 26 messages to another rank per quantity
-            const int tag = ti + qi * 26;
+    // substeps
+    for (int si = 0; si < 3; ++si) {
+
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      // one request for each send/recv per quantity
+      std::vector<MPI_Request> reqs(26 * 2 * nQuants);
+      auto ri = reqs.begin();
+      double start = MPI_Wtime();
+      // issue Isends
+      {
+        nvtxRangePush("isend");
+        for (int qi = 0; qi < nQuants; ++qi) {
+          int position = 0;
+          for (auto &kv : nbrSendType) {
+            const int dest = kv.first;
+            for (size_t ti = 0; ti < kv.second.size(); ++ti) {
+              const MPI_Datatype ty = kv.second[ti];
+              // at most 26 messages to another rank per quantity
+              const int tag = ti + qi * 26;
 
 #if 0
             if (0 == rank) {
@@ -883,24 +885,24 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nQuants, int radius,
             }
 #endif
 
-            MPI_Isend(currs[qi].ptr, 1, ty, dest, tag, MPI_COMM_WORLD,
-                      &(*ri++));
+              MPI_Isend(currs[qi].ptr, 1, ty, dest, tag, MPI_COMM_WORLD,
+                        &(*ri++));
+            }
           }
         }
+        nvtxRangePop();
       }
-      nvtxRangePop();
-    }
 
-    // issue Irecv
-    {
-      nvtxRangePush("irecv");
-      for (int qi = 0; qi < nQuants; ++qi) {
-        int position = 0;
-        for (auto &kv : nbrRecvType) {
-          const int source = kv.first;
-          for (size_t ti = 0; ti < kv.second.size(); ++ti) {
-            const MPI_Datatype ty = kv.second[ti];
-            const int tag = ti + qi * 26;
+      // issue Irecv
+      {
+        nvtxRangePush("irecv");
+        for (int qi = 0; qi < nQuants; ++qi) {
+          int position = 0;
+          for (auto &kv : nbrRecvType) {
+            const int source = kv.first;
+            for (size_t ti = 0; ti < kv.second.size(); ++ti) {
+              const MPI_Datatype ty = kv.second[ti];
+              const int tag = ti + qi * 26;
 
 #if 0
             if (1 == rank) {
@@ -911,23 +913,28 @@ BenchResult bench_isir(MPI_Comm comm, const int3 ext, int nQuants, int radius,
             }
 #endif
 
-            MPI_Irecv(currs[qi].ptr, 1, ty, source, tag, MPI_COMM_WORLD,
-                      &(*ri++));
+              MPI_Irecv(currs[qi].ptr, 1, ty, source, tag, MPI_COMM_WORLD,
+                        &(*ri++));
+            }
           }
         }
+        nvtxRangePop();
       }
-      nvtxRangePop();
+
+      // wait
+      {
+        nvtxRangePush("wait");
+        for (MPI_Request &r : reqs) {
+          MPI_Wait(&r, MPI_STATUS_IGNORE);
+        }
+        nvtxRangePop();
+      }
+      exchTime += MPI_Wtime() - start;
     }
 
-    // wait
-    {
-      nvtxRangePush("wait");
-      for (MPI_Request &r : reqs) {
-        MPI_Wait(&r, MPI_STATUS_IGNORE);
-      }
-      nvtxRangePop();
-      result.exch.insert(MPI_Wtime() - startIsend);
-    }
+    MPI_Allreduce(MPI_IN_PLACE, &exchTime, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+    result.exch.insert(exchTime);
   }
 
   for (cudaPitchedPtr &cpp : currs) {
@@ -972,10 +979,12 @@ int main(int argc, char **argv) {
     std::cout << std::flush;
   }
 
+#if 0
   BenchResult result =
       bench_neighbor_alltoallv(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
-  // BenchResult result = bench_isir(MPI_COMM_WORLD, ext, nQuants, radius,
-  // nIters);
+#else
+  BenchResult result = bench_isir(MPI_COMM_WORLD, ext, nQuants, radius, nIters);
+#endif
 
   double pack, alltoallv, unpack, comm;
 
