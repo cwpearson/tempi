@@ -15,6 +15,7 @@ Packer1D::Packer1D(unsigned off, unsigned extent)
 
 void Packer1D::launch_pack(void *outbuf, int *position, const void *inbuf,
                            const int incount, cudaStream_t stream) const {
+  TEMPI_COUNTER_OP(pack1d, NUM_PACKS, ++);
   assert(position);
   assert(outbuf);
   assert(inbuf);
@@ -32,6 +33,7 @@ void Packer1D::launch_pack(void *outbuf, int *position, const void *inbuf,
 
 void Packer1D::launch_unpack(const void *inbuf, int *position, void *outbuf,
                              const int outcount, cudaStream_t stream) const {
+  TEMPI_COUNTER_OP(pack1d, NUM_UNPACKS, ++);
   assert(position);
   assert(outbuf);
   assert(inbuf);

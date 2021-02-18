@@ -19,6 +19,7 @@ namespace counters {
 /*extern*/ Isend isend;
 /*extern*/ LibCalls libCalls;
 /*extern*/ Modeling modeling;
+/*extern*/ Pack1d pack1d;
 /*extern*/ Pack2d pack2d;
 /*extern*/ Pack3d pack3d;
 /*extern*/ Recv recv;
@@ -83,6 +84,8 @@ void finalize() {
       LOG_DEBUG("irecv::num_oneshot: " << TEMPI_COUNTER(irecv, NUM_ONESHOT));
       LOG_DEBUG("irecv::num_device: " << TEMPI_COUNTER(irecv, NUM_DEVICE));
 
+      LOG_DEBUG("pack1d::num_packs:    " << TEMPI_COUNTER(pack1d, NUM_PACKS));
+      LOG_DEBUG("pack1d::num_unpacks:  " << TEMPI_COUNTER(pack1d, NUM_UNPACKS));
       LOG_DEBUG("pack2d::num_packs:    " << TEMPI_COUNTER(pack2d, NUM_PACKS));
       LOG_DEBUG("pack2d::num_unpacks:  " << TEMPI_COUNTER(pack2d, NUM_UNPACKS));
       LOG_DEBUG("pack3d::num_packs:    " << TEMPI_COUNTER(pack3d, NUM_PACKS));

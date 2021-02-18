@@ -41,6 +41,11 @@ struct Modeling {
   double WALL_TIME;
 };
 
+struct Pack1d {
+  unsigned NUM_PACKS;
+  unsigned NUM_UNPACKS;
+};
+
 struct Pack2d {
   unsigned NUM_PACKS;
   unsigned NUM_UNPACKS;
@@ -86,6 +91,7 @@ extern Allocator hostAllocator;
 extern CUDArt cudart;
 extern LibCalls libCalls;
 extern Modeling modeling;
+extern Pack1d pack1d;
 extern Pack2d pack2d;
 extern Pack3d pack3d;
 extern Send send;
