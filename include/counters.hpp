@@ -20,6 +20,21 @@ struct Allocator {
   uint64_t MAX_USAGE;
 };
 
+struct CUDArt {
+  double LAUNCH_TIME;
+  double EVENT_RECORD_TIME;
+  double EVENT_QUERY_TIME;
+  double EVENT_SYNC_TIME;
+  double STREAM_SYNC_TIME;
+  double MEMCPY_ASYNC_TIME;
+  unsigned LAUNCH_NUM;
+  unsigned EVENT_RECORD_NUM;
+  unsigned EVENT_QUERY_NUM;
+  unsigned EVENT_SYNC_NUM;
+  unsigned STREAM_SYNC_NUM;
+  unsigned MEMCPY_ASYNC_NUM;
+};
+
 struct Modeling {
   unsigned CACHE_MISS;
   unsigned CACHE_HIT;
@@ -66,12 +81,13 @@ struct LibCalls {
   double SEND_INIT_TIME;
 };
 
+extern Allocator deviceAllocator;
+extern Allocator hostAllocator;
+extern CUDArt cudart;
 extern LibCalls libCalls;
 extern Modeling modeling;
 extern Pack2d pack2d;
 extern Pack3d pack3d;
-extern Allocator deviceAllocator;
-extern Allocator hostAllocator;
 extern Send send;
 extern Recv recv;
 extern Isend isend;

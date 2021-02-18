@@ -14,6 +14,7 @@ namespace counters {
 
 /*extern*/ Allocator deviceAllocator;
 /*extern*/ Allocator hostAllocator;
+/*extern*/ CUDArt cudart;
 /*extern*/ Irecv irecv;
 /*extern*/ Isend isend;
 /*extern*/ LibCalls libCalls;
@@ -86,6 +87,29 @@ void finalize() {
       LOG_DEBUG("pack2d::num_unpacks:  " << TEMPI_COUNTER(pack2d, NUM_UNPACKS));
       LOG_DEBUG("pack3d::num_packs:    " << TEMPI_COUNTER(pack3d, NUM_PACKS));
       LOG_DEBUG("pack3d::num_unpacks:  " << TEMPI_COUNTER(pack3d, NUM_UNPACKS));
+
+      LOG_DEBUG("cudart::launch_time:" << TEMPI_COUNTER(cudart, LAUNCH_TIME));
+      LOG_DEBUG("cudart::launch_num:" << TEMPI_COUNTER(cudart, LAUNCH_NUM));
+      LOG_DEBUG("cudart::event_record_time:"
+                << TEMPI_COUNTER(cudart, EVENT_RECORD_TIME));
+      LOG_DEBUG("cudart::event_record_num:" << TEMPI_COUNTER(cudart,
+                                                             EVENT_RECORD_NUM));
+      LOG_DEBUG("cudart::event_query_time:" << TEMPI_COUNTER(cudart,
+                                                             EVENT_QUERY_TIME));
+      LOG_DEBUG(
+          "cudart::event_query_num:" << TEMPI_COUNTER(cudart, EVENT_QUERY_NUM));
+      LOG_DEBUG(
+          "cudart::event_sync_time:" << TEMPI_COUNTER(cudart, EVENT_SYNC_TIME));
+      LOG_DEBUG(
+          "cudart::event_sync_num:" << TEMPI_COUNTER(cudart, EVENT_SYNC_NUM));
+      LOG_DEBUG("cudart::stream_sync_time:" << TEMPI_COUNTER(cudart,
+                                                             STREAM_SYNC_TIME));
+      LOG_DEBUG(
+          "cudart::stream_sync_num:" << TEMPI_COUNTER(cudart, STREAM_SYNC_NUM));
+      LOG_DEBUG("cudart::memcpy_async_time:"
+                << TEMPI_COUNTER(cudart, MEMCPY_ASYNC_TIME));
+      LOG_DEBUG("cudart::memcpy_async_num:" << TEMPI_COUNTER(cudart,
+                                                             MEMCPY_ASYNC_NUM));
     }
     MPI_Barrier(MPI_COMM_WORLD);
   }

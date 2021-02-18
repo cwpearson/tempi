@@ -95,7 +95,8 @@ BenchResult bench(MPI_Datatype ty,  // message datatype
   }
 
   // type is send back and forth
-  return BenchResult{.bytes = typeSize * count, .pingPongTime = stats.trimean()};
+  return BenchResult{.bytes = typeSize * count,
+                     .pingPongTime = stats.trimean()};
 }
 
 struct Factory1D {
@@ -105,7 +106,6 @@ struct Factory1D {
 
 int main(int argc, char **argv) {
 
-  environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
   // run on only ranks 0 and 1
@@ -118,28 +118,28 @@ int main(int argc, char **argv) {
 
   int nIters;
   std::vector<int64_t> totals;
-  std::vector<bool> hosts{true, false};
+  std::vector<bool> hosts{false};
 
   /* 1D types
    */
 
-  nIters = 200;
-
+  nIters = 20;
 
   if (0 == rank) {
     std::cout << "desc,host,B/rank,B,elapsed (s),bandwidth/rank "
                  "(MiB/s), bandwidth agg (MiB/s)\n";
   }
 
-  totals = {1,     2,       4,       8,       16,      32,      64,    128,
-            256,   512,     1024,    1 << 11, 4096,    1 << 13, 16384, 1 << 15,
-            65536, 98304, 1 << 17, 1 << 18, 393216, 1 << 19, 1 << 20, 1 << 21, 1 << 24};
+  totals = {1,       2,       4,       8,      16,      32,      64,
+            128,     256,     512,     1024,   1 << 11, 4096,    1 << 13,
+            16384,   1 << 15, 65536,   98304,  1 << 17, 1 << 18, 393216,
+            1 << 19, 1 << 20, 1 << 21, 1 << 24};
+  totals = {1 << 21, 1 << 24};
 
   for (bool host : hosts) {
     for (int total : totals) {
 
-      std::string s = std::to_string(host) + "|" + 
-          std::to_string(total);
+      std::string s = std::to_string(host) + "|" + std::to_string(total);
 
       if (0 == rank) {
         std::cout << s;
@@ -154,8 +154,11 @@ int main(int argc, char **argv) {
       nvtxRangePop();
       if (0 == rank) {
         std::cout << "," << result.pingPongTime / 2;
-        std::cout << "," << 2 * result.bytes / 1024.0 / 1024.0 / result.pingPongTime;
-        std::cout << "," << result.bytes * size / 1024.0 / 1024.0 / result.pingPongTime;
+        std::cout << ","
+                  << 2 * result.bytes / 1024.0 / 1024.0 / result.pingPongTime;
+        std::cout << ","
+                  << result.bytes * size / 1024.0 / 1024.0 /
+                         result.pingPongTime;
         std::cout << "\n";
         std::cout << std::flush;
       }

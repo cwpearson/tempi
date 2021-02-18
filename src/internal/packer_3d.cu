@@ -83,9 +83,14 @@ void Packer3D::launch_pack(void *outbuf, int *position, const void *inbuf,
   LOG_SPEW("launch_pack offset=" << offset_);
   inbuf = static_cast<const char *>(inbuf) + offset_;
   outbuf = static_cast<char *>(outbuf) + *position;
+
+  TEMPI_COUNTER_OP(cudart, LAUNCH_NUM, ++);
+  TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
   packfn_<<<gd_, bd_, 0, stream>>>(outbuf, inbuf, incount, blockLength_,
                                    count_[0], stride_[0], count_[1], stride_[1],
                                    extent_);
+  TEMPI_COUNTER_OP(cudart, LAUNCH_TIME, += MPI_Wtime() - start);
+
   CUDA_RUNTIME(cudaGetLastError());
   assert(position);
   (*position) += incount * count_[1] * count_[0] * blockLength_;
@@ -96,9 +101,13 @@ void Packer3D::launch_unpack(const void *inbuf, int *position, void *outbuf,
   TEMPI_COUNTER_OP(pack3d, NUM_UNPACKS, ++);
   outbuf = static_cast<char *>(outbuf) + offset_;
   inbuf = static_cast<const char *>(inbuf) + *position;
+
+  TEMPI_COUNTER_OP(cudart, LAUNCH_NUM, ++);
+  TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
   unpackfn_<<<gd_, bd_, 0, stream>>>(outbuf, inbuf, outcount, blockLength_,
                                      count_[0], stride_[0], count_[1],
                                      stride_[1], extent_);
+  TEMPI_COUNTER_OP(cudart, LAUNCH_TIME, += MPI_Wtime() - start);
 
   CUDA_RUNTIME(cudaGetLastError());
   assert(position);
@@ -110,7 +119,10 @@ void Packer3D::pack_async(void *outbuf, int *position, const void *inbuf,
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
   if (event) {
+    TEMPI_COUNTER_OP(cudart, EVENT_RECORD_NUM, ++);
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
     CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+    TEMPI_COUNTER_OP(cudart, EVENT_RECORD_TIME, += MPI_Wtime() - start);
   }
 }
 
@@ -119,7 +131,10 @@ void Packer3D::unpack_async(const void *inbuf, int *position, void *outbuf,
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
   if (event) {
+    TEMPI_COUNTER_OP(cudart, EVENT_RECORD_NUM, ++);
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
     CUDA_RUNTIME(cudaEventRecord(event, info.stream));
+    TEMPI_COUNTER_OP(cudart, EVENT_RECORD_TIME, += MPI_Wtime() - start);
   }
 }
 
@@ -128,12 +143,18 @@ void Packer3D::pack(void *outbuf, int *position, const void *inbuf,
                     const int incount) const {
   LaunchInfo info = pack_launch_info(inbuf);
   launch_pack(outbuf, position, inbuf, incount, info.stream);
+  TEMPI_COUNTER_OP(cudart, STREAM_SYNC_NUM, ++);
+  TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
+  TEMPI_COUNTER_OP(cudart, STREAM_SYNC_TIME, += MPI_Wtime() - start);
 }
 
 void Packer3D::unpack(const void *inbuf, int *position, void *outbuf,
                       const int outcount) const {
   LaunchInfo info = unpack_launch_info(outbuf);
   launch_unpack(inbuf, position, outbuf, outcount, info.stream);
+  TEMPI_COUNTER_OP(cudart, STREAM_SYNC_NUM, ++);
+  TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
   CUDA_RUNTIME(cudaStreamSynchronize(info.stream));
+  TEMPI_COUNTER_OP(cudart, STREAM_SYNC_TIME, += MPI_Wtime() - start);
 }

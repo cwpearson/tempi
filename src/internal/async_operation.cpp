@@ -16,9 +16,9 @@
 #include "symbols.hpp"
 #include "topology.hpp"
 
-#include <unordered_map>
 #include <memory>
 #include <numeric> // iota
+#include <unordered_map>
 
 //#define USE_NVTX
 #ifdef USE_NVTX
@@ -155,7 +155,12 @@ public:
     NVTX_MARK("Isend::wake()");
     switch (state_) {
     case State::CUDA: {
-      cudaError_t err = cudaEventQuery(event_);
+
+    TEMPI_COUNTER_OP(cudart, EVENT_QUERY_NUM, ++);
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
+    cudaError_t err = cudaEventQuery(event_);
+    TEMPI_COUNTER_OP(cudart, EVENT_QUERY_TIME, += MPI_Wtime() - start);
+
       if (cudaSuccess == err) {
         NVTX_MARK("Isend:: CUDA->MPI");
         LOG_SPEW(
@@ -314,7 +319,10 @@ public:
     while (state_ != State::CUDA) {
       wake();
     }
+    TEMPI_COUNTER_OP(cudart, EVENT_SYNC_NUM, ++);
+    TEMPI_COUNTER_EXPR(double start = MPI_Wtime());
     CUDA_RUNTIME(cudaEventSynchronize(event_));
+    TEMPI_COUNTER_OP(cudart, EVENT_SYNC_TIME, += MPI_Wtime() - start);
     return MPI_SUCCESS;
   }
 
