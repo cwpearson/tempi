@@ -362,6 +362,37 @@ Type traverse(MPI_Datatype datatype) {
   }
 };
 
+/*
+  if there are two stream data, ensure the larger extent is higher up
+*/
+bool stream_swap(Type &type) {
+
+  bool changed = false;
+
+  // only works if I'm a stream and my child is stream
+  if (!std::holds_alternative<StreamData>(type.data)) {
+    return false;
+  }
+  assert(1 == type.children().size());
+  Type &child = type.children()[0];
+  if (!std::holds_alternative<StreamData>(child.data)) {
+    return false;
+  }
+
+  StreamData &pData = std::get<StreamData>(type.data);
+  StreamData &cData = std::get<StreamData>(child.data);
+
+  if (pData.stride < cData.stride) {
+    changed = true;
+    std::swap(pData, cData);
+  }
+
+  // descend into child
+  changed |= stream_swap(child);
+
+  return changed;
+}
+
 /* if a stream has a dense child, and that stream's stride is the same as the
    child's extent, then the stream is also dense
 */
@@ -409,6 +440,7 @@ bool stream_dense_fold(Type &type) {
 
 /* if nested streams, if the child count is 1, the parent's
 elements are just the child's element
+
  */
 bool stream_elision(Type &type) {
 
@@ -437,6 +469,37 @@ bool stream_elision(Type &type) {
     // delete the child (only 1 child) and replace with granchildren
     std::vector<Type> gchildren = child.children();
     type.children() = gchildren;
+  }
+
+  return changed;
+}
+
+/* if a stream has count 1, it can be removed
+
+ */
+bool stream_elision2(Type &type) {
+
+  bool changed = false;
+
+  // try to remove all size 1 children first
+  for (Type &child : type.children()) {
+    changed |= stream_elision2(child);
+  }
+
+  // type must be StreamData
+  if (!std::holds_alternative<StreamData>(type.data)) {
+    return false;
+  }
+  assert(1 == type.children().size());
+
+  const StreamData &tData = std::get<StreamData>(type.data);
+
+  if (1 == tData.count) {
+    changed = true;
+    // replace this guy with his child
+    Type child = type.children()[0];
+    child.extent = type.extent;
+    type = child;
   }
 
   return changed;
@@ -505,15 +568,34 @@ Type simplify(const Type &type) {
     changed = false;
     ++iter;
     LOG_SPEW("optimization iter " << iter);
+
+    /* new, less-tested swapper with new stream elision
+       if problems, remove the swap and go to stream_elision
+    */
+    changed |= stream_swap(simp);
+    LOG_SPEW("after stream_swap");
+    LOG_SPEW("\n" + simp.str());
     changed |= stream_dense_fold(simp);
     LOG_SPEW("after stream_dense_fold");
     LOG_SPEW("\n" + simp.str());
     changed |= stream_flatten(simp);
     LOG_SPEW("after stream_flatten");
     LOG_SPEW("\n" + simp.str());
-    changed |= stream_elision(simp);
-    LOG_SPEW("after stream_elision");
+    changed |= stream_elision2(simp);
+    LOG_SPEW("after stream_elision2");
     LOG_SPEW("\n" + simp.str());
+  }
+
+  /* TODO
+     Here, we sort by the stride after doing canonicalization
+
+  */
+
+  changed = true;
+  while (changed) {
+    changed = false;
+    ++iter;
+    LOG_SPEW("sort iter " << iter);
   }
 
   LOG_SPEW("simplify done. " << iter << " iterations");

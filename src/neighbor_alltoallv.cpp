@@ -11,7 +11,7 @@
 
 extern "C" int MPI_Neighbor_alltoallv(PARAMS_MPI_Neighbor_alltoallv) {
   if (environment::noTempi) {
-    return libmpi.MPI_Neighbor_alltoallv(ARGS_MPI_Alltoallv);
+    return libmpi.MPI_Neighbor_alltoallv(ARGS_MPI_Neighbor_alltoallv);
   }
 
       /* this call does not take ranks, so there is no need to handle

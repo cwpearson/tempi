@@ -68,6 +68,22 @@ MPI_Datatype make_2d_byte_subarray(const int64_t numBlocks,
                                    const int64_t blockLength,
                                    const int64_t stride);
 
+
+// make a 2d type by rows of blocks, then a stack of rows
+MPI_Datatype make_2d_hv_by_rows(int blockSize, int c1,
+                                int s1, // stride between blocks
+                                int c2,
+                                int s2 // stride between rows
+);
+
+// make a 2d type by a column of blocks, and then a stack of columns.
+MPI_Datatype make_2d_hv_by_cols(int blockSize, int c1,
+                                int s1, // stride between blocks
+                                int c2,
+                                int s2 // stride between rows
+);
+
+
 // n contiguous bytes
 typedef MPI_Datatype (*TypeFactory1D)(int n);
 MPI_Datatype make_contiguous_byte_v1(int n);

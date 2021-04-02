@@ -241,6 +241,38 @@ MPI_Datatype make_2d_byte_subarray(const int64_t numBlocks,
   return ty;
 }
 
+// make a 2d type by rows of blocks, then a stack of rows
+MPI_Datatype make_2d_hv_by_rows(int blockSize, int c1,
+                                int s1, // stride between blocks
+                                int c2,
+                                int s2 // stride between rows
+) {
+
+  MPI_Datatype bytes, row, ret;
+
+  MPI_Type_contiguous(blockSize, MPI_BYTE, &bytes);
+  MPI_Type_create_hvector(c1, 1, s1, bytes, &row);
+  MPI_Type_create_hvector(c2, 1, s2, row, &ret);
+
+  return ret;
+}
+
+// make a 2d type by a column of blocks, and then a stack of columns.
+MPI_Datatype make_2d_hv_by_cols(int blockSize, int c1,
+                                int s1, // stride between blocks
+                                int c2,
+                                int s2 // stride between rows
+) {
+
+  MPI_Datatype bytes, col, ret;
+
+  MPI_Type_contiguous(blockSize, MPI_BYTE, &bytes);
+  MPI_Type_create_hvector(c2, 1, s2, bytes, &col);
+  MPI_Type_create_hvector(c1, 1, s1, col, &ret);
+
+  return ret;
+}
+
 /*1D layouts
  */
 

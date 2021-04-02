@@ -164,6 +164,33 @@ int main(int argc, char **argv) {
     REQUIRE(size == copyExt.flatten());
   }
 
+  {
+    std::cerr << "TEST: by rows / by cols for MPI equivalence\n";
+    MPI_Datatype t1 = make_2d_hv_by_rows(13, 3, 16, 5, 53);
+    MPI_Datatype t2 = make_2d_hv_by_cols(13, 3, 16, 5, 53);
+    MPI_Type_commit(&t1);
+    MPI_Type_commit(&t2);
+
+    {
+      int size;
+      MPI_Type_size(t1, &size);
+      REQUIRE(size == 15 * 13);
+      MPI_Type_size(t2, &size);
+      REQUIRE(size == 15 * 13);
+    }
+
+    {
+      MPI_Aint lb, ext;
+      MPI_Type_get_extent(t1, &lb, &ext);
+      REQUIRE(ext == 53 * 4 + 16 * 2 + 13);
+      MPI_Type_get_extent(t2, &lb, &ext);
+      REQUIRE(ext == 53 * 4 + 16 * 2 + 13);
+    }
+
+    MPI_Type_free(&t1);
+    MPI_Type_free(&t2);
+  }
+
   MPI_Finalize();
 
   unsetenv("TEMPI_DISABLE");

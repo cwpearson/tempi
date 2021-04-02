@@ -13,6 +13,20 @@ int main(int argc, char **argv) {
   environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
+  {
+    std::cerr << "TEST: make_2d_hv_by_rows\n";
+    MPI_Datatype ty = make_2d_hv_by_rows(13, 5, 16, 3, 53);
+    MPI_Type_commit(&ty);
+  }
+
+  {
+    std::cerr << "TEST: make_2d_hv_by_cols\n";
+    MPI_Datatype ty = make_2d_hv_by_cols(13, 5, 16, 3, 53);
+    MPI_Type_commit(&ty);
+  }
+  // MPI_Finalize();
+  // exit(0);
+
   Dim3 copyExt = {.x = 100, .y = 13, .z = 47};
   Dim3 allocExt = {.x = 256, .y = 512, .z = 1024};
 
@@ -24,7 +38,7 @@ int main(int argc, char **argv) {
 
   {
     std::cerr << "TEST: MPI_Type_create_subarray\n";
-    MPI_Datatype ty = make_off_subarray(copyExt, allocExt, Dim3(4,4,4));
+    MPI_Datatype ty = make_off_subarray(copyExt, allocExt, Dim3(4, 4, 4));
     MPI_Type_commit(&ty);
   }
 
