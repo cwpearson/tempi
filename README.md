@@ -58,6 +58,12 @@ make test
 ```
 
 If some tests fail, ensure you are using a CUDA-aware MPI implementation.
+More verbose test output can be found with
+
+```
+ctest -V
+```
+
 `cmake` will print the MPI implementation TEMPI is using.
 If you need to find a different MPI:
 
@@ -271,6 +277,16 @@ This probably means that your program crashed with active asynchronous operation
 * I see something like `FATAL[...]{...} Tried to free memory not from this allocator. Please report this.`
 
 This is an internal TEMPI error, and should be reported. In the mean time, see the [knobs](#knobs) to disable the optimization in question.
+
+## Sandia Vortex
+
+```
+bsub -W 9:00 -nnodes 1 --shared-launch -Is bash
+. load-env.sh
+```
+
+**run a tests on 2 ranks**
+jsrun -n 2 --smpiargs="-gpu" /ascldap/users/cwpears/repos/tempi/build-vortex/test/send
 
 ## OLCF Summit
 
