@@ -42,12 +42,14 @@ add_test(NAME type_equivalence COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_F
 pmpi_test_exe(init_finalize init_finalize.cpp)
 add_test(NAME init_finalize COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${CMAKE_CURRENT_BINARY_DIR}/init_finalize)
 
+if(TEMPI_ENABLE_KAHIP)
 pmpi_test_exe(partition_kahip partition_kahip.cpp)
 add_test(NAME partition_kahip COMMAND ${CMAKE_CURRENT_BINARY_DIR}/partition_kahip)
 
 # KaHIP process mapping often returns unbalanced partitions
 pmpi_test_exe(partition_kahip_process_mapping partition_kahip_process_mapping.cpp)
 add_test(NAME partition_kahip_process_mapping COMMAND ${CMAKE_CURRENT_BINARY_DIR}/partition_kahip_process_mapping)
+endif()
 
 pmpi_test_exe(type_commit type_commit.cpp)
 add_test(NAME type_commit COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 1 ${CMAKE_CURRENT_BINARY_DIR}/type_commit)
