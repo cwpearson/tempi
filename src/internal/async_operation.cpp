@@ -50,7 +50,7 @@ public:
 std::unordered_map<MPI_Request, std::unique_ptr<AsyncOperation>> active;
 
 // how to implement the send
-SystemPerformance::SendNonContigNd::MethodCache methodCache;
+tempi::system::Performance::SendNonContigNd::MethodCache methodCache;
 
 /*
 Manages the state of a particular Isend
@@ -70,8 +70,8 @@ TODO: this is probably worth doing ultimately.
 */
 class Isend : public AsyncOperation {
 public:
-  using Method = SystemPerformance::SendNonContigNd::Method;
-  using Args = SystemPerformance::SendNonContigNd::Args;
+  using Method = tempi::system::Performance::SendNonContigNd::Method;
+  using Args = tempi::system::Performance::SendNonContigNd::Args;
 
 private:
   Packer &packer_;
@@ -170,10 +170,10 @@ public:
         {
           TEMPI_COUNTER_OP(libCalls, START_NUM, ++);
 #ifdef TEMPI_ENABLE_COUNTERS
-          double start = MPI_Wtime();
+          double startMpiStart = MPI_Wtime();
 #endif
           const int merr = libmpi.MPI_Start(&request_);
-          TEMPI_COUNTER_OP(libCalls, START_TIME, += MPI_Wtime() - start);
+          TEMPI_COUNTER_OP(libCalls, START_TIME, += MPI_Wtime() - startMpiStart);
           return merr;
         }
       } else if (cudaErrorNotReady == err) {
@@ -210,8 +210,8 @@ CUDA - the CUDA transfer is active or completion is not detected yet
 */
 class Irecv : public AsyncOperation {
 public:
-  using Method = SystemPerformance::SendNonContigNd::Method;
-  using Args = SystemPerformance::SendNonContigNd::Args;
+  using Method = tempi::system::Performance::SendNonContigNd::Method;
+  using Args = tempi::system::Performance::SendNonContigNd::Args;
 
 private:
   Packer &packer_;
@@ -349,8 +349,8 @@ void start_isend(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Isend) {
     auto it = methodCache.find(args);
     if (methodCache.end() == it) {
       TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
-      nonstd::optional<double> d = systemPerformance.model_device(args);
-      nonstd::optional<double> o = systemPerformance.model_oneshot(args);
+      nonstd::optional<double> d = tempi::system::performance.model_device(args);
+      nonstd::optional<double> o = tempi::system::performance.model_oneshot(args);
       if (!o || !d) {
         method = Isend::Method::UNKNOWN;
       } else if (*o < *d) {
@@ -406,8 +406,8 @@ void start_irecv(const StridedBlock &sb, Packer &packer, PARAMS_MPI_Irecv) {
     auto it = methodCache.find(args);
     if (methodCache.end() == it) {
       TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
-      nonstd::optional<double> d = systemPerformance.model_device(args);
-      nonstd::optional<double> o = systemPerformance.model_oneshot(args);
+      nonstd::optional<double> d = tempi::system::performance.model_device(args);
+      nonstd::optional<double> o = tempi::system::performance.model_oneshot(args);
       if (!o || !d) {
         method = Isend::Method::UNKNOWN;
       } else if (*o < *d) {

@@ -18,17 +18,22 @@ using json = nlohmann::json;
 #include <filesystem>
 #include <fstream>
 
-void to_json(json &j, const IidTime &p) {
+
+
+namespace tempi {
+namespace system {
+
+void to_json(json &j, const tempi::system::IidTime &p) {
   j["time"] = p.time;
   j["iid"] = p.iid;
 }
-void from_json(const json &j, IidTime &p) {
+void from_json(const json &j, tempi::system::IidTime &p) {
   j.at("time").get_to(p.time);
   j.at("iid").get_to(p.iid);
 }
 
 // === SystemPerformance ===
-void to_json(json &j, const SystemPerformance &p) {
+void to_json(json &j, const tempi::system::Performance &p) {
   j["intraNodeCpuCpuPingpong"] = p.intraNodeCpuCpuPingpong;
   j["intraNodeGpuGpuPingpong"] = p.intraNodeGpuGpuPingpong;
   j["interNodeCpuCpuPingpong"] = p.interNodeCpuCpuPingpong;
@@ -41,7 +46,7 @@ void to_json(json &j, const SystemPerformance &p) {
   j["packHost"] = p.packHost;
   j["unpackHost"] = p.unpackHost;
 }
-void from_json(const json &j, SystemPerformance &p) {
+void from_json(const json &j, tempi::system::Performance &p) {
   j.at("intraNodeCpuCpuPingpong").get_to(p.intraNodeCpuCpuPingpong);
   j.at("intraNodeGpuGpuPingpong").get_to(p.intraNodeGpuGpuPingpong);
   j.at("interNodeCpuCpuPingpong").get_to(p.interNodeCpuCpuPingpong);
@@ -55,7 +60,8 @@ void from_json(const json &j, SystemPerformance &p) {
   j.at("unpackHost").get_to(p.unpackHost);
 }
 
-nonstd::optional<double> SystemPerformance::contig_d2h(int64_t bytes) const {
+
+nonstd::optional<double> Performance::contig_d2h(int64_t bytes) const {
   if (d2h.empty()) {
     return nonstd::nullopt;
   } else {
@@ -64,41 +70,41 @@ nonstd::optional<double> SystemPerformance::contig_d2h(int64_t bytes) const {
 }
 
 nonstd::optional<double>
-SystemPerformance::pack_host_noncontig(int64_t bytes,
+Performance::pack_host_noncontig(int64_t bytes,
                                        int64_t blockLength) const {
   return interp_2d_opt(packHost, bytes, blockLength);
 }
 nonstd::optional<double>
-SystemPerformance::unpack_host_noncontig(int64_t bytes,
+Performance::unpack_host_noncontig(int64_t bytes,
                                          int64_t blockLength) const {
   return interp_2d_opt(unpackHost, bytes, blockLength);
 }
 
 nonstd::optional<double>
-SystemPerformance::pack_device_noncontig(int64_t bytes,
+Performance::pack_device_noncontig(int64_t bytes,
                                          int64_t blockLength) const {
   return interp_2d_opt(packDevice, bytes, blockLength);
 }
 nonstd::optional<double>
-SystemPerformance::unpack_device_noncontig(int64_t bytes,
+Performance::unpack_device_noncontig(int64_t bytes,
                                            int64_t blockLength) const {
   return interp_2d_opt(unpackDevice, bytes, blockLength);
 }
 
 nonstd::optional<double>
-SystemPerformance::send_h2h_contig(bool colocated, int64_t bytes) const {
+Performance::send_h2h_contig(bool colocated, int64_t bytes) const {
   return interp_time_opt(
       colocated ? intraNodeCpuCpuPingpong : interNodeCpuCpuPingpong, bytes);
 }
 
 nonstd::optional<double>
-SystemPerformance::send_d2d_contig(bool colocated, int64_t bytes) const {
+Performance::send_d2d_contig(bool colocated, int64_t bytes) const {
   return interp_time_opt(
       colocated ? intraNodeGpuGpuPingpong : interNodeGpuGpuPingpong, bytes);
 }
 
-nonstd::optional<double> SystemPerformance::model_oneshot(
-    const SystemPerformance::SendNonContigNd::Args &args) const {
+nonstd::optional<double> Performance::model_oneshot(
+    const Performance::SendNonContigNd::Args &args) const {
   const nonstd::optional<double> ph =
       pack_host_noncontig(args.bytes, args.blockLength);
   const nonstd::optional<double> send =
@@ -112,8 +118,8 @@ nonstd::optional<double> SystemPerformance::model_oneshot(
   }
 }
 
-nonstd::optional<double> SystemPerformance::model_device(
-    const SystemPerformance::SendNonContigNd::Args &args) const {
+nonstd::optional<double> Performance::model_device(
+    const Performance::SendNonContigNd::Args &args) const {
   const nonstd::optional<double> pd =
       pack_device_noncontig(args.bytes, args.blockLength);
   const nonstd::optional<double> send =
@@ -131,7 +137,7 @@ nonstd::optional<double> SystemPerformance::model_device(
   }
 }
 
-bool export_system_performance(const SystemPerformance &sp) {
+bool export_performance(const Performance &sp) {
   json j = sp;
   std::string s = j.dump(2);
   LOG_INFO("ensure cacheDir " << environment::cacheDir);
@@ -151,13 +157,13 @@ bool export_system_performance(const SystemPerformance &sp) {
   return true;
 }
 
-bool import_system_performance(SystemPerformance &sp) {
+bool import_performance(Performance &sp) {
   std::filesystem::path path(environment::cacheDir);
   path /= "perf.json";
   LOG_DEBUG("open " << path);
   std::ifstream file(path);
   if (file.fail()) {
-    LOG_INFO("couldn't open " << path);
+    LOG_WARN("couldn't open " << path);
     return false;
   }
   std::stringstream ss;
@@ -166,7 +172,7 @@ bool import_system_performance(SystemPerformance &sp) {
   try {
     sp = j;
   } catch (nlohmann::detail::out_of_range &e) {
-    LOG_ERROR("error converting json to SystemPerformance: "
+    LOG_ERROR("error converting json to Performance: "
               << e.what() << " (delete and run bin/measure-performance)");
   }
   return true;
@@ -291,3 +297,6 @@ interp_2d_opt(const std::vector<std::vector<IidTime>> a, int64_t bytes,
     return f_x_y;
   }
 }
+
+} // namespace system
+} // namespace tempi

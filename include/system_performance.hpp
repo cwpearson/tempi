@@ -15,6 +15,9 @@
 #include <string>
 #include <vector>
 
+namespace tempi {
+namespace system {
+
 
 struct IidTime {
   double time;
@@ -24,7 +27,7 @@ struct IidTime {
 /* The system benchmark code and interpolation code must match how they treat
  * this data
  */
-struct SystemPerformance {
+struct Performance {
   double cudaKernelLaunch;
 
   // vec[i] is time for 2^i bytes
@@ -46,7 +49,7 @@ struct SystemPerformance {
   nonstd::optional<double> guess_global_pack(int64_t bytes, int64_t stride);
 };
 
-extern SystemPerformance systemPerformance;
+extern Performance performance;
 
 /* interpolate using a vector of bandwidth sorted by bytes
  */
@@ -58,9 +61,12 @@ double interp_2d(const std::vector<std::vector<IidTime>> a, int64_t bytes,
                  int64_t stride);
 
 // fill empty entries in sp
-void measure_system_performance(SystemPerformance &sp, MPI_Comm comm);
-bool export_system_performance(const SystemPerformance &sp);
-bool import_system_performance(SystemPerformance &sp);
+void measure_performance(Performance &sp, MPI_Comm comm);
+bool export_performance(const Performance &sp);
+bool import_performance(Performance &sp);
 
 /*try to load system performance from file*/
-void measure_system_init();
+void init();
+
+} // namespace system
+} // namespace tempi

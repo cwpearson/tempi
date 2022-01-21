@@ -23,7 +23,7 @@ int SendRecvFallback::recv(PARAMS_MPI_Recv) {
   return libmpi.MPI_Recv(ARGS_MPI_Recv);
 }
 
-double SendRecvFallback::model(const SystemPerformance &sp, bool colocated,
+double SendRecvFallback::model(const tempi::system::Performance &sp, bool colocated,
                                int64_t bytes) {
   double send = interp_time(colocated ? sp.intraNodeGpuGpuPingpong
                                       : sp.interNodeGpuGpuPingpong,
@@ -50,7 +50,7 @@ int SendRecv1DStaged::recv(PARAMS_MPI_Recv) {
   return err;
 }
 
-double SendRecv1DStaged::model(const SystemPerformance &sp, bool colocated,
+double SendRecv1DStaged::model(const tempi::system::Performance &sp, bool colocated,
                                int64_t bytes) {
   double d2h = interp_time(sp.d2h, bytes);
   double send = interp_time(colocated ? sp.intraNodeGpuGpuPingpong
@@ -63,8 +63,8 @@ double SendRecv1DStaged::model(const SystemPerformance &sp, bool colocated,
 int SendRecv1D::send(PARAMS_MPI_Send) {
   int64_t bytes = elemSize * count;
   bool colocated = is_colocated(comm, dest);
-  double sm = staged.model(systemPerformance, colocated, bytes);
-  double fm = SendRecvFallback::model(systemPerformance, colocated, bytes);
+  double sm = staged.model(tempi::system::performance, colocated, bytes);
+  double fm = SendRecvFallback::model(tempi::system::performance, colocated, bytes);
   LOG_SPEW("Sender1D::send: sm=" << sm << " fm=" << fm);
   if (sm < fm) {
     return staged.send(ARGS_MPI_Send);
@@ -76,8 +76,8 @@ int SendRecv1D::send(PARAMS_MPI_Send) {
 int SendRecv1D::recv(PARAMS_MPI_Recv) {
   int64_t bytes = elemSize * count;
   bool colocated = is_colocated(comm, source);
-  double sm = staged.model(systemPerformance, colocated, bytes);
-  double fm = SendRecvFallback::model(systemPerformance, colocated, bytes);
+  double sm = staged.model(tempi::system::performance, colocated, bytes);
+  double fm = SendRecvFallback::model(tempi::system::performance, colocated, bytes);
   if (sm < fm) {
     return staged.recv(ARGS_MPI_Recv);
   } else {
@@ -125,7 +125,7 @@ int OneshotND::recv(PARAMS_MPI_Recv) {
   return err;
 }
 
-double OneshotND::model(const SystemPerformance &sp, bool colocated,
+double OneshotND::model(const tempi::system::Performance &sp, bool colocated,
                         int64_t bytes, int64_t blockLength) {
   double ph = interp_2d(sp.packHost, bytes, blockLength);
   double send = interp_time(colocated ? sp.intraNodeCpuCpuPingpong
@@ -177,7 +177,7 @@ int DeviceND::recv(PARAMS_MPI_Recv) {
   return err;
 }
 
-double DeviceND::model(const SystemPerformance &sp, bool colocated,
+double DeviceND::model(const tempi::system::Performance &sp, bool colocated,
                        int64_t bytes, int64_t blockLength) {
   double pack = interp_2d(sp.packDevice, bytes, blockLength);
   double send = interp_time(colocated ? sp.intraNodeGpuGpuPingpong
@@ -236,7 +236,7 @@ int StagedND::recv(PARAMS_MPI_Recv) {
   return err;
 }
 
-double StagedND::model(const SystemPerformance &sp, bool colocated,
+double StagedND::model(const tempi::system::Performance &sp, bool colocated,
                        int64_t bytes, int64_t blockLength) {
   double pack = interp_2d(sp.packDevice, bytes, blockLength);
   double d2h = interp_time(sp.d2h, bytes);
@@ -260,8 +260,8 @@ int SendRecvND::send(PARAMS_MPI_Send) {
   Method method;
   if (modelChoiceCache_.end() == it) {
     TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
-    double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-    double d = device.model(systemPerformance, colocated, bytes, blockLength_);
+    double o = oneshot.model(tempi::system::performance, colocated, bytes, blockLength_);
+    double d = device.model(tempi::system::performance, colocated, bytes, blockLength_);
     // LOG_INFO("o = " << o);
     // LOG_INFO("d = " << d);
 
@@ -301,8 +301,8 @@ int SendRecvND::recv(PARAMS_MPI_Recv) {
   Method method;
   if (modelChoiceCache_.end() == it) {
     TEMPI_COUNTER_OP(modeling, CACHE_MISS, ++);
-    double o = oneshot.model(systemPerformance, colocated, bytes, blockLength_);
-    double d = device.model(systemPerformance, colocated, bytes, blockLength_);
+    double o = oneshot.model(tempi::system::performance, colocated, bytes, blockLength_);
+    double d = device.model(tempi::system::performance, colocated, bytes, blockLength_);
     if (o < d) {
       method = Method::ONESHOT;
     } else {

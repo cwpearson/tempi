@@ -34,7 +34,7 @@ public:
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
 
-  static double model(const SystemPerformance &sp, bool colocated,
+  static double model(const tempi::system::Performance &sp, bool colocated,
                       int64_t bytes);
 };
 
@@ -45,7 +45,7 @@ public:
   SendRecv1DStaged(const StridedBlock &sb) { elemSize = sb.counts[0]; }
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
-  double model(const SystemPerformance &sp, bool colocated, int64_t bytes);
+  double model(const tempi::system::Performance &sp, bool colocated, int64_t bytes);
 };
 
 /*
@@ -70,7 +70,7 @@ public:
   OneshotND(const StridedBlock &sb);
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
-  double model(const SystemPerformance &sp, bool colocated, int64_t bytes,
+  double model(const tempi::system::Performance &sp, bool colocated, int64_t bytes,
                int64_t blockLength);
 };
 
@@ -81,7 +81,7 @@ public:
   DeviceND(const StridedBlock &sb);
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
-  double model(const SystemPerformance &sp, bool colocated, int64_t bytes,
+  double model(const tempi::system::Performance &sp, bool colocated, int64_t bytes,
                int64_t blockLength);
 };
 
@@ -93,7 +93,7 @@ public:
   StagedND(const StridedBlock &sb);
   virtual int send(PARAMS_MPI_Send) override;
   virtual int recv(PARAMS_MPI_Recv) override;
-  double model(const SystemPerformance &sp, bool colocated, int64_t bytes,
+  double model(const tempi::system::Performance &sp, bool colocated, int64_t bytes,
                int64_t blockLength);
 };
 

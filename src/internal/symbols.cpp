@@ -14,9 +14,11 @@
 #define DLSYM(A)                                                               \
   {                                                                            \
     libmpi.A = nullptr;                                                        \
+    dlerror();                                                                 \
     libmpi.A = reinterpret_cast<Func_##A>(dlsym(RTLD_NEXT, #A));               \
-    if (!libmpi.A) {                                                           \
-      LOG_FATAL("unabled to load " << #A);                                     \
+    char *err = dlerror();                                                     \
+    if (nullptr != err) {                                                      \
+      LOG_FATAL("unabled to load " << #A << ": " << err);                      \
     }                                                                          \
   }
 

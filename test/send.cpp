@@ -28,11 +28,30 @@ int main(int argc, char **argv) {
     char *hostSend = new char[1024 * 1024];
     char *hostRecv = new char[1024 * 1024];
     char *deviceSend, *deviceRecv;
-    cudaMalloc(&deviceSend, 1024 * 1024);
-    cudaMalloc(&deviceRecv, 1024 * 1024);
+    cudaError_t err = cudaMalloc(&deviceSend, 1024 * 1024);
+    if (cudaSuccess != err) {
+      std::cerr << "failed to allocate device memory\n";
+      return 1;
+    }
+    err = cudaMalloc(&deviceRecv, 1024 * 1024);
+    if (cudaSuccess != err) {
+      std::cerr << "failed to allocate device memory\n";
+      return 1;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // device send/recv
+    std::cerr << "TEST: device send / recv 2\n";
+    if (0 == rank) {
+      MPI_Send(deviceSend, 1024 * 1024, MPI_BYTE, 1, 0, MPI_COMM_WORLD);
+    } else {
+      MPI_Recv(deviceRecv, 1024 * 1024, MPI_BYTE, 0, 0, MPI_COMM_WORLD,
+               MPI_STATUS_IGNORE);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // host send / recv
-    std::cerr << "TEST: host send / recv\n";
+    std::cerr << rank << "TEST: host send / recv\n";
     if (0 == rank) {
       MPI_Send(hostSend, 100, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
     } else {
@@ -42,24 +61,18 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // device send/recv
-    std::cerr << "TEST: device send / recv\n";
+    std::cerr << rank << " TEST: device send / recv 1\n";
     if (0 == rank) {
       MPI_Send(deviceSend, 100, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
+      std::cerr << rank << " returned from MPI_Send\n";
     } else {
       MPI_Recv(deviceRecv, 100, MPI_FLOAT, 0, 0, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
+              MPI_STATUS_IGNORE);
+      std::cerr << rank << " returned from MPI_Recv\n";
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // device send/recv
-    std::cerr << "TEST: device send / recv\n";
-    if (0 == rank) {
-      MPI_Send(deviceSend, 1024 * 1024, MPI_BYTE, 1, 0, MPI_COMM_WORLD);
-    } else {
-      MPI_Recv(deviceRecv, 1024 * 1024, MPI_BYTE, 0, 0, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
+
     std::cerr << "done tests\n";
 
     delete[] hostSend;

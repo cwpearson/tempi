@@ -19,16 +19,16 @@ int main(int argc, char **argv) {
     MPI_Finalize();
     return -1;
   }
-  SystemPerformance sp{};
+  tempi::system::Performance sp{};
   // all ranks import existing measurements
-  import_system_performance(sp);
+  tempi::system::import_performance(sp);
 
   // complete possible missing entries
-  measure_system_performance(sp, MPI_COMM_WORLD);
+  tempi::system::measure_performance(sp, MPI_COMM_WORLD);
 
   // re-export
   if (0 == rank) {
-    export_system_performance(sp);
+    tempi::system::export_performance(sp);
   }
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();

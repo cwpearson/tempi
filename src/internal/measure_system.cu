@@ -23,9 +23,13 @@ typedef std::chrono::high_resolution_clock Clock;
 typedef std::chrono::duration<double> Duration;
 typedef std::chrono::time_point<Clock, Duration> Time;
 
-/*extern*/ SystemPerformance systemPerformance;
+namespace tempi {
+namespace system {
 
-void measure_system_init() { import_system_performance(systemPerformance); }
+/*extern*/ Performance performance;
+/*extern*/ bool enabled = false;
+
+void init() { enabled = import_performance(performance); }
 
 
 
@@ -374,7 +378,7 @@ public:
 
 /* fill any missing entries in sp
  */
-void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
+void measure_performance(Performance &sp, MPI_Comm comm) {
 
   using topology::node_of_rank;
 
@@ -604,3 +608,6 @@ void measure_system_performance(SystemPerformance &sp, MPI_Comm comm) {
     }
   }
 }
+
+} // namespace system
+} // namespace tempi

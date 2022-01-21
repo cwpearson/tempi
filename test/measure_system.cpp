@@ -10,7 +10,7 @@
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
-  std::vector<IidTime> v{{2, false}, {4, false}, {8, false}, {16, false}};
+  std::vector<tempi::system::IidTime> v{{2, false}, {4, false}, {8, false}, {16, false}};
 
   {
     double r = interp_time(v, 1);
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
   }
 
   // clang-format off
-  std::vector<std::vector<IidTime>> a{
+  std::vector<std::vector<tempi::system::IidTime>> a{
              /*1*/        /*2*/        /*4*/
     /*64*/  {{14, false}, {18, false}, {22, false}    },
     /*256*/ {{16, false}, {20, false}, {24, false}    }

@@ -25,7 +25,12 @@ public:
   void clear() {
     for (cudaEvent_t event : available) {
       LOG_SPEW("destroy event " << uintptr_t(event));
-      CUDA_RUNTIME(cudaEventDestroy(event));
+      cudaError_t err = cudaEventDestroy(event);
+      if (err == cudaErrorCudartUnloading) {
+        LOG_WARN("cleanup after driver shutdown");
+      } else {
+        CUDA_RUNTIME(err);
+      }
     }
     available.clear();
     if (!used.empty()) {
@@ -61,8 +66,7 @@ public:
   }
 };
 
-EventPool pool(cudaEventDisableTiming | cudaEventBlockingSync |
-               cudaEventDisableTiming);
+EventPool pool(cudaEventDisableTiming | cudaEventBlockingSync);
 
 namespace events {
 
