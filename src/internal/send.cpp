@@ -24,11 +24,18 @@ int send::impl(PARAMS_MPI_Send) {
   dest = topology::library_rank(comm, dest);
 
   // use library MPI for memory we can't reach on the device
-  cudaPointerAttributes attr = {};
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
-  if (nullptr == attr.devicePointer) {
-    LOG_SPEW("send::impl: use library (host memory)");
+  if (nullptr == buf) {
+    LOG_SPEW("send::impl: use library (nullptr)");
     return libmpi.MPI_Send(ARGS_MPI_Send);
+  } else {
+    cudaPointerAttributes attr = {};
+    cudaError_t err = cudaPointerGetAttributes(&attr, buf);
+    cudaGetLastError(); // clear error
+    if (err == cudaErrorInvalidValue || nullptr == attr.devicePointer) {
+      LOG_SPEW("send::impl: use library (host memory)");
+      return libmpi.MPI_Send(ARGS_MPI_Send);
+    }
+    CUDA_RUNTIME(err);
   }
 
   auto pi = typeCache.find(datatype);
@@ -40,7 +47,6 @@ int send::impl(PARAMS_MPI_Send) {
     return pi->second.sender->send(ARGS_MPI_Send);
   }
 
-  // if all else fails, just do MPI_Send
+  //if all else fails, just do MPI_Send
   LOG_SPEW("send::impl: use library (fallthrough)");
-  return libmpi.MPI_Send(ARGS_MPI_Send);
-}
+  return libm

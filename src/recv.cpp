@@ -20,14 +20,22 @@ extern "C" int MPI_Recv(PARAMS_MPI_Recv) {
   if (environment::noTempi) {
     return libmpi.MPI_Recv(ARGS_MPI_Recv);
   }
+
   source = topology::library_rank(comm, source);
 
   // use library MPI for memory we can't reach on the device
-  cudaPointerAttributes attr = {};
-  CUDA_RUNTIME(cudaPointerGetAttributes(&attr, buf));
-  if (nullptr == attr.devicePointer) {
-    LOG_SPEW("MPI_Recv: use library (host memory)");
+  if (nullptr == buf) {
+    LOG_WARN("called MPI_Recv on buf=nullptr");
     return libmpi.MPI_Recv(ARGS_MPI_Recv);
+  } else {
+    cudaPointerAttributes attr = {};
+    cudaError_t err = cudaPointerGetAttributes(&attr, buf);
+    cudaGetLastError(); // clear error
+    if (err == cudaErrorInvalidValue || nullptr == attr.devicePointer) {
+      LOG_SPEW("MPI_Recv: use library (host memory)");
+      return libmpi.MPI_Recv(ARGS_MPI_Recv);
+    }
+    CUDA_RUNTIME(err);
   }
 
   auto pi = typeCache.find(datatype);
