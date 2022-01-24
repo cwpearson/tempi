@@ -34,6 +34,10 @@ typedef int (*Func_MPI_Irecv_init)(PARAMS_MPI_Irecv_init);
 #define ARGS_MPI_Isend buf, count, datatype, dest, tag, comm, request
 typedef int (*Func_MPI_Isend)(PARAMS_MPI_Isend);
 
+#define PARAMS_MPI_Finalize
+#define ARGS_MPI_Finalize
+typedef int (*Func_MPI_Finalize)();
+
 #define PARAMS_MPI_Get_library_version char *version, int *resultlen
 #define ARGS_MPI_Get_library_version version, resultlen
 typedef int (*Func_MPI_Get_library_version)(PARAMS_MPI_Get_library_version);
@@ -183,6 +187,7 @@ struct MpiFunc {
   Func_MPI_Dist_graph_create MPI_Dist_graph_create;
   Func_MPI_Dist_graph_create_adjacent MPI_Dist_graph_create_adjacent;
   Func_MPI_Dist_graph_neighbors MPI_Dist_graph_neighbors;
+  Func_MPI_Finalize MPI_Finalize;
   Func_MPI_Get_library_version MPI_Get_library_version;
   Func_MPI_Init MPI_Init;
   Func_MPI_Init_thread MPI_Init_thread;

@@ -31,6 +31,7 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
 
   LOG_INFO("in TEMPI's MPI_Init!");
 
+  LOG_SPEW("call " << fn);
   int err = fn(ARGS_MPI_Init);
   // can use logging now that MPI_Init has been called
   LOG_SPEW("finished library MPI_Init");

@@ -48,6 +48,6 @@ int send::impl(PARAMS_MPI_Send) {
   }
 
   //if all else fails, just do MPI_Send
-  LOG_SPEW("send::impl: use library (fallthrough)");
+  LOG_SPEW("send::impl: use library (fallthrough) (@" << libmpi.MPI_Send << ")");
   return libmpi.MPI_Send(ARGS_MPI_Send);
 }
