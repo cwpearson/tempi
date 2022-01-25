@@ -24,4 +24,20 @@ elif [[ "$host" =~ blake ]]; then
 
     module load openmpi/4.1.0/gcc/7.2.0
 
+elif [[ "$host" =~ vortex ]]; then
+
+    echo "$host" matched vortex
+
+    # needed a newer gcc to install poetry
+    echo module load gcc/7.3.1
+    module load gcc/7.3.1
+
+    # newer OpenSSL for python crypotgraphy install
+    export LIB=$HOME/software/openssl-1.1.1m-ppc64le/lib
+    export INCLUDE=$HOME/software/openssl-1.1.1m-ppc64le/include
+
+elif [[ "$host" =~ ascicgpu ]]; then
+
+    echo "$host" matched ascicgpu
+
 fi

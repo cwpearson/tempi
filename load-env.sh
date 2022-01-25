@@ -31,5 +31,13 @@ elif [[ "$host" =~ blake ]]; then
     module load python/3.7.3
     module load openmpi/4.1.0/gcc/7.2.0
     module load cmake/3.19.3
+elif [[ "$host" =~ ascicgpu ]]; then
+
+    echo "$host" matched ascicgpu
+    module unload -f sems-gcc/7.2.0
+    module unload -f sems-cuda/10.1
+    module load sems-gcc/9.2.0
+    module load sems-cuda/11.1
+    module load sems-openmpi/4.0.5
 fi
 
