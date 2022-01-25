@@ -40,11 +40,12 @@
     char *err = dlerror();                                                     \
     if (nullptr != err) {                                                      \
       LOG_FATAL("unabled to load " << #A << " with RTLD_NEXT " << err);        \
-    } else if (0 == libmpi.A) { \
+    } \
+    if (uintptr_t(libmpi.A) < uintptr_t(2)) { \
       LOG_SPEW(#A << " from RTLD_NEXT was NULL, using previously found libmpi.so"); \
       libmpi.A = reinterpret_cast<Func_##A>(dlsym(libmpiHandle, #A)); \
     }  \
-    LOG_SPEW(#A << " at " << libmpi.A); \
+    LOG_SPEW(#A << " at " << uintptr_t(libmpi.A)); \
   }
 
 void init_symbols() {
