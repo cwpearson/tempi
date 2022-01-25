@@ -27,4 +27,9 @@ if [[ "$host" =~ .*vortex.* ]]; then
     which gcc
     which nvcc
     which mpirun
+elif [[ "$host" =~ blake ]]; then
+    module load python/3.7.3
+    module load openmpi/4.1.0/gcc/7.2.0
+    module load cmake/3.19.3
 fi
+

@@ -5,7 +5,7 @@ description = ""
 authors = ["Carl Pearson <cwpears@sandia.gov>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 mpi4py = "^3.1"
 
 [tool.poetry.dev-dependencies]

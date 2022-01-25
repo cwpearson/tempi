@@ -17,4 +17,11 @@ if [[ "$NERSC_HOST" =~ perlmutter ]]; then
     # module load gcc/9.3.0
     # export MPICC=gcc
     # export MPICXX=g++
+elif [[ "$host" =~ blake ]]; then
+
+    module load python/3.7.3
+    export PYTHONHTTPSVERIFY=0
+
+    module load openmpi/4.1.0/gcc/7.2.0
+
 fi
