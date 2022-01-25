@@ -24,15 +24,14 @@ extern "C" int MPI_Init(PARAMS_MPI_Init) {
   // before anything else, read env vars to control tempi
   init_symbols();
   read_environment();
-  static Func_MPI_Init fn = libmpi.MPI_Init;
   if (environment::noTempi) {
-    return fn(ARGS_MPI_Init);
+    return libmpi.MPI_Init(ARGS_MPI_Init);
   }
 
   LOG_INFO("in TEMPI's MPI_Init!");
 
-  LOG_SPEW("call " << fn);
-  int err = fn(ARGS_MPI_Init);
+  LOG_SPEW("call " << libmpi.MPI_Init);
+  int err = libmpi.MPI_Init(ARGS_MPI_Init);
   // can use logging now that MPI_Init has been called
   LOG_SPEW("finished library MPI_Init");
 
