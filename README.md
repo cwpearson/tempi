@@ -5,6 +5,8 @@ tem·pi */ˈtempē/*
 
 Experimental performance enhancements for CUDA+MPI codes.
 
+**This is research code. It may not work well, or at all, and issues may not be fixed.**
+
 ## MPI Derived Type PingPong on OLCF Summit
 
 2D objects
