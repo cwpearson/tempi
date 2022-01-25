@@ -32,14 +32,6 @@ mkdir build
 cd build
 cmake ..
 make
-make test
-```
-
-If some tests fail, ensure you are using a CUDA-aware MPI implementation.
-More verbose test output can be found with
-
-```
-ctest -V
 ```
 
 `cmake` will print the MPI implementation TEMPI is using.
@@ -49,6 +41,16 @@ If you need to find a different MPI:
 rm CMakeCache.txt
 cmake -DCMAKE_PREFIX_PATH=/path/to/mpi ..
 ```
+
+
+Test binaries are defined in `test/`.
+How you run these is system-dependent, for example:
+* `jsrun -n 1 test/numeric`
+* `mpirun -n 1 test/numeric`
+
+
+
+
 
 Add the TEMPI library to your link step before the underlying MPI library.
 

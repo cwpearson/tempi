@@ -59,7 +59,7 @@ int main(void) {
     {
       double start = MPI_Wtime();
       for (int i = 0; i < nfinds; ++i) {
-        Key key{.colocated = i % 2, .bytes = i / 2};
+        Key key{.colocated = bool(i % 2), .bytes = i / 2};
         auto it = cache1.find(key);
         if (it != cache1.end()) {
           ++hits;

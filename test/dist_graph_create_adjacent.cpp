@@ -21,6 +21,11 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+  if (size != 4) {
+    std::cerr << "ERROR: requires 4 ranks\n";
+    exit(1);
+  }
+
   // pairs of
   std::vector<int> sources(1);
   std::vector<int> destinations(1);

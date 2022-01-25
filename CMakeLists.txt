@@ -53,9 +53,19 @@ message(STATUS GIT_HASH=${GIT_HASH})
 message(STATUS GIT_LOCAL_CHANGES=${GIT_LOCAL_CHANGES})
 
 find_package(MPI REQUIRED)
-message(STATUS "MPI include dir: ${MPI_CXX_INCLUDE_DIRS}")
+message(STATUS "MPI_CXX_INCLUDE_DIRS: ${MPI_CXX_INCLUDE_DIRS}")
+message(STATUS "MPI_CXX_LIBRARIES:    ${MPI_CXX_LIBRARIES}")
 find_package(CUDAToolkit REQUIRED)
 include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-march=native CXX_HAS_MARCH)
+check_cxx_compiler_flag(-mcpu=native CXX_HAS_MCPU)
+if (CXX_HAS_MARCH)
+  message(STATUS "-march=native detected")
+endif()
+if (CXX_HAS_MCPU)
+  message(STATUS "-mcpu=native detected")
+endif()
+
 
 macro(tempi_add_output_level_defines target)
   if (TEMPI_OUTPUT_LEVEL MATCHES SPEW)
@@ -84,8 +94,6 @@ set_property(TARGET tempi PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 tempi_add_output_level_defines(tempi)
 
 add_subdirectory(support)
-# "this command should be in the source directory root for CTest to find the test file"
-enable_testing() 
 add_subdirectory(test)
 add_subdirectory(bin)
 
@@ -202,7 +210,7 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
      -fasynchronous-unwind-tables
     >
   )
-elseif (CMAKE_BUILD_TYPE MATCHES Release)
+elseif (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
   target_compile_options(
     tempi
     PRIVATE
@@ -215,11 +223,8 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
     >
     
   )
-  check_cxx_compiler_flag(-march=native CXX_HAS_MARCH)
-  check_cxx_compiler_flag(-mcpu=native CXX_HAS_MCPU)
   # prefer march=native, but fallback to mcpu=native if needed
   if (CXX_HAS_MARCH)
-    message(STATUS "-march=native detected")
     target_compile_options(
       tempi
       PRIVATE
@@ -227,7 +232,6 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
       $<$<COMPILE_LANGUAGE:CXX>:-march=native>
     )
   elseif (CXX_HAS_MCPU)
-    message(STATUS "-mcpu=native -mtune=native instead of -march=native")
     target_compile_options(
       tempi
       PRIVATE
@@ -271,9 +275,6 @@ target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
 
 ## link against MPI because if we are preloaded the exe may not link mpi
 target_link_libraries(tempi PUBLIC ${MPI_CXX_LIBRARIES})
-
-## Add a symlink for the mpiexec of the mpi we built against
-add_custom_target(mpiexec_link ALL COMMAND ${CMAKE_COMMAND} -E create_symlink ${MPIEXEC_EXECUTABLE} mpiexec)
 
 ## add thirdparty
 target_include_directories(tempi SYSTEM PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)

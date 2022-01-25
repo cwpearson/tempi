@@ -13,6 +13,14 @@ int main(int argc, char **argv) {
   environment::noTempi = false;
   MPI_Init(&argc, &argv);
 
+  int rank = 0, size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (1 != size) {
+    std::cerr << "ERROR: requires exactly 1 rank\n";
+    exit(1);
+  }
+
   {
     std::cerr << "TEST: make_2d_hv_by_rows\n";
     MPI_Datatype ty = make_2d_hv_by_rows(13, 5, 16, 3, 53);

@@ -11,6 +11,14 @@ int main(int argc, char **argv) {
 
   MPI_Init(&argc, &argv);
 
+  int rank = 0, size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (1 != size) {
+    std::cerr << "ERROR: requires exactly 1 rank\n";
+    exit(1);
+  }
+
   {
     std::cerr << "TEST: fixed vector\n";
     std::vector<double> s = {-1, 0, 1, 2, 3, 4, 5};

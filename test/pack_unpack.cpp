@@ -128,8 +128,13 @@ void test_pack(MPI_Datatype ty, const int count) {
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
-  int rank;
+  int rank = 0, size = 1;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (1 != size) {
+    std::cerr << "ERROR: requires exactly 1 rank\n";
+    exit(1);
+  }
 
   // good to test input extent > 2^32 occasionally but it's very slow
 #if 0

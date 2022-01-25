@@ -26,7 +26,6 @@ macro(add_tempi_executable exe)
 
   # prefer march=native, but fallback to mcpu=native if needed. march implies mtune
   if (CXX_HAS_MARCH)
-    message(STATUS "-march=native detected")
     target_compile_options(
       ${ARGV0}
       PRIVATE
@@ -34,7 +33,6 @@ macro(add_tempi_executable exe)
       $<$<COMPILE_LANGUAGE:CXX>:-march=native>
     )
   elseif (CXX_HAS_MCPU)
-    message(STATUS "-mcpu=native -mtune=native instead of -march=native")
     target_compile_options(
       ${ARGV0}
       PRIVATE

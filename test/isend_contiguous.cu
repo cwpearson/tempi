@@ -14,9 +14,15 @@
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
-  std::cerr << "TEST: contiguous\n";
-  int rank;
+  int rank = 0, size = 1;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  if (1 != size) {
+    std::cerr << "ERROR: requires exactly 1 rank\n";
+    exit(1);
+  }
+
+  std::cerr << "TEST: contiguous\n";
   int n = 800;
 
   MPI_Datatype ty = make_contiguous_contiguous(n);

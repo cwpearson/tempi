@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   if (size != 2) {
-    std::cerr << "requires 2 ranks\n";
+    std::cerr << "ERROR: requires 2 ranks\n";
     return 1;
   }
 
