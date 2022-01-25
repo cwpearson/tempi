@@ -19,7 +19,8 @@ void init() {
   int ub, flag;
   MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &ub, &flag);
   if (!flag) {
-    LOG_FATAL("couldn't get MPI_TAG_UB");
+    LOG_WARN("couldn't get MPI_TAG_UB. Assuming >= 32767");
+    ub = 32767;
   }
   info.neighbor_alltoallw = ub - 1;
 
