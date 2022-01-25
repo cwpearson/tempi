@@ -30,7 +30,7 @@ set(CMAKE_CUDA_ARCHITECTURES OFF CACHE STRING "")
 endif()
 
 # Set a default build type if none was specified
-set(default_build_type "Release")
+set(default_build_type "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
   set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
@@ -266,8 +266,11 @@ message(STATUS "nvidia-ml found: ${NVIDIAML_LIB}")
 target_link_libraries(tempi PUBLIC ${NVTOOLSEXT_LIB})
 target_link_libraries(tempi PUBLIC stdc++fs)
 
-## find an MPI header to include, but we don't need to link against MPI.
+## find an MPI header to include
 target_include_directories(tempi SYSTEM PRIVATE ${MPI_CXX_INCLUDE_DIRS})
+
+## link against MPI because if we are preloaded the exe may not link mpi
+target_link_libraries(tempi PUBLIC ${MPI_CXX_LIBRARIES})
 
 ## Add a symlink for the mpiexec of the mpi we built against
 add_custom_target(mpiexec_link ALL COMMAND ${CMAKE_COMMAND} -E create_symlink ${MPIEXEC_EXECUTABLE} mpiexec)
