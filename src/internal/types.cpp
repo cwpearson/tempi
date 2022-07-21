@@ -254,10 +254,10 @@ oldtype, MPI_Datatype *newtype)
     const int ndims = integers[0];
     assert(numIntegers == 2 + 3 * ndims);
     const int order = integers[numIntegers - 1];
-    if (order != MPI_ORDER_C) {
-      LOG_ERROR("unhandled order in subarray type");
-      return Type();
-    }
+//    if (order != MPI_ORDER_C) {
+//     LOG_ERROR("unhandled order in subarray type");
+//      return Type();
+//   }
     MPI_Datatype oldtype = datatypes[0];
 
     MPI_Aint oldLb, oldExtent;
@@ -273,14 +273,24 @@ oldtype, MPI_Datatype *newtype)
       StreamData data{};
       data.off = start * oldExtent;
       data.stride = oldExtent;
-      for (int j = i + 1; j < ndims; ++j) {
-        data.stride *= integers[1 + ndims * 0 + j]; // size[j]
-        data.off *= integers[1 + ndims * 0 + j];    // size[j]
+      if (order == MPI_ORDER_C) {
+        for (int j = i + 1; j < ndims; ++j) {
+          data.stride *= integers[1 + ndims * 0 + j]; // size[j]
+          data.off *= integers[1 + ndims * 0 + j];    // size[j]
+        } 
+      } else { // MPI_ORDER_FORTRAN
+        for (int j = i - 1; j >= 0; --j) {
+          data.stride *= integers[1 + ndims * 0 + j]; // size[j]
+          data.off *= integers[1 + ndims * 0 + j];    // size[j]
+        } 
       }
       data.count = subsize;
       datas.push_back(data);
     }
-    std::reverse(datas.begin(), datas.end());
+
+    if (order == MPI_ORDER_C) {
+        std::reverse(datas.begin(), datas.end());
+    }
 
     for (int i = 0; i < ndims; ++i) {
       LOG_SPEW("subarray " << i << " -> " << datas[i].str());
